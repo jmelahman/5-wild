@@ -1149,6 +1149,35 @@ button {
   font-size: 0.875rem;
 }
 
+.title {
+  /* Anchor for the build stamp below. */
+  position: relative;
+}
+
+/*
+ * Pulled out of the centred stack and pinned to the foot of the screen: it is a
+ * fact about the binary, not part of the composition, and it should be findable
+ * without ever competing with the Play button for attention.
+ *
+ * Selectable against the app-wide `user-select: none`, because the one time this
+ * text matters is when someone is quoting it into a bug report.
+ */
+.title-build {
+  position: absolute;
+  /* `#app` already pays the safe-area inset, so this is clear of the notch. */
+  bottom: 0.75rem;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 0.625rem;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  opacity: 0.65;
+  font-variant-numeric: tabular-nums;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 /* -------------------------------------------------------------- overlays */
 
 .overlay {
