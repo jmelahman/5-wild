@@ -13,6 +13,39 @@
 
 const MUTE_KEY = "5wild:muted"
 
+let shared: AudioContext | null = null
+let refused = false
+
+/**
+ * The one AudioContext, shared by the effects and the music.
+ *
+ * Mobile browsers cap how many a page may hold and count a suspended one
+ * against it, so this stays lazy: the first sound builds it, and a page that
+ * never makes a noise never has one.
+ */
+export function audioContext(): AudioContext | null {
+  if (shared || refused) return shared
+  const Ctor =
+    window.AudioContext ??
+    (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+  if (!Ctor) {
+    refused = true
+    return null
+  }
+  try {
+    shared = new Ctor()
+  } catch {
+    // No audio is a degraded experience, not a broken game.
+    refused = true
+  }
+  return shared
+}
+
+/** Semitone ratios off a root, so chords are written as intervals not numbers. */
+export const step = (root: number, semitones: number) => root * 2 ** (semitones / 12)
+
+export const C5 = 523.25
+
 /** A single oscillator sweep. `to` bends the pitch; omit it for a flat tone. */
 type Voice = {
   freq: number
@@ -23,13 +56,7 @@ type Voice = {
   delay?: number
 }
 
-/** Semitone ratios off a root, so chords are written as intervals not numbers. */
-const step = (root: number, semitones: number) => root * 2 ** (semitones / 12)
-
-const C5 = 523.25
-
 export class Sound {
-  private ctx: AudioContext | null = null
   private muted = false
 
   constructor() {
@@ -53,28 +80,13 @@ export class Sound {
     }
     // Unmuting is itself a user gesture, so it is the cheapest moment to wake
     // a context that was created and then suspended.
-    if (!this.muted) void this.context()?.resume()
+    if (!this.muted) void audioContext()?.resume()
     return this.muted
-  }
-
-  private context(): AudioContext | null {
-    if (this.ctx) return this.ctx
-    const Ctor =
-      window.AudioContext ??
-      (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
-    if (!Ctor) return null
-    try {
-      this.ctx = new Ctor()
-    } catch {
-      // No audio is a degraded experience, not a broken game.
-      return null
-    }
-    return this.ctx
   }
 
   private play(...voices: Voice[]): void {
     if (this.muted) return
-    const ctx = this.context()
+    const ctx = audioContext()
     if (!ctx) return
     if (ctx.state === "suspended") void ctx.resume()
 

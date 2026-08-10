@@ -33,6 +33,7 @@ export type Handlers = {
   inspect: (text: string) => void
   play: () => void
   mute: () => void
+  toggleMusic: () => void
   openMenu: () => void
   openHelp: () => void
   closeOverlay: () => void
@@ -41,7 +42,7 @@ export type Handlers = {
 }
 
 /** Presentation state the engine has no opinion about. */
-export type Chrome = { muted: boolean }
+export type Chrome = { muted: boolean; musicOff: boolean }
 
 const KEY_ROWS = ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
 
@@ -600,6 +601,22 @@ export function menuView(on: Handlers, chrome: Chrome): HTMLElement {
         "button",
         { class: "secondary", type: "button", onclick: () => on.mute() },
         chrome.muted ? "Sound off" : "Sound on",
+      ),
+      // Music gets its own switch rather than riding on the sound one: it plays
+      // continuously, so it is the thing a player is most likely to want gone
+      // while keeping the feedback that tells them what their guess scored.
+      //
+      // Muting sound silences it too, and the switch goes dead rather than
+      // sitting there reading "Music on" over silence.
+      h(
+        "button",
+        {
+          class: "secondary",
+          type: "button",
+          disabled: chrome.muted,
+          onclick: () => on.toggleMusic(),
+        },
+        chrome.muted || chrome.musicOff ? "Music off" : "Music on",
       ),
       h(
         "button",

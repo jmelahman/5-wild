@@ -2,6 +2,8 @@ import type { Action, GameEvent, RunState, WordSource } from "../engine"
 import { reduce, startRun } from "../engine"
 import { Sound } from "./audio"
 import { clear, wait } from "./dom"
+import type { Mood } from "./music"
+import { Music } from "./music"
 import type { Chrome, Handlers } from "./views"
 import {
   blindView,
@@ -59,6 +61,7 @@ export class App {
   /** The modal on top of everything, if any. */
   private overlay: "help" | "menu" | "quit" | null = null
   private readonly sound = new Sound()
+  private readonly music = new Music()
 
   constructor(
     private readonly root: HTMLElement,
@@ -70,6 +73,31 @@ export class App {
     this.state = saved ?? startRun(rootSeed(), words).state
     this.atTitle = saved === null
     this.bindPhysicalKeyboard()
+    this.bindAudioWake()
+  }
+
+  /**
+   * Audio may not start before the player has touched something, so the first
+   * gesture of the session — whatever it was — is what starts the music. It also
+   * stops on the way out: a phone that locks with the tab alive would otherwise
+   * keep an oscillator running against the battery all night.
+   */
+  private bindAudioWake(): void {
+    const wake = () => this.music.enable()
+    document.addEventListener("pointerdown", wake, { once: true })
+    document.addEventListener("keydown", wake, { once: true })
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) this.music.suspend()
+      else this.music.resume()
+    })
+  }
+
+  /** The mood follows the screen, so the shop and the boss do not share a tune. */
+  private get mood(): Mood {
+    if (this.atTitle) return "title"
+    if (this.state.phase === "game_over" || this.state.phase === "victory") return "over"
+    if (this.state.phase === "shop" || this.state.phase === "reward") return "shop"
+    return this.state.blind.bossId ? "boss" : "blind"
   }
 
   start(): void {
@@ -351,7 +379,16 @@ export class App {
       this.render()
     },
     mute: () => {
-      this.sound.toggleMute()
+      // The effects switch carries the music with it when it silences the game,
+      // because a player reaching for it wants quiet, not a quieter mix. Turning
+      // sound back on only revives music that was not switched off on its own.
+      const muted = this.sound.toggleMute()
+      if (muted) this.music.suspend()
+      else this.music.resume()
+      this.render()
+    },
+    toggleMusic: () => {
+      this.music.toggle()
       this.render()
     },
     openMenu: () => {
@@ -387,12 +424,13 @@ export class App {
   }
 
   private get chrome(): Chrome {
-    return { muted: this.sound.isMuted }
+    return { muted: this.sound.isMuted, musicOff: this.music.isOff }
   }
 
   /** `as` forces the blind board to stay on screen while its scoring plays out. */
   private render(as?: "blind"): void {
     const phase = as ?? this.state.phase
+    this.music.set(this.mood)
     const view = this.atTitle
       ? titleView(this.handlers, this.chrome)
       : phase === "blind" && this.intro && !as
