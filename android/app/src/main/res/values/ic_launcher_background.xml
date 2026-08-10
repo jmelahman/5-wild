@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- --green from src/style.css. The adaptive foreground is only the digit,
-         so this is the tile it sits on. -->
+    <!-- The green custom property from src/style.css. The adaptive foreground
+         is only the digit, so this is the tile it sits on. -->
     <color name="ic_launcher_background">#538D4E</color>
 </resources>
