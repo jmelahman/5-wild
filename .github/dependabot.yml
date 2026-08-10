@@ -10,7 +10,11 @@ updates:
     labels:
       - "dependabot:actions"
 
-  - package-ecosystem: "gomod"
+  # The Android wrapper's Gradle dependencies are deliberately absent: most of
+  # them live in the generated capacitor.build.gradle, which `cap sync` rewrites
+  # from the npm packages below. Bumping them here would be undone on the next
+  # sync at best, and desynced from the Capacitor runtime at worst.
+  - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
@@ -18,4 +22,4 @@ updates:
       default-days: 7
     open-pull-requests-limit: 3
     labels:
-      - "dependabot:gomod"
+      - "dependabot:npm"
