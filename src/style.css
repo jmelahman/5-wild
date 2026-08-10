@@ -248,6 +248,13 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
+/* Money changing hands. Borrows the readout's pop so a purchase and a scoring
+   guess react in the same visual language. */
+.hud-gold.bumped {
+  --pop: 1.22;
+  animation: pop 300ms ease;
+}
+
 .boss {
   flex: 0 0 auto;
   padding: 0.375rem 0.625rem;
@@ -482,6 +489,18 @@ button {
   border-color: var(--muted);
 }
 
+/* The letter arriving. Short enough that it keeps up with a fast typist and
+   never queues up behind itself. */
+.tile.land {
+  animation: land 110ms ease-out;
+}
+
+@keyframes land {
+  from {
+    transform: scale(0.86);
+  }
+}
+
 .tile.ghost {
   border-style: dashed;
   border-color: var(--green);
@@ -622,6 +641,16 @@ button {
  * amplitude arrives as --shake from the same score ratio that drives the pop.
  */
 .screen.shaking {
+  animation: shake 400ms cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+/*
+ * A refused guess, shaken on the same curve at a fixed amplitude. It answers
+ * which of the things on screen was refused, which is the question a player has
+ * in the half second before they get round to reading the toast.
+ */
+.row.rejected {
+  --shake: 6px;
   animation: shake 400ms cubic-bezier(0.36, 0.07, 0.19, 0.97);
 }
 

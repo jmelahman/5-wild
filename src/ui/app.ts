@@ -128,7 +128,7 @@ export class App {
 
     const refusal = events.find((event) => event.type === "rejected")
     if (refusal) {
-      this.toast(refusal.reason)
+      this.refuse(refusal.reason)
       return
     }
 
@@ -138,10 +138,13 @@ export class App {
     if (this.state.phase === "blind" && wasPhase !== "blind") this.intro = true
     this.save()
 
-    if (events.some((event) => event.type === "gold")) this.sound.coin()
+    const paid = events.some((event) => event.type === "gold")
+    if (paid) this.sound.coin()
 
     const label = events.find((event) => event.type === "consumable")?.label
     this.render()
+    // After the render, not before: the node the bump lands on is built by it.
+    if (paid) this.bump(".hud-gold")
     if (label) this.toast(label)
   }
 
@@ -157,7 +160,7 @@ export class App {
 
     const refusal = events.find((event) => event.type === "rejected")
     if (refusal) {
-      this.toast(refusal.reason)
+      this.refuse(refusal.reason)
       return
     }
 
@@ -364,6 +367,34 @@ export class App {
     node.textContent = text
     host.append(node)
     setTimeout(() => node.remove(), 900)
+  }
+
+  /**
+   * A refusal, said twice: the toast gives the reason and the row moves.
+   *
+   * Wordle's shake is worth keeping because it answers the question a player
+   * actually has — *which* of the things on screen was refused — in the half
+   * second before they get round to reading the sentence.
+   */
+  private refuse(reason: string): void {
+    this.toast(reason)
+    if (this.state.phase !== "blind") return
+    const row = this.root.querySelector(`.row[data-row="${this.state.blind.guesses.length}"]`)
+    this.replay(row, "rejected", 420)
+  }
+
+  /** A one-shot class, restarted if it is already running. */
+  private replay(node: Element | null, name: string, ms: number): void {
+    if (!(node instanceof HTMLElement)) return
+    node.classList.remove(name)
+    // Forcing a reflow restarts the animation when two of these land in a row.
+    void node.offsetWidth
+    node.classList.add(name)
+    setTimeout(() => node.classList.remove(name), ms)
+  }
+
+  private bump(selector: string): void {
+    this.replay(this.root.querySelector(selector), "bumped", 320)
   }
 
   private toast(message: string): void {

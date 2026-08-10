@@ -157,7 +157,13 @@ function grid(state: RunState): HTMLElement {
 
       if (row === active && !blind.done) {
         const typed = blind.draft[column]
-        if (typed) return h("div", { class: "tile filled" }, typed.toUpperCase())
+        if (typed) {
+          // Only the tile at the end of the draft lands. The board is rebuilt on
+          // every keystroke, so animating `.filled` would replay the whole word
+          // each time a letter is added to it.
+          const landed = column === blind.draft.length - 1
+          return h("div", { class: `tile filled ${landed ? "land" : ""}` }, typed.toUpperCase())
+        }
         // The Oracle's reveals sit in place as ghosts, so the hint is spatial
         // rather than a line of text the player has to hold in their head.
         const revealed = blind.revealed[column]
