@@ -90,6 +90,43 @@ describe("jokers", () => {
     expect(last.mult).toBe(16)
   })
 
+  it("Cold Open pays the opening probe and nothing after it", () => {
+    expect(withJoker("cold_open", "crane").last.chips).toBe(37)
+    expect(withJoker("cold_open", "crane", "crane").last.chips).toBe(7)
+  })
+
+  it("Bloodhound pays chips per yellow", () => {
+    // DAIRY lands four yellows: 9 + 24 chips.
+    expect(withJoker("bloodhound", "dairy").last).toMatchObject({ chips: 33, mult: 5 })
+  })
+
+  it("Anagrammer doubles a word with five distinct letters", () => {
+    expect(withJoker("anagrammer", "crane").last.mult).toBe(14)
+    // SASSY repeats S three times, so it earns nothing: its lone yellow A is
+    // the whole of that 2, exactly as it would be with no joker at all.
+    expect(withJoker("anagrammer", "sassy").last.mult).toBe(2)
+    expect(apply(startRun(1, words).state, type("sassy")).blind.guesses[0]?.mult).toBe(2)
+  })
+
+  it("Sunk Cost pays for the guesses you are about to give up", () => {
+    // Guess one of six leaves five behind: +50 mult on top of CRANE's 7.
+    expect(withJoker("sunk_cost", "crane").last.mult).toBe(57)
+    expect(withJoker("sunk_cost", "crane", "crane").last.mult).toBe(47)
+  })
+
+  it("The Vault pays chips for stalling, the way Slow Burn pays mult", () => {
+    expect(withJoker("vault", "crane").last.chips).toBe(7)
+    expect(withJoker("vault", "crane", "crane").last.chips).toBe(32)
+  })
+
+  it("The Long Game buys back a point of solve multiplier", () => {
+    // Solving on guess one is x6; with this it is x7, and the pile it
+    // multiplies is the whole round rather than this guess.
+    const { last, state } = withJoker("long_game", "braid")
+    expect(last.solveBonus).toBe(7)
+    expect(state.blind.score).toBe(last.score * 7)
+  })
+
   it("Scavenger pays gold per yellow", () => {
     const { state } = withJoker("scavenger", "dairy")
     expect(state.gold).toBe(startRun(1, words).state.gold + 4)

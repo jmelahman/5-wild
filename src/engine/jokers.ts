@@ -16,6 +16,12 @@ export type Joker = {
   onGuess?: (ctx: ScoreCtx) => void
   /** Fires when a blind begins — before the answer is chosen. */
   onBlindStart?: (state: RunState, rng: Rng, events: GameEvent[]) => void
+  /**
+   * Added to the blind's solve multiplier. Separate from `onGuess` because the
+   * board quotes this figure before the guess exists, so it has to be knowable
+   * from the state alone.
+   */
+  solveBonus?: (state: RunState) => number
 }
 
 const RARITY_COST: Record<Rarity, number> = {
@@ -26,9 +32,15 @@ const RARITY_COST: Record<Rarity, number> = {
 }
 
 /**
- * Twelve jokers, spread deliberately across archetypes so a build identity
+ * Eighteen jokers, spread deliberately across archetypes so a build identity
  * shows up within the first shop. Note that scoring always reads `tile.color`,
  * never `tile.shown` — The Fog lies to the player, not to the math.
+ *
+ * The axis most of these sit on is the one the solve bonus creates: farming a
+ * blind grows the pile the bonus will multiply, and costs a point of that
+ * multiplier per guess. Slow Burn and The Vault pay for staying; Sunk Cost and
+ * Speedrunner pay for leaving. Owning a pair from opposite ends is a real
+ * dilemma rather than a stack, which is the point.
  */
 export const JOKERS: readonly Joker[] = [
   {
@@ -88,6 +100,56 @@ export const JOKERS: readonly Joker[] = [
           return
         }
       }
+    },
+  },
+  {
+    id: "cold_open",
+    name: "Cold Open",
+    text: "+30 chips on the first guess of a blind",
+    rarity: "common",
+    cost: RARITY_COST.common,
+    // The opening probe is the guess with the least information behind it and
+    // the most riding on it, and until now it was the one nothing paid for.
+    onGuess: (ctx) => {
+      if (ctx.guessIndex === 0) ctx.addChips(30)
+    },
+  },
+  {
+    id: "bloodhound",
+    name: "Bloodhound",
+    text: "+6 chips per yellow tile",
+    rarity: "common",
+    cost: RARITY_COST.common,
+    // Yellow is the colour that actually teaches you something, so this is the
+    // rare joker that pays for playing well rather than for playing wide.
+    onTile: (ctx, tile) => {
+      if (tile.color === "yellow") ctx.addChips(6)
+    },
+  },
+  {
+    id: "anagrammer",
+    name: "Anagrammer",
+    text: "×2 mult if no letter repeats",
+    rarity: "uncommon",
+    cost: RARITY_COST.uncommon,
+    // Five distinct letters is exactly what a good probe looks like, and the
+    // exact opposite of what Doppelgänger wants. They do not belong in the
+    // same build, which is what makes each of them a choice.
+    onGuess: (ctx) => {
+      if (new Set(ctx.word).size === ctx.word.length) ctx.timesMult(2)
+    },
+  },
+  {
+    id: "sunk_cost",
+    name: "Sunk Cost",
+    text: "+10 mult per guess you would have left",
+    rarity: "uncommon",
+    cost: RARITY_COST.uncommon,
+    // Slow Burn read backwards: this one is worth most on the guess where the
+    // solve bonus is also worth most, so it sharpens the incentive to leave
+    // early instead of blunting it.
+    onGuess: (ctx) => {
+      if (ctx.guessesLeft > 0) ctx.addMult(10 * ctx.guessesLeft)
     },
   },
   {
@@ -155,6 +217,31 @@ export const JOKERS: readonly Joker[] = [
       const ordered = [...ctx.word].every((letter, i, all) => letter >= (all[i - 1] ?? ""))
       if (ordered) ctx.timesMult(2)
     },
+  },
+  {
+    id: "vault",
+    name: "The Vault",
+    text: "+25 chips for each guess already made this blind",
+    rarity: "rare",
+    cost: RARITY_COST.rare,
+    // Slow Burn's chip half, so a farming build can grow both halves of the
+    // product instead of one. Together they are the strongest argument in the
+    // game for spending the whole guess budget — and the solve multiplier is
+    // the strongest argument against.
+    onGuess: (ctx) => {
+      if (ctx.guessIndex > 0) ctx.addChips(25 * ctx.guessIndex)
+    },
+  },
+  {
+    id: "long_game",
+    name: "The Long Game",
+    text: "+1 to your solve multiplier",
+    rarity: "legendary",
+    cost: RARITY_COST.legendary,
+    // Buys back a guess's worth of multiplier, so every point of farming is
+    // worth more and the cash-out can wait one turn longer. It multiplies the
+    // whole pile, which is why a flat +1 belongs at this rarity.
+    solveBonus: () => 1,
   },
   {
     id: "pyromaniac",

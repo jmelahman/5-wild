@@ -55,6 +55,28 @@ export function baseChips(state: RunState, letter: string): number {
 /** Green is worth three of these, yellow one. Gray is worth nothing, on purpose. */
 const MULT_FOR_COLOR = { green: 3, yellow: 1, gray: 0 } as const
 
+/**
+ * What solving right now would multiply the blind's pile by.
+ *
+ * Deliberately a pure function of the state rather than something assembled
+ * mid-pipeline: the board shows this figure *before* the guess is submitted, and
+ * a readout that disagreed with the rule would be worse than no readout at all.
+ * So jokers touch it through their own hook instead of through `ScoreCtx` — a
+ * bonus that could only be known by scoring a guess could not be predicted.
+ *
+ * The boss goes last so a cap really caps.
+ *
+ * @param guessesLeft guesses that would remain *after* the solving guess.
+ */
+export function solveBonusFor(state: RunState, guessesLeft: number): number {
+  let bonus = 1 + guessesLeft
+  for (const instance of state.jokers) {
+    bonus += JOKER_BY_ID.get(instance.id)?.solveBonus?.(state) ?? 0
+  }
+  const boss = getBoss(state.blind.bossId)
+  return boss?.solveBonus ? boss.solveBonus(bonus, state.blind) : bonus
+}
+
 export function scoreGuess(params: {
   state: RunState
   tiles: readonly Tile[]
@@ -143,7 +165,7 @@ export function scoreGuess(params: {
   //
   // The multiply itself belongs to the caller, which owns the running total —
   // this only prices it.
-  const solveBonus = solved ? 1 + guessesLeft : 1
+  const solveBonus = solved ? solveBonusFor(state, guessesLeft) : 1
 
   return {
     chips: ctx.chips,

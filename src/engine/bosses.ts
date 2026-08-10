@@ -6,6 +6,9 @@ import type { BlindState, RunState, Tile } from "./state"
  * Boss blinds. Each one attacks a specific pole of the deduction/greed tension
  * rather than just raising the target, so the counterplay differs every time:
  * some punish information-gathering, some punish farming.
+ *
+ * There are eight of them and eight antes, drawn without replacement, so a full
+ * run meets each exactly once and never twice.
  */
 export type Boss = {
   id: string
@@ -19,6 +22,8 @@ export type Boss = {
   validate?: (word: string, blind: BlindState) => string | null
   /** Bends a tile's base chip value. */
   tileChips?: (base: number, tile: Tile, blind: BlindState) => number
+  /** Rewrites the solve multiplier, jokers included. Applied last, so a cap caps. */
+  solveBonus?: (base: number, blind: BlindState) => number
 }
 
 /** Positions the player has already locked in green. */
@@ -94,6 +99,26 @@ export const BOSSES: readonly Boss[] = [
       const vowels = [...word].filter(isVowel).length
       return vowels >= 2 ? null : "needs at least two vowels"
     },
+  },
+  {
+    id: "auditor",
+    name: "The Auditor",
+    text: "Your solve multiplier is capped at ×2.",
+    // Every other blind can be won by banking a modest pile and cashing it in
+    // at ×5 or ×6. This one takes the cash-out away and asks whether the build
+    // can actually reach the target on its own, which is the question the solve
+    // bonus otherwise lets you avoid answering all run.
+    solveBonus: (base) => Math.min(2, base),
+  },
+  {
+    id: "purist",
+    name: "The Purist",
+    text: "No letter may appear twice in a guess.",
+    // Aimed at the fat scoring words — JAZZY, FUZZY, MUMMY are all chips and no
+    // information, and all built on a doubled letter. Deduction barely notices;
+    // a chip build loses its best line. The answer pool is filtered by this
+    // same rule, so the word is always reachable.
+    validate: (word) => (new Set(word).size === word.length ? null : "no repeated letters"),
   },
 ]
 

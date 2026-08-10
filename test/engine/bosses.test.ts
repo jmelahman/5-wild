@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest"
 import type { Action, RunState, WordSource } from "../../src/engine"
-import { BOSSES, getBoss, reduce, startRun } from "../../src/engine"
+import { ANTES, BOSSES, getBoss, reduce, solveBonusFor, startRun } from "../../src/engine"
+// Not part of the engine's public surface — the draw is an internal detail that
+// only the ante loop and this test have any business calling.
+import { bossForAnte } from "../../src/engine/bosses"
 
 const words: WordSource = {
   answers: ["braid"],
-  allowed: new Set(["braid", "crane", "quazy", "dairy", "ghost", "arose", "guild"]),
+  allowed: new Set(["braid", "crane", "quazy", "dairy", "ghost", "arose", "guild", "jazzy"]),
 }
 
 const apply = (state: RunState, actions: Action[]): RunState =>
@@ -82,11 +85,50 @@ describe("boss blinds", () => {
     expect(apply(state, type("guild")).blind.guesses).toHaveLength(1)
   })
 
+  it("The Auditor caps the cash-out, so the build has to carry the blind", () => {
+    // Solving on guess one is normally worth x6. Under The Auditor it is worth
+    // x2, and the pile it multiplies has to have been earned rather than timed.
+    const normal = apply(startRun(1, words).state, type("braid"))
+    const audited = apply(underBoss("auditor"), type("braid"))
+    expect(normal.blind.score).toBe(audited.blind.score * 3)
+    expect(solveBonusFor(underBoss("auditor"), 5)).toBe(2)
+  })
+
+  /*
+   * The doubled letter is what makes JAZZY worth 34 chips and almost no
+   * information, so this is the boss that takes the chip build's best line away
+   * without touching deduction. That its answers stay typeable is covered by
+   * the full-run test, which walks every boss across 120 seeds.
+   */
+  it("The Purist forbids repeated letters", () => {
+    const state = underBoss("purist")
+    const typed = apply(state, type("jazzy").slice(0, -1))
+    expect(reduce(typed, { type: "submit" }, words).events).toEqual([
+      { type: "rejected", reason: "no repeated letters" },
+    ])
+    expect(apply(state, type("braid")).blind.guesses).toHaveLength(1)
+  })
+
   it("gives every boss a distinct id and some teeth", () => {
     expect(new Set(BOSSES.map((boss) => boss.id)).size).toBe(BOSSES.length)
     for (const boss of BOSSES) {
-      const hasRule = Boolean(boss.maxGuesses ?? boss.transform ?? boss.validate ?? boss.tileChips)
+      const hasRule = Boolean(
+        boss.maxGuesses ?? boss.transform ?? boss.validate ?? boss.tileChips ?? boss.solveBonus,
+      )
       expect(hasRule, `${boss.id} does nothing`).toBe(true)
     }
+  })
+
+  // Eight bosses, eight antes, drawn without replacement: a full run should meet
+  // every one of them and no one of them twice. Adding a ninth boss without
+  // adding a ninth ante would silently start hiding one, so this is pinned.
+  it("shows each boss exactly once over a full run", () => {
+    expect(BOSSES).toHaveLength(ANTES)
+    const base = startRun(1, words).state
+    const seen = new Set<string>()
+    for (let ante = 1; ante <= ANTES; ante++) {
+      seen.add(bossForAnte({ ...base, ante }))
+    }
+    expect(seen.size).toBe(ANTES)
   })
 })

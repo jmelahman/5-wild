@@ -3,7 +3,7 @@
     "name": "greedy-solver",
     "covers": "the solve bonus at its largest, and a shop purchase every time one is affordable",
     "seed": 1,
-    "contentVersion": 2,
+    "contentVersion": 3,
     "actions": [
       {
         "type": "type_letter",
@@ -85,7 +85,143 @@
       },
       {
         "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "v"
+      },
+      {
+        "type": "type_letter",
+        "letter": "e"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "collect"
+      },
+      {
+        "type": "buy",
+        "index": 0
+      },
+      {
+        "type": "buy",
+        "index": 1
+      },
+      {
+        "type": "next_blind"
+      },
+      {
+        "type": "type_letter",
+        "letter": "v"
+      },
+      {
+        "type": "type_letter",
+        "letter": "a"
+      },
+      {
+        "type": "type_letter",
+        "letter": "g"
+      },
+      {
+        "type": "type_letter",
         "letter": "u"
+      },
+      {
+        "type": "type_letter",
+        "letter": "e"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "collect"
+      },
+      {
+        "type": "buy",
+        "index": 0
+      },
+      {
+        "type": "buy",
+        "index": 1
+      },
+      {
+        "type": "next_blind"
+      },
+      {
+        "type": "type_letter",
+        "letter": "d"
+      },
+      {
+        "type": "type_letter",
+        "letter": "a"
+      },
+      {
+        "type": "type_letter",
+        "letter": "f"
+      },
+      {
+        "type": "type_letter",
+        "letter": "f"
+      },
+      {
+        "type": "type_letter",
+        "letter": "y"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "collect"
+      },
+      {
+        "type": "buy",
+        "index": 1
+      },
+      {
+        "type": "next_blind"
+      },
+      {
+        "type": "type_letter",
+        "letter": "g"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "f"
+      },
+      {
+        "type": "type_letter",
+        "letter": "y"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "collect"
+      },
+      {
+        "type": "next_blind"
+      },
+      {
+        "type": "type_letter",
+        "letter": "g"
+      },
+      {
+        "type": "type_letter",
+        "letter": "r"
       },
       {
         "type": "type_letter",
@@ -93,11 +229,11 @@
       },
       {
         "type": "type_letter",
-        "letter": "n"
+        "letter": "l"
       },
       {
         "type": "type_letter",
-        "letter": "g"
+        "letter": "l"
       },
       {
         "type": "submit"
@@ -119,18 +255,54 @@
           "blind": 1,
           "word": "votes",
           "chips": 8,
-          "mult": 24,
+          "mult": 16,
           "solveBonus": 6,
-          "score": 192
+          "score": 128
         },
         {
           "ante": 1,
           "blind": 2,
-          "word": "suing",
+          "word": "stove",
+          "chips": 8,
+          "mult": 16,
+          "solveBonus": 6,
+          "score": 128
+        },
+        {
+          "ante": 2,
+          "blind": 0,
+          "word": "vague",
+          "chips": 9,
+          "mult": 48,
+          "solveBonus": 6,
+          "score": 432
+        },
+        {
+          "ante": 2,
+          "blind": 1,
+          "word": "daffy",
+          "chips": 15,
+          "mult": 72,
+          "solveBonus": 6,
+          "score": 1080
+        },
+        {
+          "ante": 2,
+          "blind": 2,
+          "word": "goofy",
+          "chips": 12,
+          "mult": 48,
+          "solveBonus": 6,
+          "score": 576
+        },
+        {
+          "ante": 3,
+          "blind": 0,
+          "word": "grill",
           "chips": 6,
-          "mult": 24,
-          "solveBonus": 4,
-          "score": 144
+          "mult": 48,
+          "solveBonus": 6,
+          "score": 288
         }
       ],
       "gold": [
@@ -157,6 +329,42 @@
         {
           "delta": -4,
           "reason": "purchase"
+        },
+        {
+          "delta": 10,
+          "reason": "blind cleared"
+        },
+        {
+          "delta": -6,
+          "reason": "purchase"
+        },
+        {
+          "delta": -4,
+          "reason": "purchase"
+        },
+        {
+          "delta": 8,
+          "reason": "blind cleared"
+        },
+        {
+          "delta": -6,
+          "reason": "purchase"
+        },
+        {
+          "delta": -3,
+          "reason": "purchase"
+        },
+        {
+          "delta": 9,
+          "reason": "blind cleared"
+        },
+        {
+          "delta": -4,
+          "reason": "purchase"
+        },
+        {
+          "delta": 11,
+          "reason": "blind cleared"
         }
       ],
       "rewards": [
@@ -171,18 +379,46 @@
           "unusedGuesses": 5,
           "interest": 0,
           "total": 9
+        },
+        {
+          "base": 5,
+          "unusedGuesses": 5,
+          "interest": 0,
+          "total": 10
+        },
+        {
+          "base": 3,
+          "unusedGuesses": 5,
+          "interest": 0,
+          "total": 8
+        },
+        {
+          "base": 4,
+          "unusedGuesses": 5,
+          "interest": 0,
+          "total": 9
+        },
+        {
+          "base": 5,
+          "unusedGuesses": 5,
+          "interest": 1,
+          "total": 11
         }
       ],
       "outcome": "game_over",
-      "ante": 1,
-      "blind": 2,
-      "finalGold": 1,
+      "ante": 3,
+      "blind": 0,
+      "finalGold": 16,
       "jokers": [
-        "vowel_hoarder",
-        "alphabetist",
-        "slow_burn"
+        "consonant_cluster",
+        "vault",
+        "slow_burn",
+        "speedrunner",
+        "greedy_grammarian"
       ],
       "etched": [
+        "c+1",
+        "e+1",
         "z+1"
       ],
       "destroyed": []
@@ -192,7 +428,7 @@
     "name": "chip-farmer",
     "covers": "grays scoring, the guess budget spent down to one, and the solve bonus at its smallest",
     "seed": 7,
-    "contentVersion": 2,
+    "contentVersion": 3,
     "actions": [
       {
         "type": "type_letter",
@@ -615,7 +851,7 @@
     "name": "banker",
     "covers": "a pile banked and then multiplied — the line the scoring rule exists for",
     "seed": 2024,
-    "contentVersion": 2,
+    "contentVersion": 3,
     "actions": [
       {
         "type": "type_letter",
@@ -906,19 +1142,19 @@
           "ante": 1,
           "blind": 2,
           "word": "ahead",
-          "chips": 6,
+          "chips": 9,
           "mult": 3,
           "solveBonus": 1,
-          "score": 18
+          "score": 27
         },
         {
           "ante": 1,
           "blind": 2,
           "word": "brace",
-          "chips": 4,
+          "chips": 9,
           "mult": 16,
-          "solveBonus": 4,
-          "score": 64
+          "solveBonus": 2,
+          "score": 144
         }
       ],
       "gold": [
@@ -958,7 +1194,7 @@
     "name": "never-solves",
     "covers": "running a blind out of guesses, and the run ending in defeat",
     "seed": 42,
-    "contentVersion": 2,
+    "contentVersion": 3,
     "actions": [
       {
         "type": "type_letter",
@@ -1171,7 +1407,7 @@
     "name": "shopkeeper",
     "covers": "reroll, sell, consumables used rather than hoarded, and a corrected draft",
     "seed": 1234,
-    "contentVersion": 2,
+    "contentVersion": 3,
     "actions": [
       {
         "type": "type_letter",
@@ -1280,19 +1516,19 @@
       },
       {
         "type": "type_letter",
-        "letter": "k"
-      },
-      {
-        "type": "type_letter",
-        "letter": "a"
-      },
-      {
-        "type": "type_letter",
-        "letter": "t"
+        "letter": "e"
       },
       {
         "type": "type_letter",
         "letter": "e"
+      },
+      {
+        "type": "type_letter",
+        "letter": "m"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
       },
       {
         "type": "submit"
@@ -1388,11 +1624,11 @@
         {
           "ante": 1,
           "blind": 2,
-          "word": "skate",
-          "chips": 9,
+          "word": "seems",
+          "chips": 11,
           "mult": 16,
           "solveBonus": 6,
-          "score": 144
+          "score": 176
         },
         {
           "ante": 2,
@@ -1495,7 +1731,7 @@
       "blind": 0,
       "finalGold": 0,
       "jokers": [
-        "consonant_cluster"
+        "bloodhound"
       ],
       "etched": [
         "t+1",

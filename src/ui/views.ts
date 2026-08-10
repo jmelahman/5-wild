@@ -15,6 +15,7 @@ import {
   keyboardColors,
   rerollCost,
   sellValue,
+  solveBonusFor,
 } from "../engine"
 import { h } from "./dom"
 
@@ -216,11 +217,14 @@ function keyboard(state: RunState, on: Handlers): HTMLElement {
  * The figure is a floor, not a prediction: it is what the pile is already worth
  * multiplied, before the solving guess adds its own chips. Solving can only beat
  * it, never miss it, which is what makes it safe to act on.
+ *
+ * The factor comes from the engine rather than from `maxGuesses` arithmetic here,
+ * so The Long Game and The Auditor move this line as well as the score.
  */
 function solveHint(state: RunState): HTMLElement | false {
   const blind = state.blind
-  const factor = blind.maxGuesses - blind.guesses.length
-  if (blind.done || factor < 1) return false
+  const factor = solveBonusFor(state, blind.maxGuesses - blind.guesses.length - 1)
+  if (blind.done || blind.guesses.length >= blind.maxGuesses || factor < 1) return false
 
   const floor = Math.round(blind.score * factor)
   const clears = floor >= blind.target
