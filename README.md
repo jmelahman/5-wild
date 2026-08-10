@@ -67,7 +67,7 @@ src/engine/     pure TypeScript rules engine — no DOM, no clocks, no ambient R
 src/content/    letter tables and blind curves
 src/ui/         DOM rendering and the scoring animation
 public/words/   answer and allowed-guess lists
-test/           unit tests, a headless full-run bot, and the engine-purity guard
+test/           unit tests, golden vectors, and the engine-purity guard
 tools/          word-list and icon generation
 assets/         icon source art
 android/        Capacitor's Android project, committed
@@ -81,3 +81,29 @@ the script, and commit what changes.
 `src/engine` is deliberately kept portable: it imports nothing outside itself and
 `src/content`, and touches no ambient nondeterminism. `test/engine-purity.test.ts`
 enforces that in CI rather than by discipline.
+
+## Golden vectors
+
+`test/golden/vectors.json` holds recorded runs — a seed and a list of actions in,
+every guess's chips, mult and score out, plus the gold timeline and what the run
+was holding when it ended. Bots in `test/golden/scenarios.ts` author them; the
+test replays the recorded actions, never the bots, so a scenario can be rewritten
+without moving the baseline.
+
+They exist to make a balance change legible. Edit a letter's chips, a target
+curve, a joker's arithmetic, and a hundred numbers move at once; the vectors turn
+that into a diff you can read. So a deliberate change is three steps:
+
+```sh
+# bump CONTENT_VERSION in src/content/version.ts
+npm run golden     # re-record
+git diff test/golden/vectors.json
+```
+
+That diff is the balance change, stated in points rather than in source. The
+vectors refuse to run against a version they were not recorded at, so forgetting
+the bump fails loudly instead of quietly rewriting the baseline.
+
+They are also the portability contract: any reimplementation of these rules — a
+port to another language, a rewrite — is correct exactly when it reproduces this
+file.

@@ -14,7 +14,8 @@
     "check:fix": "biome check --write",
     "test": "vitest run",
     "test:watch": "vitest",
-    "apk": "npm run build && cap sync android && cd android && ./gradlew assembleDebug"
+    "apk": "npm run build && cap sync android && cd android && ./gradlew assembleDebug",
+    "golden": "UPDATE_GOLDEN=1 vitest run test/golden.test.ts"
   },
   "dependencies": {
     "@capacitor/core": "^8.0.0"

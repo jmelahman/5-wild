@@ -19,6 +19,7 @@ export {
   JOKER_SLOTS,
 } from "../content/blinds"
 export { ALPHABET, LETTER_CHIPS } from "../content/letters"
+export { CONTENT_VERSION } from "../content/version"
 export type { Boss } from "./bosses"
 export { BOSSES, getBoss } from "./bosses"
 export type { Consumable } from "./consumables"
