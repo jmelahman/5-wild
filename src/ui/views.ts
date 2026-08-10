@@ -204,6 +204,35 @@ function keyboard(state: RunState, on: Handlers): HTMLElement {
   )
 }
 
+/**
+ * What solving on this guess is worth, right now.
+ *
+ * The solve bonus multiplies everything banked this round, so the decision the
+ * whole game turns on — cash out or farm another guess — is arithmetic the
+ * player would otherwise have to do in their head, against a multiplier that
+ * shrinks every time they guess. Showing it is the difference between a
+ * gamble and a choice.
+ *
+ * The figure is a floor, not a prediction: it is what the pile is already worth
+ * multiplied, before the solving guess adds its own chips. Solving can only beat
+ * it, never miss it, which is what makes it safe to act on.
+ */
+function solveHint(state: RunState): HTMLElement | false {
+  const blind = state.blind
+  const factor = blind.maxGuesses - blind.guesses.length
+  if (blind.done || factor < 1) return false
+
+  const floor = Math.round(blind.score * factor)
+  const clears = floor >= blind.target
+  return h(
+    "div",
+    { class: `solve-hint ${clears ? "clears" : ""}` },
+    h("span", { class: "solve-factor" }, `solve ×${factor}`),
+    blind.score > 0 &&
+      h("span", { class: "solve-floor" }, clears ? `→ ${floor}, clears` : `→ ${floor}`),
+  )
+}
+
 export function blindView(state: RunState, on: Handlers): HTMLElement {
   const boss = getBoss(state.blind.bossId)
   // The readout holds the last guess rather than resetting to 0 x 1, so the
@@ -224,6 +253,7 @@ export function blindView(state: RunState, on: Handlers): HTMLElement {
       h("span", { class: "times" }, "×"),
       h("span", { class: "mult" }, String(last?.mult ?? 1)),
     ),
+    solveHint(state),
     h("div", { class: "toast" }),
     keyboard(state, on),
   )
@@ -515,16 +545,22 @@ export function helpView(on: Handlers): HTMLElement {
          worth almost nothing, so a throwaway probe costs you real score.`,
       ),
       rule(
-        "Solving multiplies everything",
-        ` Land the word and the whole guess is multiplied by 1 + the guesses you had
-         left, then the blind ends immediately. Solving on guess two is worth far
-         more than grinding out six.`,
+        "Solving multiplies the round",
+        ` Land the word and everything you have banked this blind — not just the
+         guess that solved it — is multiplied by 1 + the guesses you had left.
+         Then the blind ends immediately, target met or not.`,
       ),
       h(
         "p",
         { class: "sheet-lead" },
-        "That tension is the game: solve early for the multiplier, or stay in to " +
-          "farm chips and risk running out of guesses.",
+        "That is the game: every guess you spend farming grows the pile, and " +
+          "shrinks the multiplier waiting for it.",
+      ),
+      rule(
+        "So watch the solve line",
+        ` Under the board it shows the multiplier a solve would earn right now, and
+         what the pile is already worth at it. When it turns green, solving wins
+         the blind.`,
       ),
       h("h3", { class: "sheet-heading" }, "The run"),
       rule(

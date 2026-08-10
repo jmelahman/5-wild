@@ -268,6 +268,15 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
       }
       events.push({ type: "guess_scored", score: result.score, total: blind.score })
 
+      // The solve bonus lands on the running total, after the guess is banked —
+      // so it multiplies the farming as well as the finish. Emitted last
+      // because that is the order it reads on screen: the guess scores, then
+      // the whole pile multiplies.
+      if (solved && result.solveBonus > 1) {
+        blind.score = Math.round(blind.score * result.solveBonus)
+        events.push({ type: "solve_bonus", factor: result.solveBonus, total: blind.score })
+      }
+
       if (solved) blind.solved = true
       // Solving ends the blind on the spot, forfeiting every unplayed guess.
       if (solved || blind.guesses.length >= blind.maxGuesses) {

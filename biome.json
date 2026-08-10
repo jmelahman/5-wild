@@ -6,7 +6,16 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!android", "!dist", "!public/words", "!.mcp.json", "!.vscode", "!.claude"]
+    "includes": [
+      "**",
+      "!android",
+      "!dist",
+      "!public/words",
+      "!.mcp.json",
+      "!.vscode",
+      "!.claude",
+      "!test/golden/vectors.json"
+    ]
   },
   "formatter": {
     "enabled": true,

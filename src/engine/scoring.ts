@@ -136,16 +136,20 @@ export function scoreGuess(params: {
     firing = null
   })
 
-  // Solving pays tempo and ends the blind on the spot. Cashing out early is
-  // worth more than farming — right up until it isn't. That is the whole game.
+  // Solving pays tempo and ends the blind on the spot, and its bonus multiplies
+  // everything banked this round rather than the guess that happened to land it.
+  // So the two lines finally compose: farm the board up, then cash the whole
+  // pile in at once. Deciding *when* is the game.
+  //
+  // The multiply itself belongs to the caller, which owns the running total —
+  // this only prices it.
   const solveBonus = solved ? 1 + guessesLeft : 1
-  if (solved && solveBonus > 1) events.push({ type: "solve_bonus", factor: solveBonus })
 
   return {
     chips: ctx.chips,
     mult: ctx.mult,
     solveBonus,
-    score: Math.round(ctx.chips * ctx.mult * solveBonus),
+    score: Math.round(ctx.chips * ctx.mult),
     gold: ctx.gold,
   }
 }

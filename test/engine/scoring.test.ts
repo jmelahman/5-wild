@@ -33,12 +33,13 @@ describe("guess scoring", () => {
    *
    *   Q U A Z Y   ..G..   chips 26  mult  4  ->  104
    *   C R A N E   .GG..   chips  7  mult  7  ->   49
-   *   B R A I D   GGGGG   chips  8  mult 16  ->  128, solve x4 -> 512
-   *                                              total 665
+   *   B R A I D   GGGGG   chips  8  mult 16  ->  128
+   *                                     banked  281, solve x4 -> 1124
    *
-   * QUAZY is a deliberately terrible deduction guess that banks more than
-   * double what the excellent CRANE earns — but the solve on guess three
-   * carries 77% of the round. That ratio is the whole game.
+   * The solve bonus multiplies the round, not the guess that landed it, so the
+   * two halves of the game compose instead of competing: QUAZY's 104 is worth
+   * 416 by the end. What the player is really choosing is when to stop growing
+   * the pile, because every guess spent growing it costs a point of multiplier.
    */
   it("reproduces the design doc's worked example", () => {
     let state = play(start, "quazy")
@@ -47,11 +48,26 @@ describe("guess scoring", () => {
     state = play(state, "crane")
     expect(state.blind.guesses[1]).toMatchObject({ chips: 7, mult: 7, score: 49 })
 
+    // The guess records its own arithmetic; the bonus is the round's, not its.
     state = play(state, "braid")
-    expect(state.blind.guesses[2]).toMatchObject({ chips: 8, mult: 16, solveBonus: 4, score: 512 })
+    expect(state.blind.guesses[2]).toMatchObject({ chips: 8, mult: 16, solveBonus: 4, score: 128 })
 
-    expect(state.blind.score).toBe(665)
+    expect(state.blind.score).toBe((104 + 49 + 128) * 4)
     expect(state.blind.solved).toBe(true)
+  })
+
+  /*
+   * The rule that pays for the whole design: solving late on a fat pile beats
+   * solving early on an empty one, but only up to the point where the shrinking
+   * multiplier eats the gain. Both lines below solve — one banks first.
+   */
+  it("multiplies everything banked this blind, not just the solving guess", () => {
+    const early = play(start, "braid")
+    const late = play(play(start, "quazy"), "braid")
+
+    expect(early.blind.score).toBe(128 * 6)
+    expect(late.blind.score).toBe((104 + 128) * 5)
+    expect(late.blind.score).toBeGreaterThan(early.blind.score)
   })
 
   it("builds mult from the feedback: 1 + 3 per green + 1 per yellow", () => {

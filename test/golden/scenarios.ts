@@ -125,6 +125,26 @@ export const SCENARIOS: readonly Scenario[] = [
     },
   },
   {
+    name: "banker",
+    covers: "a pile banked and then multiplied — the line the scoring rule exists for",
+    seed: 2024,
+    next: (state, words) => {
+      if (state.phase === "blind") {
+        // Farm two guesses, then cash in while the multiplier is still large.
+        // Solving instantly multiplies nothing and solving on the last guess
+        // multiplies by one, so without this scenario the vectors would record
+        // the same totals whether the bonus applied to the round or the guess.
+        const spent = state.blind.guesses.length
+        const candidates =
+          spent < 2
+            ? [...decoys(state, words, spent * 29), state.blind.answer]
+            : [state.blind.answer]
+        return firstPlayable(state, words, candidates)
+      }
+      return passThrough(state)
+    },
+  },
+  {
     name: "never-solves",
     covers: "running a blind out of guesses, and the run ending in defeat",
     seed: 42,

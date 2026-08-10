@@ -21,8 +21,14 @@ const SAVE_KEY = "5wild:run:v1"
 /** Set the first time the rules have been shown, so they only interrupt once. */
 const HELP_KEY = "5wild:seen-help"
 
-/** Per-event pacing, in ms. Slow enough to read, fast enough to not be a cutscene. */
-const PACE = { tile: 170, joker: 150, solve: 320, total: 400 }
+/**
+ * Per-event pacing, in ms. Slow enough to read, fast enough to not be a cutscene.
+ *
+ * `solve` is the outlier on purpose: it is the last beat before the reward screen
+ * takes the board away, and it has to outlast `COUNT_UP` by enough that the pile's
+ * new total is legible standing still rather than glimpsed mid-climb.
+ */
+const PACE = { tile: 170, joker: 150, solve: 900, total: 400 }
 
 /**
  * The tile turn. It runs longer than the gap between tiles on purpose, so the
@@ -168,6 +174,8 @@ export class App {
     // the pre-guess figure first, or the reveal spoils its own punchline.
     const scored = events.find((event) => event.type === "guess_scored")
     if (scoreEl && scored) scoreEl.textContent = String(scored.total - scored.score)
+    /** The figure on screen, so the solve bonus knows what it is multiplying. */
+    let onScreen = scored ? scored.total - scored.score : this.state.blind.score
 
     for (const event of events) {
       switch (event.type) {
@@ -188,12 +196,16 @@ export class App {
           break
         }
         case "solve_bonus": {
-          if (event.factor > 1) {
-            this.floater(screen, `solve ×${event.factor}`)
-            screen.querySelector(".readout")?.classList.add("solved")
-            this.sound.solve()
-            await this.pace(PACE.solve)
-          }
+          // Arrives after the guess has already been counted onto the total, so
+          // this is the pile itself multiplying — the biggest number movement in
+          // the game, and the one the whole round was building toward.
+          this.floater(screen, `solve ×${event.factor}`)
+          screen.querySelector(".readout")?.classList.add("solved")
+          this.sound.solve()
+          this.countUp(scoreEl, onScreen, event.total)
+          this.emphasise(screen, event.total / Math.max(1, this.state.blind.target))
+          onScreen = event.total
+          await this.pace(PACE.solve)
           break
         }
         case "guess_scored": {
@@ -203,6 +215,7 @@ export class App {
           this.countUp(scoreEl, from, event.total)
           this.emphasise(screen, event.score / Math.max(1, this.state.blind.target))
           this.sound.score(event.score / Math.max(1, this.state.blind.target))
+          onScreen = event.total
           await this.pace(PACE.total)
           break
         }

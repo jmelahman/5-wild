@@ -102,7 +102,10 @@ git diff test/golden/vectors.json
 
 That diff is the balance change, stated in points rather than in source. The
 vectors refuse to run against a version they were not recorded at, so forgetting
-the bump fails loudly instead of quietly rewriting the baseline.
+the bump fails loudly instead of quietly rewriting the baseline. The JSON is
+excluded from Biome for that reason: the recorder writes one array element per
+line, which is what makes the diff readable, and the formatter would fold them
+back onto one.
 
 They are also the portability contract: any reimplementation of these rules — a
 port to another language, a rewrite — is correct exactly when it reproduces this

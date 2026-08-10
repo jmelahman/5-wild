@@ -20,8 +20,13 @@ export type GuessRecord = {
   tiles: Tile[]
   chips: number
   mult: number
-  /** ×(1 + guesses left) when this guess solved the word, else 1. */
+  /**
+   * ×(1 + guesses left) when this guess solved the word, else 1. It is recorded
+   * here but *not* folded into `score`: the bonus multiplies the blind's total,
+   * so it belongs to the round rather than to any one guess.
+   */
   solveBonus: number
+  /** chips × mult for this guess alone. */
   score: number
 }
 
@@ -123,7 +128,8 @@ export type GameEvent =
   | { type: "rejected"; reason: string }
   | { type: "tile"; index: number; gained: number; chips: number; mult: number }
   | { type: "joker"; slot: number; id: string; label: string; chips: number; mult: number }
-  | { type: "solve_bonus"; factor: number }
+  /** `total` is the blind's score *after* the multiply, not the guess's. */
+  | { type: "solve_bonus"; factor: number; total: number }
   | { type: "guess_scored"; score: number; total: number }
   | { type: "letter_destroyed"; letter: string }
   | { type: "consumable"; id: string; label: string }
