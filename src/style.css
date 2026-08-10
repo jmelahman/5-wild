@@ -43,8 +43,25 @@
 
 html,
 body {
-  /* dvh, not vh: mobile browser chrome makes vh overshoot the visible area. */
-  height: 100dvh;
+  /*
+   * svh, not dvh, and not vh.
+   *
+   * `vh` overshoots: it is the viewport with the browser chrome hidden, so the
+   * bottom of the game sits behind the URL bar. `dvh` fits exactly — but it is
+   * *live*, and on Android Chrome the URL bar slides in and out on its own.
+   * Every pixel it moves re-runs this height, which re-runs the leftover space
+   * the board measures itself against, and the board is centred and square, so
+   * it changes size and position in both axes at once. Measured: 60px of chrome
+   * resizes the board by 28px across and 34px down. That reads as a shake.
+   *
+   * `svh` is the small viewport — chrome visible — and it is static. The layout
+   * is sized for the worst case once and never moves again. When the bar does
+   * retract, the extra strip below the keyboard is body background, which is
+   * the same colour as the app, so nothing shows.
+   */
+  height: 100vh;
+  /* biome-ignore lint/suspicious/noDuplicateProperties: the vh above is the fallback */
+  height: 100svh;
   overflow: hidden;
   /* Pull-to-refresh and rubber-band scroll both read as bugs inside a game. */
   overscroll-behavior: none;
@@ -72,7 +89,9 @@ button {
 #app {
   display: flex;
   flex-direction: column;
-  height: 100dvh;
+  height: 100vh;
+  /* biome-ignore lint/suspicious/noDuplicateProperties: the vh above is the fallback */
+  height: 100svh;
   padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
 }
 
@@ -704,7 +723,7 @@ button {
   /* Taller than it is wide, and taller than the old 2.75rem, because the keys
      are the thing being aimed at. Capped so a tall phone does not spend its
      extra height on the keyboard when the board wants it more. */
-  --key-h: clamp(2.75rem, 7dvh, 3.375rem);
+  --key-h: clamp(2.75rem, 7svh, 3.375rem);
 }
 
 .key-row {
@@ -1158,7 +1177,7 @@ button {
  */
 .sheet {
   width: min(100%, 26rem);
-  max-height: min(80dvh, 40rem);
+  max-height: min(80svh, 40rem);
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
