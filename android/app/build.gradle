@@ -7,8 +7,12 @@ android {
         applicationId "com.jmelahman.fivewild"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // Android refuses to install a package whose versionCode is lower than
+        // the one already on the device, so this has to climb on every build
+        // that could reach a phone. CI passes its run number, which only ever
+        // goes up; a local build is 1 and is expected to be uninstalled by hand.
+        versionCode System.getenv("ANDROID_VERSION_CODE") ? System.getenv("ANDROID_VERSION_CODE").toInteger() : 1
+        versionName System.getenv("ANDROID_VERSION_NAME") ?: "dev"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,8 +20,28 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // The signing key is what lets one build replace another on a phone: Android
+    // treats a package signed by a different key as a different app and refuses
+    // the upgrade outright. CI decodes the key from a repo secret; without it
+    // (any local build) the block is skipped and `assembleRelease` produces an
+    // unsigned APK rather than failing, so the release path stays buildable by
+    // anyone who clones this.
+    def keystore = System.getenv("ANDROID_KEYSTORE_PATH")
+    signingConfigs {
+        if (keystore) {
+            release {
+                storeFile file(keystore)
+                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias "5wild"
+                keyPassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+            }
+        }
+    }
     buildTypes {
         release {
+            if (keystore) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

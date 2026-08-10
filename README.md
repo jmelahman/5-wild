@@ -23,16 +23,30 @@ npm run check      # Biome lint + format
 npm test           # Vitest
 ```
 
-## Building the APK
+## Installing on a phone
 
-The web build is wrapped by Capacitor. CI produces a debug APK as a workflow
-artifact (`5-wild-debug-apk`) on every push, which is the intended way to get it
-onto a phone:
+The web build is wrapped by Capacitor. Publishing a GitHub release builds a
+signed APK and attaches it, so the phone can fetch it straight from the browser
+with no login and no cable:
+
+**<https://github.com/jmelahman/5-wild/releases/latest/download/5-wild.apk>**
+
+Android will ask for permission to install from the browser the first time.
+Everything the game needs is inside the package — the word lists included — so
+it runs with no network at all.
+
+Cutting a release is the whole publishing step:
 
 ```sh
-gh run download -n 5-wild-debug-apk
-adb install -r app-debug.apk
+gh release create v0.1.0 --generate-notes
 ```
+
+Every push also builds the APK to prove it still compiles, but that one is
+unsigned and cannot be installed: the signing key belongs to the release path
+alone. It lives in the `ANDROID_KEYSTORE_BASE64` repo secret and is what allows
+a new version to replace an installed one — Android treats a package signed by a
+different key as a different app and refuses the upgrade, so losing that key
+means every future install is a fresh one with the save wiped.
 
 Building locally additionally needs a JDK and the Android SDK:
 
