@@ -68,9 +68,15 @@ src/content/    letter tables and blind curves
 src/ui/         DOM rendering and the scoring animation
 public/words/   answer and allowed-guess lists
 test/           unit tests, a headless full-run bot, and the engine-purity guard
-tools/          word-list generation
+tools/          word-list and icon generation
+assets/         icon source art
 android/        Capacitor's Android project, committed
 ```
+
+The launcher icons, the launch screen and the browser favicon are all rendered
+from `assets/*.svg` by `tools/gen-icons.sh`. The PNGs it writes are committed —
+Gradle cannot render an SVG and CI has no renderer — so edit the source art, run
+the script, and commit what changes.
 
 `src/engine` is deliberately kept portable: it imports nothing outside itself and
 `src/content`, and touches no ambient nondeterminism. `test/engine-purity.test.ts`
