@@ -125,7 +125,11 @@ export class Music {
     } catch {
       // A blocked store just means the preference does not survive the session.
     }
-    this.off = stored === "0"
+    // Off unless the player has asked for it. A game that starts singing on its
+    // own is a game opened on a bus with the volume up, and the soundtrack is
+    // generative — there is no track to recognise and want back, so silence is
+    // the safer first impression. The stored preference still wins both ways.
+    this.off = stored !== "1"
   }
 
   get isOff(): boolean {
