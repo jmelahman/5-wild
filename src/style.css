@@ -1,0 +1,807 @@
+/*
+ * Mobile-first baseline. Every rule in the first two blocks exists because of a
+ * specific Android WebView behaviour documented in plans §4.6 — read before
+ * removing. Everything below that is the game.
+ */
+
+:root {
+  --bg: #0e0f13;
+  --panel: #191b22;
+  --panel-2: #22242e;
+  --line: #2e313d;
+  --fg: #e8e8ea;
+  --muted: #8b8d98;
+
+  /* Wordle tile colours. */
+  --green: #538d4e;
+  --yellow: #b59f3b;
+  --gray: #3a3a3c;
+
+  /* Scoring readout. */
+  --chips: #4a9eff;
+  --mult: #ff5c5c;
+  --gold: #f0b429;
+
+  --rare-common: #6b7280;
+  --rare-uncommon: #3d8f6a;
+  --rare-rare: #3f6fd8;
+  --rare-legendary: #a855f7;
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  /* dvh, not vh: mobile browser chrome makes vh overshoot the visible area. */
+  height: 100dvh;
+  overflow: hidden;
+  /* Pull-to-refresh and rubber-band scroll both read as bugs inside a game. */
+  overscroll-behavior: none;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Kills the ~300ms double-tap-zoom delay on keyboard keys. */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+}
+
+.screen {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.5rem;
+  /* The game is designed for a thumb. On anything wider it stays phone-shaped
+     and centred rather than stretching into a keyboard three feet across. */
+  width: 100%;
+  max-width: 30rem;
+  margin-inline: auto;
+}
+
+.screen.center {
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+}
+
+/* ------------------------------------------------------------------- HUD */
+
+.hud {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.375rem 0.625rem;
+  background: var(--panel);
+  border-radius: 0.5rem;
+}
+
+.blind-name {
+  font-weight: 700;
+  font-size: 0.9375rem;
+}
+
+.ante {
+  color: var(--muted);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+}
+
+.hud-score {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-score .score {
+  font-size: 1.375rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.hud-score .target {
+  color: var(--muted);
+  font-size: 0.6875rem;
+}
+
+.hud-gold {
+  color: var(--gold);
+  font-weight: 800;
+  font-size: 1.125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.boss {
+  flex: 0 0 auto;
+  padding: 0.375rem 0.625rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--mult) 18%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--mult) 40%, transparent);
+  font-size: 0.6875rem;
+  line-height: 1.3;
+}
+
+.boss strong {
+  color: var(--mult);
+}
+
+/* --------------------------------------------------------------- jokers */
+
+.jokers {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.jokers::-webkit-scrollbar {
+  display: none;
+}
+
+.joker {
+  flex: 1 1 0;
+  min-width: 3.5rem;
+  min-height: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.125rem;
+  padding: 0.25rem;
+  border-radius: 0.375rem;
+  background: var(--panel-2);
+  border-top: 2px solid var(--rare-common);
+  text-align: center;
+  transition: transform 120ms ease;
+}
+
+.joker.empty {
+  background: transparent;
+  border: 1px dashed var(--line);
+  border-top-width: 1px;
+}
+
+.joker.rarity-uncommon {
+  border-top-color: var(--rare-uncommon);
+}
+.joker.rarity-rare {
+  border-top-color: var(--rare-rare);
+}
+.joker.rarity-legendary {
+  border-top-color: var(--rare-legendary);
+}
+
+.joker-name {
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.joker .sell {
+  font-size: 0.5625rem;
+  color: var(--gold);
+}
+
+.joker.fired {
+  transform: translateY(-3px) scale(1.06);
+  box-shadow: 0 0 0 2px var(--gold);
+}
+
+/* ----------------------------------------------------------- consumables */
+
+.consumables {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 0.25rem;
+}
+
+.consumable {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.0625rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  background: color-mix(in srgb, var(--rare-legendary) 16%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--rare-legendary) 45%, transparent);
+  text-align: left;
+}
+
+.consumable-name {
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.consumable-text {
+  font-size: 0.5625rem;
+  color: var(--muted);
+  line-height: 1.2;
+}
+
+/* ----------------------------------------------------------------- grid */
+
+/*
+ * The board takes whatever is left after the HUD, the boss banner, the joker
+ * row and the keyboard have taken theirs — and that total is not knowable in
+ * CSS, since half of it is conditional. So the grid claims the leftover space
+ * as a size container and fits itself to it, keeping tiles square via
+ * aspect-ratio. Nothing here needs to be told how tall the chrome is.
+ */
+.grid-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  container-type: size;
+  display: flex;
+}
+
+.grid {
+  /* Centred in whatever the wrap turned out to be. */
+  margin: auto;
+  display: grid;
+  grid-template-rows: repeat(var(--rows, 6), 1fr);
+  gap: 0.3125rem;
+  aspect-ratio: var(--cols, 5) / var(--rows, 6);
+  /* Narrower of "as wide as there is room" and "as wide as the height allows",
+     so the board is bound by whichever axis runs out first. The first of each
+     pair is not dead weight: a browser without container-query units fails to
+     parse the `cq` declaration outright and keeps the plain one, which is the
+     whole point of writing them in this order. */
+  width: 100%;
+  /* biome-ignore lint/suspicious/noDuplicateProperties: the plain declaration above is the fallback */
+  width: min(100%, calc(100cqh * var(--cols, 5) / var(--rows, 6)));
+  /* Letters scale with the board, bounded by whichever axis is tighter. */
+  font-size: 1.25rem;
+  font-size: min(calc(45cqh / var(--rows, 6)), calc(45cqw / var(--cols, 5)));
+}
+
+.row {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 5), 1fr);
+  gap: 0.3125rem;
+}
+
+.tile {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 0.25rem;
+  border: 2px solid var(--line);
+  font-weight: 700;
+  transition:
+    transform 90ms ease,
+    background-color 90ms linear;
+}
+
+.tile.filled {
+  border-color: var(--muted);
+}
+
+.tile.ghost {
+  border-style: dashed;
+  border-color: var(--green);
+  color: color-mix(in srgb, var(--green) 70%, var(--fg));
+}
+
+.tile.green {
+  background: var(--green);
+  border-color: var(--green);
+}
+.tile.yellow {
+  background: var(--yellow);
+  border-color: var(--yellow);
+}
+.tile.gray {
+  background: var(--gray);
+  border-color: var(--gray);
+}
+
+/* Tiles arrive blank and light up as the score walks across them. */
+.tile.pending {
+  background: transparent;
+  border-color: var(--muted);
+}
+
+/*
+ * The turn-over. There are no stacked front/back faces here — the tile is
+ * squashed to nothing on the vertical axis and the colour is swapped by the
+ * controller at the trough, where there is nothing on screen to give it away.
+ * One transform, no extra nodes, and it composites on the GPU, which is what
+ * an Android WebView wants.
+ */
+.tile.flip {
+  animation: flip 260ms ease-in-out;
+}
+
+@keyframes flip {
+  50% {
+    transform: scaleY(0.04);
+  }
+}
+
+/* -------------------------------------------------------------- readout */
+
+.readout {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.25rem;
+  font-size: 1.125rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.readout .chips {
+  min-width: 3.5rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  text-align: right;
+  background: color-mix(in srgb, var(--chips) 22%, var(--panel));
+  color: var(--chips);
+}
+
+.readout .times {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.readout .mult {
+  min-width: 3.5rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  text-align: left;
+  background: color-mix(in srgb, var(--mult) 22%, var(--panel));
+  color: var(--mult);
+}
+
+/* --pop is set per guess from the score's size against the target, so the
+   reaction is proportional: a chip guess twitches, a blind-clearing one lunges. */
+.readout.popped {
+  animation: pop 300ms ease;
+}
+
+@keyframes pop {
+  50% {
+    transform: scale(var(--pop, 1.14));
+  }
+}
+
+/*
+ * Screen shake, reserved for a guess worth half the target or more. Translation
+ * only — anything that triggers layout here drops frames on a phone. The
+ * amplitude arrives as --shake from the same score ratio that drives the pop.
+ */
+.screen.shaking {
+  animation: shake 400ms cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+@keyframes shake {
+  10%,
+  90% {
+    transform: translate3d(calc(var(--shake, 4px) * -0.4), 0, 0);
+  }
+  20%,
+  80% {
+    transform: translate3d(calc(var(--shake, 4px) * 0.7), 0, 0);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translate3d(calc(var(--shake, 4px) * -1), 0, 0);
+  }
+  40%,
+  60% {
+    transform: translate3d(var(--shake, 4px), 0, 0);
+  }
+}
+
+.floater {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--gold);
+  pointer-events: none;
+  animation: rise 900ms ease-out forwards;
+}
+
+@keyframes rise {
+  from {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -2.5rem);
+  }
+}
+
+/* ------------------------------------------------------------- keyboard */
+
+.keyboard {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3125rem;
+}
+
+.key-row {
+  display: flex;
+  justify-content: center;
+  gap: 0.25rem;
+}
+
+.key {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 2.75rem;
+  display: grid;
+  place-items: center;
+  border-radius: 0.25rem;
+  background: #565758;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.key.wide {
+  flex: 1.5 1 0;
+  font-size: 0.625rem;
+}
+
+.key.green {
+  background: var(--green);
+}
+.key.yellow {
+  background: var(--yellow);
+}
+.key.gray {
+  background: var(--gray);
+  color: var(--muted);
+}
+
+.key.etched {
+  box-shadow: inset 0 0 0 2px var(--gold);
+}
+
+.key.burnt {
+  background: #1b1c20;
+  color: #4a4b52;
+  text-decoration: line-through;
+}
+
+.etch-pip {
+  position: absolute;
+  top: 1px;
+  right: 3px;
+  font-size: 0.5rem;
+  color: var(--gold);
+}
+
+.key:active {
+  filter: brightness(1.35);
+}
+
+/* ------------------------------------------------------------ shop, panels */
+
+.shop-screen {
+  overflow-y: auto;
+}
+
+.shop-items {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.shop-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-height: 6.5rem;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  background: var(--panel-2);
+  border-top: 3px solid var(--rare-common);
+  text-align: left;
+}
+
+.shop-item.rarity-uncommon {
+  border-top-color: var(--rare-uncommon);
+}
+.shop-item.rarity-rare {
+  border-top-color: var(--rare-rare);
+}
+.shop-item.rarity-legendary {
+  border-top-color: var(--rare-legendary);
+}
+
+.shop-item.broke {
+  opacity: 0.45;
+}
+
+.shop-item.sold {
+  background: transparent;
+  border: 1px dashed var(--line);
+  color: var(--muted);
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+}
+
+.shop-item-name {
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.shop-item-text {
+  flex: 1;
+  font-size: 0.6875rem;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+.shop-item-cost {
+  color: var(--gold);
+  font-weight: 800;
+  font-size: 0.875rem;
+}
+
+.shop-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.owned-label {
+  padding: 0.25rem 0;
+  font-size: 0.6875rem;
+  color: var(--muted);
+}
+
+.primary,
+.secondary {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  font-weight: 700;
+  background: var(--green);
+}
+
+.secondary {
+  background: var(--panel-2);
+}
+
+.primary:disabled,
+.secondary:disabled {
+  opacity: 0.4;
+}
+
+.panel {
+  width: min(100%, 22rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: var(--panel);
+}
+
+.reward-line {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.reward-line.total {
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--line);
+  color: var(--gold);
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.banner {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.banner.win {
+  color: var(--green);
+}
+.banner.lose {
+  color: var(--mult);
+}
+
+.answer-note {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.score-note {
+  font-size: 0.8125rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------ blind intro */
+
+/*
+ * The card between the shop and the board. The whole screen is a tap target —
+ * on a phone, hunting for a button after every blind gets old fast — so the
+ * Play button is an affordance rather than the only way through.
+ */
+.intro {
+  cursor: pointer;
+}
+
+.intro-ante {
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.intro-card {
+  width: min(100%, 20rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 1.5rem 1rem;
+  border-radius: 1rem;
+  border: 2px solid var(--line);
+  background: linear-gradient(160deg, var(--panel-2), var(--panel));
+  animation: deal 320ms cubic-bezier(0.2, 1.1, 0.4, 1);
+}
+
+/* A boss announces itself before it is played, never during. */
+.intro-card.boss-card {
+  border-color: var(--mult);
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--mult) 22%, var(--panel)),
+    var(--panel)
+  );
+}
+
+@keyframes deal {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.94);
+  }
+}
+
+.intro-name {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.intro-rule {
+  padding: 0 0.5rem;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: color-mix(in srgb, var(--mult) 55%, var(--fg));
+}
+
+.intro-label {
+  margin-top: 0.75rem;
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.intro-target {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--chips);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.intro-meta {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.mute {
+  padding: 0.375rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  background: var(--panel);
+}
+
+.screen.center .primary {
+  flex: 0 0 auto;
+  width: min(100%, 22rem);
+}
+
+/* ---------------------------------------------------------------- toast */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--safe-bottom) + 1rem);
+  transform: translateX(-50%);
+  max-width: 90vw;
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.5rem;
+  background: #000c;
+  border: 1px solid var(--line);
+  font-size: 0.75rem;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.toast.show {
+  animation: toast 2200ms ease forwards;
+}
+
+@keyframes toast {
+  0%,
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/*
+ * A blanket kill-switch has to outrank every animation shorthand in the file,
+ * and it is deliberately the last word on the subject — this is the one place
+ * `!important` is the correct tool rather than a workaround.
+ */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    /* biome-ignore lint/complexity/noImportantStyles: must override every animation shorthand above */
+    animation-duration: 1ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: must override every transition shorthand above */
+    transition-duration: 1ms !important;
+  }
+}
