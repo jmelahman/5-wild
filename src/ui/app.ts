@@ -124,7 +124,7 @@ export class App {
 
   /* ------------------------------------------------------------- dispatch */
 
-  private dispatch(action: Action): void {
+  private dispatch(action: Action, typing?: "arriving" | "leaving"): void {
     if (this.busy) return
     const wasPhase = this.state.phase
     const { state, events } = reduce(this.state, action, this.words)
@@ -145,10 +145,69 @@ export class App {
     if (paid) this.sound.coin()
 
     const label = events.find((event) => event.type === "consumable")?.label
+
+    // A letter arriving or leaving is the one action that touches a single row
+    // and nothing else on the screen, so it is the one action that patches
+    // instead of re-rendering. Everything the guard checks is a reason the
+    // screen might not be the board this assumes.
+    const quiet = !paid && !label && !this.intro && !this.overlay && !this.atTitle
+    if (typing && quiet && this.state.phase === "blind" && this.patchDraft(typing)) return
+
     this.render()
     // After the render, not before: the node the bump lands on is built by it.
     if (paid) this.bump(".hud-gold")
     if (label) this.toast(label)
+  }
+
+  /**
+   * Redraw the row being typed, in place.
+   *
+   * The alternative — what this replaces — was a full render, which throws the
+   * screen away and builds a new one. That is a lot of work to move one letter,
+   * but the cost that shows is not the work: `.grid-wrap` is a size container and
+   * `.grid` takes its width and its font-size from `cqh`/`cqw`. A container's size
+   * is not known until it has been laid out, so a freshly-inserted grid has to be
+   * styled twice — once against a container of unknown size, once against the
+   * measured one. Both passes are meant to land in the same frame. Where they do
+   * not, the first one resolves the fallback declarations, which are `width: 100%`
+   * at `font-size: 1.25rem` — a board wider than the real one with letters at the
+   * wrong size — and the second corrects it. Five times a word, that is a shake.
+   *
+   * Reported on Gecko, on a phone. The same build is steady in Chromium on the
+   * desktop and in the Chromium WebView the APK runs in, and an earlier fix had
+   * already ruled out the browser chrome (see the `svh` note in the stylesheet),
+   * which leaves the engine's own timing as the thing that differs.
+   *
+   * Patching sidesteps the question rather than betting on the answer: the grid is
+   * never rebuilt, so there is never a second pass to be late.
+   *
+   * Returns false if the board on screen is not the one this expects, leaving the
+   * caller to fall back to a full render.
+   */
+  private patchDraft(letter: "arriving" | "leaving"): boolean {
+    const blind = this.state.blind
+    // `done` is the same condition the view uses to stop drawing a draft at all;
+    // it cannot be reached by typing, but the two must not be allowed to disagree.
+    if (blind.done) return false
+    const row = this.root.querySelector(`.grid .row[data-row="${blind.guesses.length}"]`)
+    if (!row || row.children.length !== blind.answer.length) return false
+
+    for (const [column, tile] of Array.from(row.children).entries()) {
+      const typed = blind.draft[column]
+      const revealed = blind.revealed[column]
+      // Only the letter that just arrived lands. Backspace passes "leaving" and
+      // nothing animates: a letter being taken away used to hand the animation
+      // to the letter before it, which reads as the board twitching at a tile
+      // the player did not touch.
+      const lands = letter === "arriving" && column === blind.draft.length - 1
+      tile.className = typed
+        ? `tile filled ${lands ? "land" : ""}`
+        : revealed
+          ? "tile ghost"
+          : "tile"
+      tile.textContent = (typed ?? revealed ?? "").toUpperCase()
+    }
+    return true
   }
 
   /**
@@ -472,10 +531,10 @@ export class App {
   private readonly handlers: Handlers = {
     key: (letter) => {
       this.sound.key()
-      this.dispatch({ type: "type_letter", letter })
+      this.dispatch({ type: "type_letter", letter }, "arriving")
     },
     enter: () => void this.submit(),
-    back: () => this.dispatch({ type: "backspace" }),
+    back: () => this.dispatch({ type: "backspace" }, "leaving"),
     useConsumable: (index) => this.dispatch({ type: "use_consumable", index }),
     collect: () => this.dispatch({ type: "collect" }),
     buy: (index) => this.dispatch({ type: "buy", index }),
@@ -607,12 +666,12 @@ export class App {
         event.preventDefault()
         return
       }
+      // Through the handlers rather than straight to `dispatch`, so a typed
+      // letter takes the same path whichever keyboard it came from.
       if (event.key === "Enter") void this.submit()
-      else if (event.key === "Backspace") this.dispatch({ type: "backspace" })
-      else if (/^[a-zA-Z]$/.test(event.key)) {
-        this.sound.key()
-        this.dispatch({ type: "type_letter", letter: event.key.toLowerCase() })
-      } else return
+      else if (event.key === "Backspace") this.handlers.back()
+      else if (/^[a-zA-Z]$/.test(event.key)) this.handlers.key(event.key.toLowerCase())
+      else return
       event.preventDefault()
     })
   }
