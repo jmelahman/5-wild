@@ -11,6 +11,7 @@ import {
   helpView,
   introView,
   menuView,
+  meterFill,
   quitView,
   rewardView,
   shopView,
@@ -197,6 +198,16 @@ export class App {
       if (multEl) multEl.textContent = String(mult)
     }
 
+    // The bar under the total is driven off the same numbers the count-up walks
+    // through, so it fills in step with the digits instead of trailing them.
+    const meterEl = screen.querySelector<HTMLElement>(".hud .meter-fill")
+    const scoreBox = screen.querySelector(".hud-score")
+    const target = this.state.blind.target
+    const meter = (value: number) => {
+      meterEl?.style.setProperty("--fill", String(meterFill(value, target)))
+      scoreBox?.classList.toggle("met", value >= target)
+    }
+
     // The state was committed before any of this ran, so the HUD is already
     // showing the total the animation is about to build up to. Wind it back to
     // the pre-guess figure first, or the reveal spoils its own punchline.
@@ -204,6 +215,7 @@ export class App {
     if (scoreEl && scored) scoreEl.textContent = String(scored.total - scored.score)
     /** The figure on screen, so the solve bonus knows what it is multiplying. */
     let onScreen = scored ? scored.total - scored.score : this.state.blind.score
+    meter(onScreen)
 
     for (const event of events) {
       switch (event.type) {
@@ -230,7 +242,7 @@ export class App {
           this.floater(screen, `solve ×${event.factor}`)
           screen.querySelector(".readout")?.classList.add("solved")
           this.sound.solve()
-          this.countUp(scoreEl, onScreen, event.total)
+          this.countUp(scoreEl, onScreen, event.total, meter)
           this.emphasise(screen, event.total / Math.max(1, this.state.blind.target))
           onScreen = event.total
           await this.pace(PACE.solve)
@@ -240,7 +252,7 @@ export class App {
           // The single most important number in the game, so it is the one
           // thing that animates its value rather than snapping to it.
           const from = event.total - event.score
-          this.countUp(scoreEl, from, event.total)
+          this.countUp(scoreEl, from, event.total, meter)
           this.emphasise(screen, event.score / Math.max(1, this.state.blind.target))
           this.sound.score(event.score / Math.max(1, this.state.blind.target))
           onScreen = event.total
@@ -285,11 +297,22 @@ export class App {
     setTimeout(() => tile.classList.remove("flip"), FLIP.total)
   }
 
-  /** Counts a number up on screen, snapping instantly if the player skipped. */
-  private countUp(node: Element | null, from: number, to: number): void {
+  /**
+   * Counts a number up on screen, snapping instantly if the player skipped.
+   *
+   * `also` sees every intermediate value, so anything drawn from the same figure
+   * — the progress bar — moves with the digits rather than after them.
+   */
+  private countUp(
+    node: Element | null,
+    from: number,
+    to: number,
+    also?: (value: number) => void,
+  ): void {
     if (!node) return
     if (this.skipping || reducedMotion() || from === to) {
       node.textContent = String(to)
+      also?.(to)
       return
     }
     const started = performance.now()
@@ -298,9 +321,14 @@ export class App {
       // Ease out: most of the distance is covered early, so the number reads as
       // arriving rather than crawling.
       const eased = 1 - (1 - progress) ** 3
-      node.textContent = String(Math.round(from + (to - from) * eased))
+      const value = Math.round(from + (to - from) * eased)
+      node.textContent = String(value)
+      also?.(value)
       if (progress < 1 && !this.skipping) requestAnimationFrame(tick)
-      else node.textContent = String(to)
+      else {
+        node.textContent = String(to)
+        also?.(to)
+      }
     }
     requestAnimationFrame(tick)
   }
@@ -430,7 +458,12 @@ export class App {
   /** `as` forces the blind board to stay on screen while its scoring plays out. */
   private render(as?: "blind"): void {
     const phase = as ?? this.state.phase
-    this.music.set(this.mood)
+    const mood = this.mood
+    this.music.set(mood)
+    // The backdrop takes the same cue as the music, so the room changes colour
+    // and temperature together. It lives on the body rather than inside the
+    // screen because the screen is thrown away and rebuilt on every render.
+    document.body.dataset.mood = mood
     const view = this.atTitle
       ? titleView(this.handlers, this.chrome)
       : phase === "blind" && this.intro && !as

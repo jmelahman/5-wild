@@ -64,6 +64,7 @@ function menuButton(on: Handlers): HTMLElement {
 }
 
 function hud(state: RunState, on: Handlers): HTMLElement {
+  const blind = state.blind
   return h(
     "header",
     { class: "hud" },
@@ -75,14 +76,26 @@ function hud(state: RunState, on: Handlers): HTMLElement {
     ),
     h(
       "div",
-      { class: "hud-score" },
-      h("div", { class: "score" }, String(state.blind.score)),
-      h("div", { class: "target" }, `of ${state.blind.target}`),
+      { class: `hud-score ${blind.score >= blind.target ? "met" : ""}` },
+      h("div", { class: "score" }, String(blind.score)),
+      h("div", { class: "target" }, `of ${blind.target}`),
+      // The same fact as the two numbers above it, in the form a glance can take
+      // in. The scoring animation drives it frame by frame, so it fills as the
+      // total climbs rather than jumping to the answer.
+      h(
+        "div",
+        { class: "meter" },
+        h("div", { class: "meter-fill", style: `--fill:${meterFill(blind.score, blind.target)}` }),
+      ),
     ),
     h("div", { class: "hud-gold" }, money(state.gold)),
     menuButton(on),
   )
 }
+
+/** Shared with the animation controller, so the bar and the number agree. */
+export const meterFill = (score: number, target: number): number =>
+  target > 0 ? Math.min(1, score / target) : 1
 
 function jokerRow(state: RunState, on: Handlers): HTMLElement {
   const slots = Array.from({ length: JOKER_SLOTS }, (_, slot) => {
@@ -275,6 +288,10 @@ export function introView(state: RunState, on: Handlers, chrome: Chrome): HTMLEl
   const boss = getBoss(state.blind.bossId)
   const name = BLIND_NAMES[state.blindIndex] ?? "Blind"
 
+  // Three blinds, three tokens. The shape carries the warning before the name is
+  // read, which matters most for the one that changes the rules.
+  const token = boss ? "boss" : state.blindIndex === 0 ? "small" : "big"
+
   return h(
     "div",
     { class: "screen center intro", onclick: () => on.play() },
@@ -282,6 +299,7 @@ export function introView(state: RunState, on: Handlers, chrome: Chrome): HTMLEl
     h(
       "div",
       { class: `intro-card ${boss ? "boss-card" : ""}` },
+      h("div", { class: `blind-token ${token}` }),
       h("div", { class: "intro-name" }, boss ? boss.name : name),
       boss && h("div", { class: "intro-rule" }, boss.text),
       h("div", { class: "intro-label" }, "Score at least"),
@@ -372,6 +390,9 @@ function shopItemCard(item: ShopItem, index: number, state: RunState, on: Handle
     "button",
     {
       class: `shop-item rarity-${rarity} ${affordable ? "" : "broke"}`,
+      // The stock deals in one card at a time rather than appearing all at once,
+      // which is what makes a reroll feel like being dealt a new hand.
+      style: `--deal:${index}`,
       type: "button",
       onclick: () => on.buy(index),
     },
@@ -413,7 +434,9 @@ export function shopView(state: RunState, on: Handlers): HTMLElement {
       "div",
       { class: "shop-items" },
       ...(shop?.items ?? []).map((item, index) =>
-        item ? shopItemCard(item, index, state, on) : h("div", { class: "shop-item sold" }, "sold"),
+        item
+          ? shopItemCard(item, index, state, on)
+          : h("div", { class: "shop-item sold", style: `--deal:${index}` }, "sold"),
       ),
     ),
     h(
