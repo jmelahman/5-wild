@@ -1280,7 +1280,15 @@ button {
  * `!important` is the correct tool rather than a workaround.
  */
 @media (prefers-reduced-motion: reduce) {
-  * {
+  /*
+   * The pseudo-elements are listed because `*` does not match them, and the two
+   * animations that never stop on their own — the backdrop drift and the
+   * legendary sheen — are both on a ::before. A universal selector alone would
+   * leave exactly the animations this block most needs to reach still running.
+   */
+  *,
+  *::before,
+  *::after {
     /* biome-ignore lint/complexity/noImportantStyles: must override every animation shorthand above */
     animation-duration: 1ms !important;
     /* The count matters as much as the duration: the backdrop drift and the
