@@ -61,6 +61,8 @@ export class App {
   private atTitle: boolean
   /** The modal on top of everything, if any. */
   private overlay: "help" | "menu" | "quit" | null = null
+  /** The joker whose tip is currently up, so re-entering it is not a change. */
+  private hovered: HTMLElement | null = null
   private readonly sound = new Sound()
   private readonly music = new Music()
 
@@ -75,6 +77,7 @@ export class App {
     this.atTitle = saved === null
     this.bindPhysicalKeyboard()
     this.bindAudioWake()
+    this.bindJokerTips()
   }
 
   /**
@@ -397,6 +400,63 @@ export class App {
     this.replay(this.root.querySelector(selector), "bumped", 320)
   }
 
+  /* ------------------------------------------------------------ joker tips */
+
+  /**
+   * Hover a joker to read what it does.
+   *
+   * Delegated from the root because the screen is thrown away and rebuilt on
+   * every render, and gated on the pointer being one that can hover at all: on
+   * a phone the same text is already one tap away, and a panel chasing a finger
+   * would cover the tray it is describing.
+   */
+  private bindJokerTips(): void {
+    if (!window.matchMedia?.("(hover: hover)").matches) return
+    this.root.addEventListener("pointerover", (event) => {
+      const target = event.target
+      const joker =
+        target instanceof Element ? target.closest<HTMLElement>(".joker[data-tip]") : null
+      this.showTip(joker)
+    })
+    // `pointerover` covers every move within the screen; this covers the one
+    // move that fires nothing — straight out of the window.
+    this.root.addEventListener("pointerleave", () => this.showTip(null))
+  }
+
+  private showTip(joker: HTMLElement | null): void {
+    if (joker === this.hovered) return
+    this.hovered = joker
+    const tip = this.root.querySelector<HTMLElement>(".joker-tip")
+    if (!tip) return
+    if (!joker) {
+      tip.classList.remove("show")
+      return
+    }
+
+    tip.textContent = joker.dataset.tip ?? ""
+    // Borrowing the card's rarity keeps the two reading as one object, which a
+    // sibling of the tray cannot do by inheritance.
+    tip.className = `joker-tip rarity-${joker.dataset.rarity ?? "common"}`
+
+    // Measured before it is shown, which `visibility: hidden` allows and
+    // `display: none` would not: the height decides which side it goes on.
+    const card = joker.getBoundingClientRect()
+    const box = tip.getBoundingClientRect()
+    const gap = 6
+    const edge = 8
+    // Below by preference — in a blind the tray sits under the HUD with the
+    // whole board beneath it. The shop keeps its jokers at the foot of the
+    // screen, and there this flips.
+    const below = card.bottom + gap + box.height + edge <= window.innerHeight
+    const centred = card.left + card.width / 2 - box.width / 2
+    const left = Math.min(Math.max(edge, centred), window.innerWidth - box.width - edge)
+
+    tip.style.setProperty("--slide", below ? "0.25rem" : "-0.25rem")
+    tip.style.top = `${Math.round(below ? card.bottom + gap : card.top - gap - box.height)}px`
+    tip.style.left = `${Math.round(left)}px`
+    tip.classList.add("show")
+  }
+
   private toast(message: string): void {
     const host = this.root.querySelector(".toast")
     if (!host) return
@@ -489,12 +549,10 @@ export class App {
   /** `as` forces the blind board to stay on screen while its scoring plays out. */
   private render(as?: "blind"): void {
     const phase = as ?? this.state.phase
-    const mood = this.mood
-    this.music.set(mood)
-    // The backdrop takes the same cue as the music, so the room changes colour
-    // and temperature together. It lives on the body rather than inside the
-    // screen because the screen is thrown away and rebuilt on every render.
-    document.body.dataset.mood = mood
+    this.music.set(this.mood)
+    // The card the pointer was over is about to stop existing, and a stale node
+    // here would read as "still hovering" and suppress the next tip.
+    this.hovered = null
     const view = this.atTitle
       ? titleView(this.handlers, this.chrome)
       : phase === "blind" && this.intro && !as

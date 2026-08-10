@@ -108,6 +108,12 @@ function jokerRow(state: RunState, on: Handlers): HTMLElement {
       {
         class: `joker rarity-${joker.rarity}`,
         "data-slot": slot,
+        // Read by the hover tip. It lives on the card rather than in a nested
+        // element because the tray clips its own children — the panel that
+        // shows this has to be built outside it, and so cannot inherit either.
+        // The name is left out: it is already on the card the tip points at.
+        "data-tip": joker.text,
+        "data-rarity": joker.rarity,
         type: "button",
         onclick: () => on.inspect(`${joker.name} — ${joker.text}`),
       },
@@ -278,6 +284,7 @@ export function blindView(state: RunState, on: Handlers): HTMLElement {
       h("span", { class: "mult" }, String(last?.mult ?? 1)),
     ),
     solveHint(state),
+    h("div", { class: "joker-tip" }),
     h("div", { class: "toast" }),
     keyboard(state, on),
   )
@@ -418,6 +425,8 @@ export function shopView(state: RunState, on: Handlers): HTMLElement {
       "button",
       {
         class: `joker rarity-${joker?.rarity ?? "common"}`,
+        "data-tip": joker?.text ?? instance.id,
+        "data-rarity": joker?.rarity ?? "common",
         type: "button",
         onclick: () => on.sell(index),
       },
@@ -474,6 +483,7 @@ export function shopView(state: RunState, on: Handlers): HTMLElement {
       ),
       h("div", { class: "jokers" }, ...owned),
     ),
+    h("div", { class: "joker-tip" }),
     h("div", { class: "toast" }),
   )
 }

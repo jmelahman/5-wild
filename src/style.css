@@ -59,81 +59,6 @@ body {
   -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
   user-select: none;
-  transition:
-    --aura-a 1200ms linear,
-    --aura-b 1200ms linear;
-}
-
-/* ------------------------------------------------------------- backdrop */
-
-/*
- * The two colours behind everything, registered rather than plain so they can be
- * *transitioned*: a gradient cannot interpolate, but the colours inside one can,
- * and that is what lets the room change temperature instead of cutting to it.
- * A browser without @property still gets every mood, it just arrives at them
- * instantly.
- */
-@property --aura-a {
-  syntax: "<color>";
-  inherits: true;
-  initial-value: #26407066;
-}
-
-@property --aura-b {
-  syntax: "<color>";
-  inherits: true;
-  initial-value: #1c4a4466;
-}
-
-/*
- * One fixed layer, two soft pools of colour drifting a few percent over half a
- * minute — enough that the screen is never quite still, not enough to compete
- * with a board made of coloured squares. Inset past the edges so the drift never
- * pulls a hard edge into view.
- */
-body::before {
-  content: "";
-  position: fixed;
-  inset: -20%;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(38% 30% at 28% 20%, var(--aura-a), transparent 70%),
-    radial-gradient(42% 34% at 74% 80%, var(--aura-b), transparent 70%);
-  animation: drift 32s ease-in-out infinite alternate;
-}
-
-@keyframes drift {
-  to {
-    transform: translate3d(2%, -3%, 0) scale(1.08);
-  }
-}
-
-/* Set from the same value that picks the music, so the two never disagree. */
-body[data-mood="title"] {
-  --aura-a: #4b2f7a66;
-  --aura-b: #1f5a3d66;
-}
-
-body[data-mood="blind"] {
-  --aura-a: #26407066;
-  --aura-b: #1c4a4466;
-}
-
-/* The only mood that is allowed to be loud. */
-body[data-mood="boss"] {
-  --aura-a: #6b1f2a80;
-  --aura-b: #3a114099;
-}
-
-body[data-mood="shop"] {
-  --aura-a: #6b551f66;
-  --aura-b: #1f5a4466;
-}
-
-body[data-mood="over"] {
-  --aura-a: #2a2c3a88;
-  --aura-b: #1a1b2288;
 }
 
 button {
@@ -396,6 +321,68 @@ button {
 .joker.fired {
   transform: translateY(-3px) scale(1.06);
   box-shadow: 0 0 0 2px var(--gold);
+}
+
+/*
+ * A joker's name is a mnemonic, not an explanation, and on a mouse the player
+ * has a way to ask what it does that costs them nothing — so the card leans
+ * toward the pointer and the text arrives beside it. On a phone there is no
+ * such gesture, so the tray keeps tap-to-inspect and none of this is bound.
+ */
+@media (hover: hover) {
+  .joker[data-tip]:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 3px 6px #0007,
+      0 0 0 1px color-mix(in srgb, var(--rare, var(--rare-common)) 55%, transparent);
+  }
+
+  /* Losing to `.fired` matters: a joker scoring is louder news than a hover. */
+  .joker[data-tip].fired:hover {
+    transform: translateY(-3px) scale(1.06);
+  }
+}
+
+/*
+ * Fixed, and a sibling of the tray rather than a child of the card, because
+ * `.jokers` scrolls sideways — which forces the other axis to clip too — and
+ * `.joker` hides its own overflow so the legendary sheen stays inside its
+ * edges. Anything nested would be cut off by one of the two. The position is
+ * set from script; the transition is the whole animation.
+ */
+.joker-tip {
+  position: fixed;
+  z-index: 5;
+  top: 0;
+  left: 0;
+  max-width: min(16rem, 80vw);
+  padding: 0.375rem 0.5rem;
+  border-radius: 0.375rem;
+  background: #000d;
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--rare, var(--rare-common));
+  box-shadow: 0 0.25rem 0.75rem #0009;
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  text-align: center;
+  opacity: 0;
+  /* Not `display: none`: the panel has to be measurable before it is placed,
+     and it has to already be somewhere for the move to be a move. */
+  visibility: hidden;
+  pointer-events: none;
+  /* Signed by the placement, so the panel always drifts out of the card it
+     belongs to rather than through it. */
+  transform: translateY(var(--slide, 0.25rem));
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease,
+    visibility 140ms;
+}
+
+.joker-tip.show {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
 }
 
 /* ----------------------------------------------------------- consumables */
@@ -1281,19 +1268,19 @@ button {
  */
 @media (prefers-reduced-motion: reduce) {
   /*
-   * The pseudo-elements are listed because `*` does not match them, and the two
-   * animations that never stop on their own — the backdrop drift and the
-   * legendary sheen — are both on a ::before. A universal selector alone would
-   * leave exactly the animations this block most needs to reach still running.
+   * The pseudo-elements are listed because `*` does not match them, and the one
+   * animation that never stops on its own — the legendary sheen — is on a
+   * ::before. A universal selector alone would leave exactly the animation this
+   * block most needs to reach still running.
    */
   *,
   *::before,
   *::after {
     /* biome-ignore lint/complexity/noImportantStyles: must override every animation shorthand above */
     animation-duration: 1ms !important;
-    /* The count matters as much as the duration: the backdrop drift and the
-       legendary sheen both loop forever, and a 1ms loop is not stillness, it is
-       a strobe — the exact thing this block exists to prevent. */
+    /* The count matters as much as the duration: the legendary sheen loops
+       forever, and a 1ms loop is not stillness, it is a strobe — the exact
+       thing this block exists to prevent. */
     /* biome-ignore lint/complexity/noImportantStyles: a 1ms infinite animation is a strobe */
     animation-iteration-count: 1 !important;
     /* biome-ignore lint/complexity/noImportantStyles: must override every transition shorthand above */
