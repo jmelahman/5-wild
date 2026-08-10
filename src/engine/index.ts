@@ -10,8 +10,12 @@ export {
   BASE_GUESSES,
   BLIND_NAMES,
   BLIND_PAYOUT,
+  BLINDS_PER_ANTE,
   blindTargets,
   CONSUMABLE_SLOTS,
+  GOLD_PER_UNUSED_GUESS,
+  INTEREST_CAP,
+  INTEREST_PER,
   JOKER_SLOTS,
 } from "../content/blinds"
 export { ALPHABET, LETTER_CHIPS } from "../content/letters"

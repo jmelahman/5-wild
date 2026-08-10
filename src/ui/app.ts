@@ -3,19 +3,36 @@ import { reduce, startRun } from "../engine"
 import { Sound } from "./audio"
 import { clear, wait } from "./dom"
 import type { Chrome, Handlers } from "./views"
-import { blindView, endView, introView, rewardView, shopView } from "./views"
+import {
+  blindView,
+  endView,
+  helpView,
+  introView,
+  menuView,
+  quitView,
+  rewardView,
+  shopView,
+  titleView,
+} from "./views"
 
 /** Bumping the suffix orphans every save in the wild — treat it as a migration. */
 const SAVE_KEY = "5wild:run:v1"
 
+/** Set the first time the rules have been shown, so they only interrupt once. */
+const HELP_KEY = "5wild:seen-help"
+
 /** Per-event pacing, in ms. Slow enough to read, fast enough to not be a cutscene. */
-const PACE = { tile: 90, joker: 150, solve: 320, total: 400 }
+const PACE = { tile: 170, joker: 150, solve: 320, total: 400 }
 
 /**
  * The tile turn. It runs longer than the gap between tiles on purpose, so the
  * reveals overlap into a cascade rather than a queue of separate flips.
+ *
+ * `total` must stay in step with the `.tile.flip` animation in the stylesheet —
+ * CSS owns the motion, this owns when the class comes back off, and a mismatch
+ * either clips the flip or leaves the tile stuck mid-turn.
  */
-const FLIP = { total: 260, half: 130 }
+const FLIP = { total: 380, half: 190 }
 
 /** How long the score counts up to its new value. */
 const COUNT_UP = 340
@@ -31,6 +48,10 @@ export class App {
   private skipping = false
   /** True while the blind's intro card is up, before the board is dealt. */
   private intro = false
+  /** True when there is no run to return to and the front door is showing. */
+  private atTitle: boolean
+  /** The modal on top of everything, if any. */
+  private overlay: "help" | "menu" | "quit" | null = null
   private readonly sound = new Sound()
 
   constructor(
@@ -38,18 +59,28 @@ export class App {
     private readonly words: WordSource,
     saved: RunState | null,
   ) {
+    // A run is built either way so the rest of the class never has to deal with
+    // a null state; it simply is not persisted until the player commits to it.
     this.state = saved ?? startRun(rootSeed(), words).state
+    this.atTitle = saved === null
     this.bindPhysicalKeyboard()
   }
 
   start(): void {
+    if (this.atTitle) {
+      // First launch ever: lead with the rules rather than waiting to be asked.
+      // Nothing about this game's scoring is guessable from a Wordle board.
+      if (!seenHelp()) {
+        this.overlay = "help"
+        markHelpSeen()
+      }
+      this.render()
+      return
+    }
     // A resumed run mid-blind goes straight back to the board — the player was
     // in the middle of a thought, and a card announcing the blind they are
     // already playing would be in the way.
-    this.intro = this.state.phase === "blind" && this.state.blind.guesses.length === 0
-    // Persist immediately: a fresh run is already a run, and closing the app
-    // before the first keypress should not silently reroll the word.
-    this.save()
+    this.intro = this.state.blind.guesses.length === 0 && this.state.phase === "blind"
     this.render()
   }
 
@@ -293,7 +324,11 @@ export class App {
     nextBlind: () => this.dispatch({ type: "next_blind" }),
     newRun: () => {
       this.state = startRun(rootSeed(), this.words).state
+      this.atTitle = false
+      this.overlay = null
       this.intro = true
+      // Persisted before the first keypress: a fresh run is already a run, and
+      // closing the app on the intro card should not silently reroll the word.
       this.save()
       this.render()
     },
@@ -306,6 +341,36 @@ export class App {
       this.sound.toggleMute()
       this.render()
     },
+    openMenu: () => {
+      // Mid-animation the screen belongs to the scoring; the button is on the
+      // HUD the whole time, so this is a reachable tap rather than a theory.
+      if (this.busy) return
+      this.overlay = "menu"
+      this.render()
+    },
+    openHelp: () => {
+      this.overlay = "help"
+      markHelpSeen()
+      this.render()
+    },
+    closeOverlay: () => {
+      this.overlay = null
+      this.render()
+    },
+    askQuit: () => {
+      this.overlay = "quit"
+      this.render()
+    },
+    quit: () => {
+      clearSave()
+      // Back to a run nobody is playing, purely so `state` stays non-null. The
+      // player gets one at the title screen when they ask for it.
+      this.state = startRun(rootSeed(), this.words).state
+      this.atTitle = true
+      this.overlay = null
+      this.intro = false
+      this.render()
+    },
   }
 
   private get chrome(): Chrome {
@@ -315,8 +380,9 @@ export class App {
   /** `as` forces the blind board to stay on screen while its scoring plays out. */
   private render(as?: "blind"): void {
     const phase = as ?? this.state.phase
-    const view =
-      phase === "blind" && this.intro && !as
+    const view = this.atTitle
+      ? titleView(this.handlers, this.chrome)
+      : phase === "blind" && this.intro && !as
         ? introView(this.state, this.handlers, this.chrome)
         : phase === "reward"
           ? rewardView(this.state, this.handlers)
@@ -325,7 +391,20 @@ export class App {
             : phase === "game_over" || phase === "victory"
               ? endView(this.state, this.handlers)
               : blindView(this.state, this.handlers)
+
+    // Overlays sit beside the screen rather than replacing it, so the board is
+    // still visible behind the sheet and the player keeps their bearings.
+    const sheet =
+      this.overlay === "help"
+        ? helpView(this.handlers)
+        : this.overlay === "menu"
+          ? menuView(this.handlers, this.chrome)
+          : this.overlay === "quit"
+            ? quitView(this.state, this.handlers)
+            : null
+
     clear(this.root).append(view)
+    if (sheet) this.root.append(sheet)
   }
 
   /* ----------------------------------------------------------------- save */
@@ -342,6 +421,13 @@ export class App {
     // Desktop convenience during development; harmless on a phone.
     window.addEventListener("keydown", (event) => {
       if (event.metaKey || event.ctrlKey || event.altKey) return
+      if (this.overlay) {
+        // A sheet is modal, so it swallows everything and Escape dismisses it.
+        if (event.key === "Escape") this.handlers.closeOverlay()
+        event.preventDefault()
+        return
+      }
+      if (this.atTitle) return
       if (this.state.phase !== "blind") return
       if (this.intro) {
         this.handlers.play()
@@ -356,6 +442,32 @@ export class App {
       } else return
       event.preventDefault()
     })
+  }
+}
+
+function clearSave(): void {
+  try {
+    localStorage.removeItem(SAVE_KEY)
+  } catch {
+    // Nothing to do: the run is gone from memory either way.
+  }
+}
+
+function seenHelp(): boolean {
+  try {
+    return localStorage.getItem(HELP_KEY) === "1"
+  } catch {
+    // A blocked store means the rules show every launch, which is the safe way
+    // to be wrong about it.
+    return false
+  }
+}
+
+function markHelpSeen(): void {
+  try {
+    localStorage.setItem(HELP_KEY, "1")
+  } catch {
+    // See above.
   }
 }
 

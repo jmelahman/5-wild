@@ -3,9 +3,13 @@ import {
   ANTES,
   BLIND_NAMES,
   BLIND_PAYOUT,
+  BLINDS_PER_ANTE,
   CONSUMABLE_BY_ID,
   CONSUMABLE_SLOTS,
+  GOLD_PER_UNUSED_GUESS,
   getBoss,
+  INTEREST_CAP,
+  INTEREST_PER,
   JOKER_BY_ID,
   JOKER_SLOTS,
   keyboardColors,
@@ -28,6 +32,11 @@ export type Handlers = {
   inspect: (text: string) => void
   play: () => void
   mute: () => void
+  openMenu: () => void
+  openHelp: () => void
+  closeOverlay: () => void
+  askQuit: () => void
+  quit: () => void
 }
 
 /** Presentation state the engine has no opinion about. */
@@ -39,7 +48,20 @@ const money = (amount: number) => `$${amount}`
 
 /* -------------------------------------------------------------- shared bits */
 
-function hud(state: RunState): HTMLElement {
+/**
+ * The menu is the only route to sound, the rules and quitting once a run is
+ * under way, so it has to be on every in-run screen rather than parked on a
+ * screen the player passes through once.
+ */
+function menuButton(on: Handlers): HTMLElement {
+  return h(
+    "button",
+    { class: "menu-button", type: "button", "aria-label": "Menu", onclick: () => on.openMenu() },
+    "☰",
+  )
+}
+
+function hud(state: RunState, on: Handlers): HTMLElement {
   return h(
     "header",
     { class: "hud" },
@@ -56,6 +78,7 @@ function hud(state: RunState): HTMLElement {
       h("div", { class: "target" }, `of ${state.blind.target}`),
     ),
     h("div", { class: "hud-gold" }, money(state.gold)),
+    menuButton(on),
   )
 }
 
@@ -189,7 +212,7 @@ export function blindView(state: RunState, on: Handlers): HTMLElement {
   return h(
     "div",
     { class: "screen blind-screen" },
-    hud(state),
+    hud(state, on),
     boss && h("div", { class: "boss" }, h("strong", {}, boss.name), h("span", {}, ` ${boss.text}`)),
     jokerRow(state, on),
     consumableRow(state, on),
@@ -349,6 +372,7 @@ export function shopView(state: RunState, on: Handlers): HTMLElement {
       { class: "hud" },
       h("div", { class: "hud-blind" }, h("div", { class: "blind-name" }, "Shop")),
       h("div", { class: "hud-gold" }, money(state.gold)),
+      menuButton(on),
     ),
     h(
       "div",
@@ -416,5 +440,167 @@ export function endView(state: RunState, on: Handlers): HTMLElement {
       ),
     ),
     h("button", { class: "primary", type: "button", onclick: () => on.newRun() }, "New run"),
+  )
+}
+
+/* ----------------------------------------------------------------- title */
+
+/**
+ * Only shown when there is no run to resume. A save sends the player straight
+ * back to the board instead — the title is a front door, not a toll booth, and
+ * charging a tap for it every launch is exactly the friction a phone game
+ * cannot afford.
+ */
+export function titleView(on: Handlers, chrome: Chrome): HTMLElement {
+  return h(
+    "div",
+    { class: "screen center title" },
+    h("h1", { class: "title-name" }, "5 WILD"),
+    h("p", { class: "title-tag" }, "A Wordle roguelike"),
+    h("button", { class: "primary", type: "button", onclick: () => on.newRun() }, "Play"),
+    h(
+      "button",
+      { class: "secondary", type: "button", onclick: () => on.openHelp() },
+      "How to play",
+    ),
+    muteButton(on, chrome),
+  )
+}
+
+/* -------------------------------------------------------------- overlays */
+
+/**
+ * Everything modal shares this shell. The backdrop closes on tap, which on a
+ * phone is the gesture people reach for before they look for a button.
+ */
+function overlay(on: Handlers, ...body: (HTMLElement | string | false | null)[]): HTMLElement {
+  return h(
+    "div",
+    { class: "overlay", onclick: () => on.closeOverlay() },
+    h(
+      "div",
+      {
+        class: "sheet",
+        // Taps inside the sheet are for the sheet; without this every button
+        // press would also dismiss the thing it was pressed in.
+        onclick: (event: Event) => event.stopPropagation(),
+      },
+      ...body,
+    ),
+  )
+}
+
+const rule = (term: string, text: string) =>
+  h("div", { class: "rule" }, h("strong", {}, term), h("span", {}, text))
+
+export function helpView(on: Handlers): HTMLElement {
+  return overlay(
+    on,
+    h("h2", { class: "sheet-title" }, "How to play"),
+    h(
+      "div",
+      { class: "sheet-body" },
+      h(
+        "p",
+        {},
+        "Guess the word, the way you already know how — green is the right letter in " +
+          "the right place, yellow is the right letter somewhere else.",
+      ),
+      h("p", { class: "sheet-lead" }, "The difference is that every guess is scored."),
+      rule("Chips × Mult", " Each guess is worth its chips multiplied by its mult."),
+      rule("Letters pay chips", " Rare letters pay more. Etchings from the shop add more."),
+      rule(
+        "Colours pay mult",
+        ` Green is worth +3 mult, yellow +1, gray nothing. A guess full of gray is
+         worth almost nothing, so a throwaway probe costs you real score.`,
+      ),
+      rule(
+        "Solving multiplies everything",
+        ` Land the word and the whole guess is multiplied by 1 + the guesses you had
+         left, then the blind ends immediately. Solving on guess two is worth far
+         more than grinding out six.`,
+      ),
+      h(
+        "p",
+        { class: "sheet-lead" },
+        "That tension is the game: solve early for the multiplier, or stay in to " +
+          "farm chips and risk running out of guesses.",
+      ),
+      h("h3", { class: "sheet-heading" }, "The run"),
+      rule(
+        "Beat the target",
+        ` ${ANTES} antes of ${BLINDS_PER_ANTE} blinds. Fall short of a blind's target
+         and the run is over — that is the only way to lose.`,
+      ),
+      rule("Bosses", " Every third blind bends a rule. Read it before you play."),
+      rule(
+        "Money",
+        ` Blinds pay $${BLIND_PAYOUT.join(" / $")}, plus $${GOLD_PER_UNUSED_GUESS} per
+         unused guess, plus $1 interest per $${INTEREST_PER} you are holding, up to
+         $${INTEREST_CAP}. Sitting on cash is a strategy.`,
+      ),
+      rule(
+        "Jokers",
+        ` Up to ${JOKER_SLOTS}, and they fire left to right, so the order you buy them
+         in matters. Tap one to read it.`,
+      ),
+    ),
+    h("button", { class: "primary", type: "button", onclick: () => on.closeOverlay() }, "Got it"),
+  )
+}
+
+export function menuView(on: Handlers, chrome: Chrome): HTMLElement {
+  return overlay(
+    on,
+    h("h2", { class: "sheet-title" }, "Paused"),
+    h(
+      "div",
+      { class: "sheet-actions" },
+      h(
+        "button",
+        { class: "secondary", type: "button", onclick: () => on.mute() },
+        chrome.muted ? "Sound off" : "Sound on",
+      ),
+      h(
+        "button",
+        { class: "secondary", type: "button", onclick: () => on.openHelp() },
+        "How to play",
+      ),
+      h("button", { class: "danger", type: "button", onclick: () => on.askQuit() }, "Quit run"),
+    ),
+    h("button", { class: "primary", type: "button", onclick: () => on.closeOverlay() }, "Resume"),
+  )
+}
+
+/**
+ * Quitting is the one irreversible button in the game — the save is deleted and
+ * a run is an hour of decisions — so it asks, and the confirmation is worded as
+ * what is lost rather than as a yes/no.
+ */
+export function quitView(state: RunState, on: Handlers): HTMLElement {
+  return overlay(
+    on,
+    h("h2", { class: "sheet-title" }, "Quit this run?"),
+    h(
+      "div",
+      { class: "sheet-body" },
+      h(
+        "p",
+        {},
+        `You are on ante ${state.ante} of ${ANTES}, ${
+          BLIND_NAMES[state.blindIndex] ?? "a blind"
+        }. Quitting deletes it — there is no way back to this run.`,
+      ),
+    ),
+    h(
+      "div",
+      { class: "sheet-actions" },
+      h("button", { class: "danger", type: "button", onclick: () => on.quit() }, "Quit run"),
+      h(
+        "button",
+        { class: "primary", type: "button", onclick: () => on.openMenu() },
+        "Keep playing",
+      ),
+    ),
   )
 }
