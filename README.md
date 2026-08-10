@@ -38,8 +38,14 @@ it runs with no network at all.
 Cutting a release is the whole publishing step:
 
 ```sh
-gh release create v0.1.0 --generate-notes
+npm version patch --no-git-tag-version   # and commit it
+gh release create "v$(npm pkg get version --workspaces=false | tr -d '"')" --generate-notes
 ```
+
+The tag is `v` plus the version in `package.json`, and that pair moves once per
+phase of work — a phase that changed nothing a player can see does not need a
+release, but anything that does gets a patch bump so the phone has a build to
+install and a number to name it by.
 
 Every push also builds the APK to prove it still compiles, but that one is
 unsigned and cannot be installed: the signing key belongs to the release path
