@@ -1,8 +1,9 @@
 # 5 Wild
 
 A Wordle roguelike. Every guess is a hand played: letters carry chip values,
-feedback colours carry multipliers, and jokers bend the arithmetic. Beat a score
-target per blind, shop between blinds, survive eight antes.
+feedback colours carry multipliers, jokers bend the arithmetic, and modifiers
+bought onto a letter follow it for the rest of the run. Beat a score target per
+blind, shop between blinds, survive eight antes.
 
 Guesses are one currency spent on two competing goals — information or income —
 and solving pays a tempo bonus but ends the blind on the spot. That tension is

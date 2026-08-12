@@ -1,15 +1,24 @@
-import { LETTER_CHIPS } from "../content/letters"
+import { ALPHABET, LETTER_CHIPS, MIN_LIVE_LETTERS, MULT_FOR_COLOR } from "../content/letters"
 import { getBoss } from "./bosses"
 import { JOKER_BY_ID } from "./jokers"
+import type { ModCtx } from "./modifiers"
+import { modifierOf } from "./modifiers"
+import type { Rng } from "./rng"
+import { derive } from "./rng"
 import type { GameEvent, RunState, Tile } from "./state"
 
 /**
  * The scoring pipeline.
  *
- *   per tile, left to right:  base chips + colour mult, then every joker's
- *                             onTile hook in slot order
+ *   per tile, left to right:  base chips + colour mult, then the letter's own
+ *                             modifier, then every joker's onTile hook in slot
+ *                             order
  *   after the tiles:          every joker's onGuess hook in slot order
  *   finally:                  the solve bonus
+ *
+ * The modifier goes before the jokers because the letter is what was played and
+ * the jokers are what watched it — and because a ×mult modifier landing before
+ * the jokers' flat mult is the weaker, more governable half of that ordering.
  *
  * Jokers get real code rather than a data-driven effect DSL, because a DSL
  * always hits a wall around the tenth joker. What they get instead is a narrow
@@ -46,14 +55,16 @@ export type ScoreResult = {
   solveBonus: number
   score: number
   gold: number
+  /**
+   * Letters a shattering modifier retired. Applied by the caller rather than
+   * here: scoring prices a guess, it does not edit the run.
+   */
+  burned: string[]
 }
 
 export function baseChips(state: RunState, letter: string): number {
   return (LETTER_CHIPS[letter] ?? 0) + (state.letters[letter]?.etch ?? 0)
 }
-
-/** Green is worth three of these, yellow one. Gray is worth nothing, on purpose. */
-const MULT_FOR_COLOR = { green: 3, yellow: 1, gray: 0 } as const
 
 /**
  * What solving right now would multiply the blind's pile by.
@@ -90,20 +101,21 @@ export function scoreGuess(params: {
   const blind = state.blind
   const boss = getBoss(blind.bossId)
 
-  let firing: { slot: number; id: string } | null = null
-  const fire = (label: string) => {
-    if (!firing) return
-    events.push({
-      type: "joker",
-      slot: firing.slot,
-      id: firing.id,
-      label,
-      chips: ctx.chips,
-      mult: ctx.mult,
-    })
-  }
+  /**
+   * Whoever is currently firing gets to narrate what it did. Set around each
+   * hook call, so an effect only has to say `+4 mult` and the event it lands in
+   * — a joker card lighting up, or the tile whose letter carried a modifier —
+   * is decided by the caller.
+   */
+  let firing: ((label: string) => void) | null = null
+  const fire = (label: string) => firing?.(label)
 
-  const ctx: ScoreCtx = {
+  /** The tile's own seeded stream, replaced as the loop walks across them. */
+  let roll: Rng = () => 0
+
+  const burned: string[] = []
+
+  const ctx: ModCtx = {
     state,
     word,
     tiles,
@@ -130,6 +142,17 @@ export function scoreGuess(params: {
       ctx.gold += amount
       fire(`+$${amount}`)
     },
+    roll: () => roll(),
+    burn(letter) {
+      if (burned.includes(letter)) return
+      // Counted against what the alphabet *will* be, so a guess that shatters
+      // two letters cannot walk past the floor one letter at a time.
+      const live = [...ALPHABET].filter(
+        (name) => !state.letters[name]?.destroyed && !burned.includes(name),
+      )
+      if (live.length < MIN_LIVE_LETTERS) return
+      burned.push(letter)
+    },
   }
 
   const jokers = state.jokers.map((instance) => JOKER_BY_ID.get(instance.id))
@@ -143,9 +166,31 @@ export function scoreGuess(params: {
     ctx.mult += MULT_FOR_COLOR[tile.color]
     events.push({ type: "tile", index, gained: base, chips: ctx.chips, mult: ctx.mult })
 
+    const modifier = modifierOf(state, tile.letter)
+    if (modifier) {
+      // One stream per tile of one guess of one blind, so a chance effect is a
+      // property of the position it happened at rather than of the order things
+      // were drawn in — which is what lets a run be replayed from its seed.
+      roll = derive(state.seed, "mod", state.ante, state.blindIndex, guessIndex, index)
+      firing = (label) => {
+        events.push({
+          type: "mod",
+          index,
+          letter: tile.letter,
+          id: modifier.id,
+          label,
+          chips: ctx.chips,
+          mult: ctx.mult,
+        })
+      }
+      modifier.onTile(ctx, tile)
+      firing = null
+    }
+
     jokers.forEach((joker, slot) => {
       if (!joker?.onTile) return
-      firing = { slot, id: joker.id }
+      firing = (label) =>
+        events.push({ type: "joker", slot, id: joker.id, label, chips: ctx.chips, mult: ctx.mult })
       joker.onTile(ctx, tile, index, base)
       firing = null
     })
@@ -153,7 +198,8 @@ export function scoreGuess(params: {
 
   jokers.forEach((joker, slot) => {
     if (!joker?.onGuess) return
-    firing = { slot, id: joker.id }
+    firing = (label) =>
+      events.push({ type: "joker", slot, id: joker.id, label, chips: ctx.chips, mult: ctx.mult })
     joker.onGuess(ctx)
     firing = null
   })
@@ -173,5 +219,6 @@ export function scoreGuess(params: {
     solveBonus,
     score: Math.round(ctx.chips * ctx.mult),
     gold: ctx.gold,
+    burned,
   }
 }

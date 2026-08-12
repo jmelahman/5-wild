@@ -13,6 +13,9 @@ import {
   JOKER_BY_ID,
   JOKER_SLOTS,
   keyboardColors,
+  MODIFIER_BY_ID,
+  MODIFIERS,
+  modifierOf,
   rerollCost,
   sellValue,
   solveBonusFor,
@@ -154,9 +157,16 @@ function grid(state: RunState): HTMLElement {
     const tiles = Array.from({ length: width }, (_, column) => {
       if (played) {
         const tile = played.tiles[column]
+        // Marked on played tiles only. The draft row is patched in place rather
+        // than rebuilt — see `patchDraft` — and anything drawn there would have
+        // to be reproduced by that patch to survive the next keystroke.
         return h(
           "div",
-          { class: `tile ${tile?.shown ?? "gray"}`, "data-tile": column },
+          {
+            class: `tile ${tile?.shown ?? "gray"}`,
+            "data-tile": column,
+            "data-mod": tile ? modifierOf(state, tile.letter)?.id : undefined,
+          },
           (tile?.letter ?? "").toUpperCase(),
         )
       }
@@ -199,18 +209,24 @@ function keyboard(state: RunState, on: Handlers): HTMLElement {
     const destroyed = state.letters[letter]?.destroyed ?? false
     const etch = state.letters[letter]?.etch ?? 0
     const color = eliminated.has(letter) ? "gray" : colors.get(letter)
+    // A modifier is bought once and paid off over the rest of the run, so the
+    // key it lives on is the only place a player can be reminded it is there —
+    // at the moment they are choosing whether to spend a letter on this guess.
+    const mod = modifierOf(state, letter)
     return h(
       "button",
       {
         class: ["key", color ?? "", destroyed ? "burnt" : "", etch > 0 ? "etched" : ""]
           .filter(Boolean)
           .join(" "),
+        "data-mod": mod?.id,
         type: "button",
         disabled: destroyed,
         onclick: () => on.key(letter),
       },
       letter.toUpperCase(),
       etch > 0 ? h("span", { class: "etch-pip" }, `+${etch}`) : null,
+      mod ? h("span", { class: "mod-pip" }, mod.pip) : null,
     )
   }
 
@@ -394,6 +410,18 @@ function shopItemCard(item: ShopItem, index: number, state: RunState, on: Handle
     const card = CONSUMABLE_BY_ID.get(item.id)
     title = card?.name ?? item.id
     text = card?.text ?? ""
+  } else if (item.kind === "mod") {
+    const mod = MODIFIER_BY_ID.get(item.id)
+    const letter = item.letter.toUpperCase()
+    title = `${mod?.name ?? item.id} ${letter}`
+    text = `${letter} ${mod?.text ?? ""}`
+    rarity = mod?.rarity ?? "common"
+    // A letter holds one modifier, so this is sometimes a trade rather than an
+    // addition — and that has to be legible before the gold is gone.
+    const current = state.letters[item.letter]?.mod
+    if (current && current !== item.id) {
+      text += `, replacing ${MODIFIER_BY_ID.get(current)?.name ?? current}`
+    }
   } else {
     title = `Etch ${item.letter.toUpperCase()}`
     text = `${item.letter.toUpperCase()} is worth +1 chip for the rest of the run`
@@ -640,6 +668,23 @@ export function helpView(on: Handlers): HTMLElement {
         ` Up to ${JOKER_SLOTS}, and they fire left to right, so the order you buy them
          in matters. Tap one to read it.`,
       ),
+      h("h3", { class: "sheet-heading" }, "Letter mods"),
+      h(
+        "p",
+        {},
+        `The shop also sells modifiers that stick to a single letter for the rest of
+         the run — every time you play that letter, it does this. One at a time per
+         letter, and the keyboard wears the mark.`,
+      ),
+      h(
+        "p",
+        {},
+        `A ×mult letter multiplies what the word has scored up to where it sits, so
+         the same letter is worth more at the end of a word than at the start.`,
+      ),
+      // Built from the table rather than written out, so the sheet cannot drift
+      // from what the letters actually do.
+      ...MODIFIERS.map((mod) => rule(`${mod.name} ${mod.pip}`, ` The letter ${mod.text}.`)),
     ),
     h("button", { class: "primary", type: "button", onclick: () => on.closeOverlay() }, "Got it"),
   )

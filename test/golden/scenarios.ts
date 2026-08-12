@@ -80,6 +80,11 @@ function decoys(state: RunState, words: WordSource, offset: number): string[] {
   return out
 }
 
+/** How many tiles of a word would carry a modifier — copies counted separately. */
+function modTiles(state: RunState, word: string): number {
+  return [...word].filter((letter) => state.letters[letter]?.mod).length
+}
+
 /** Bank the reward, then leave the shop without spending. */
 function passThrough(state: RunState): Action[] | null {
   if (state.phase === "reward") return [{ type: "collect" }]
@@ -185,6 +190,42 @@ export const SCENARIOS: readonly Scenario[] = [
           accepted(state, words, [{ type: "sell_joker", index: 0 }])
         ) {
           return [{ type: "sell_joker", index: 0 }]
+        }
+        return [{ type: "next_blind" }]
+      }
+      return null
+    },
+  },
+  {
+    name: "letter-smith",
+    covers: "letter modifiers bought, and then landed on tiles often enough to score",
+    seed: 9,
+    next: (state, words) => {
+      if (state.phase === "blind") {
+        // One probe chosen for the modifiers it would fire, then the answer. A
+        // modifier that is only ever bought is a shop test; what these vectors
+        // are for is the mult it multiplies and the gold it pays.
+        const probes =
+          state.blind.guesses.length === 0
+            ? [...decoys(state, words, 7)].sort((a, b) => modTiles(state, b) - modTiles(state, a))
+            : []
+        return firstPlayable(state, words, [...probes, state.blind.answer])
+      }
+      if (state.phase === "reward") return [{ type: "collect" }]
+      if (state.phase === "shop") {
+        const items = state.shop?.items ?? []
+        const wanted = items.findIndex((item) => item?.kind === "mod" && item.cost <= state.gold)
+        if (wanted >= 0 && accepted(state, words, [{ type: "buy", index: wanted }])) {
+          return [{ type: "buy", index: wanted }]
+        }
+        // Hunt for one while there is gold to spare. The cost climbs with every
+        // reroll, so this drains rather than loops.
+        if (state.gold >= 10 && accepted(state, words, [{ type: "reroll" }])) {
+          return [{ type: "reroll" }]
+        }
+        const index = items.findIndex((item) => item && item.cost <= state.gold)
+        if (index >= 0 && accepted(state, words, [{ type: "buy", index }])) {
+          return [{ type: "buy", index }]
         }
         return [{ type: "next_blind" }]
       }

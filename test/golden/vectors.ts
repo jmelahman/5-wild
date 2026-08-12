@@ -49,6 +49,8 @@ export type Vector = {
     jokers: string[]
     /** "A+2" — letter and the chips its etching adds. */
     etched: string[]
+    /** "e:steel" — letter and the modifier stuck to it. */
+    mods: string[]
     destroyed: string[]
   }
 }
@@ -73,6 +75,10 @@ function summarise(
     etched: letters
       .filter(([, value]) => value.etch > 0)
       .map(([letter, value]) => `${letter}+${value.etch}`)
+      .sort(),
+    mods: letters
+      .filter(([, value]) => value.mod !== null)
+      .map(([letter, value]) => `${letter}:${value.mod}`)
       .sort(),
     destroyed: letters
       .filter(([, value]) => value.destroyed)

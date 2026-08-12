@@ -1,4 +1,4 @@
-import { ALPHABET, isVowel } from "../content/letters"
+import { ALPHABET, isVowel, MIN_LIVE_LETTERS } from "../content/letters"
 import type { Rng } from "./rng"
 import { shuffled } from "./rng"
 import type { ScoreCtx } from "./scoring"
@@ -255,7 +255,8 @@ export const JOKERS: readonly Joker[] = [
     onBlindStart: (state, rng, events) => {
       const alive = [...ALPHABET].filter((letter) => !state.letters[letter]?.destroyed)
       // Leave enough alphabet to still form words; refuse to burn past that.
-      if (alive.length <= 14) return
+      // The same floor a shattering letter stops at — one rule, two ways in.
+      if (alive.length < MIN_LIVE_LETTERS) return
       const letter = shuffled(rng, alive)[0]
       if (letter === undefined) return
       const entry = state.letters[letter]

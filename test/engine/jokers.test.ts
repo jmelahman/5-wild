@@ -152,7 +152,7 @@ describe("jokers", () => {
     const base = startRun(1, words).state
     const state: RunState = {
       ...base,
-      letters: { ...base.letters, q: { etch: 0, destroyed: true } },
+      letters: { ...base.letters, q: { etch: 0, destroyed: true, mod: null } },
     }
     const { events } = reduce(state, { type: "type_letter", letter: "q" }, words)
     expect(events).toEqual([{ type: "rejected", reason: "Q is burnt out" }])
@@ -171,7 +171,7 @@ describe("etchings", () => {
     // A is worth 1; etched twice it is worth 3, and CRANE holds one.
     const state: RunState = {
       ...base,
-      letters: { ...base.letters, a: { etch: 2, destroyed: false } },
+      letters: { ...base.letters, a: { etch: 2, destroyed: false, mod: null } },
     }
     expect(apply(state, type("crane")).blind.guesses[0]?.chips).toBe(9)
   })

@@ -5,6 +5,8 @@
  * re-derived from the seed plus a coordinate, so there is nothing to serialise.
  */
 
+import type { ModId } from "./modifiers"
+
 export type Color = "green" | "yellow" | "gray"
 
 export type Tile = {
@@ -40,6 +42,11 @@ export type LetterState = {
   etch: number
   /** Removed from the alphabet: cannot be typed, cannot appear in an answer. */
   destroyed: boolean
+  /**
+   * The modifier stuck to this letter, if any. One at a time — buying a second
+   * replaces the first — and it outlives being etched or burnt out.
+   */
+  mod: ModId | null
 }
 
 /** 0 small, 1 big, 2 boss. */
@@ -70,6 +77,7 @@ export type ShopItem =
   | { kind: "joker"; id: string; cost: number }
   | { kind: "consumable"; id: string; cost: number }
   | { kind: "etch"; letter: string; cost: number }
+  | { kind: "mod"; letter: string; id: ModId; cost: number }
 
 export type ShopState = {
   /** Slots go null once bought, so the layout does not reflow under the thumb. */
@@ -128,6 +136,16 @@ export type GameEvent =
   | { type: "rejected"; reason: string }
   | { type: "tile"; index: number; gained: number; chips: number; mult: number }
   | { type: "joker"; slot: number; id: string; label: string; chips: number; mult: number }
+  /** A letter's own modifier firing, on the tile that carried it. */
+  | {
+      type: "mod"
+      index: number
+      letter: string
+      id: ModId
+      label: string
+      chips: number
+      mult: number
+    }
   /** `total` is the blind's score *after* the multiply, not the guess's. */
   | { type: "solve_bonus"; factor: number; total: number }
   | { type: "guess_scored"; score: number; total: number }

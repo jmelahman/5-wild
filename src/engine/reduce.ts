@@ -49,7 +49,7 @@ const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
 
 function freshLetters(): Record<string, LetterState> {
   const letters: Record<string, LetterState> = {}
-  for (const letter of ALPHABET) letters[letter] = { etch: 0, destroyed: false }
+  for (const letter of ALPHABET) letters[letter] = { etch: 0, destroyed: false, mod: null }
   return letters
 }
 
@@ -262,9 +262,19 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
       blind.score += result.score
       blind.draft = ""
 
+      // A glass letter that shattered goes out of the alphabet here rather than
+      // mid-pipeline: scoring prices the guess, this owns the run. It lands
+      // before the total so the break reads as part of the guess that caused it.
+      for (const letter of result.burned) {
+        const entry = next.letters[letter]
+        if (!entry || entry.destroyed) continue
+        entry.destroyed = true
+        events.push({ type: "letter_destroyed", letter })
+      }
+
       if (result.gold > 0) {
         next.gold += result.gold
-        events.push({ type: "gold", delta: result.gold, reason: "jokers" })
+        events.push({ type: "gold", delta: result.gold, reason: "scoring" })
       }
       events.push({ type: "guess_scored", score: result.score, total: blind.score })
 
@@ -346,6 +356,14 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
           const entry = next.letters[item.letter]
           if (!entry) return reject("unknown letter")
           entry.etch += 1
+          break
+        }
+        case "mod": {
+          const entry = next.letters[item.letter]
+          if (!entry) return reject("unknown letter")
+          // A letter holds one modifier, so this replaces rather than stacks —
+          // the shop card says so before the gold is spent.
+          entry.mod = item.id
           break
         }
       }

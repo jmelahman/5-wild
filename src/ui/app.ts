@@ -290,6 +290,18 @@ export class App {
           await this.pace(PACE.tile)
           break
         }
+        case "mod": {
+          // The tile itself lights up rather than a card in the tray: the thing
+          // that fired is the letter, and it is already on screen.
+          const tile = tiles[event.index]
+          tile?.classList.add("fired")
+          this.floater(screen, event.label)
+          this.sound.joker()
+          readout(event.chips, event.mult)
+          await this.pace(PACE.joker)
+          tile?.classList.remove("fired")
+          break
+        }
         case "joker": {
           const slot = screen.querySelector(`.joker[data-slot="${event.slot}"]`)
           slot?.classList.add("fired")

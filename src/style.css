@@ -479,6 +479,7 @@ button {
 }
 
 .tile {
+  position: relative;
   min-width: 0;
   min-height: 0;
   display: grid;
@@ -489,6 +490,32 @@ button {
   transition:
     transform 90ms ease,
     background-color 90ms linear;
+}
+
+/* The modifier that letter is carrying, marked where the score is happening.
+   Hidden until the tile turns, so it arrives with the colour rather than
+   spoiling a row that has not been revealed yet. */
+.tile[data-mod]::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 0.3rem;
+  height: 0.3rem;
+  border-radius: 50%;
+  background: var(--mod);
+  box-shadow: 0 0 0.3rem var(--mod);
+}
+
+.tile.pending[data-mod]::after {
+  display: none;
+}
+
+/* A modifier firing. An outline rather than an animation: the flip owns
+   `animation` on this element, and two of them would fight. */
+.tile.fired {
+  outline: 2px solid var(--mod);
+  outline-offset: 2px;
 }
 
 .tile.filled {
@@ -780,6 +807,53 @@ button {
   right: 3px;
   font-size: 0.5rem;
   color: var(--gold);
+}
+
+/*
+ * Letter modifiers. One inherited colour per modifier, the same trick rarity
+ * plays for jokers: the ring on the key, the pip in its corner and the dot on a
+ * played tile all read off `--mod`, so a steel K looks like a steel K wherever
+ * it turns up.
+ */
+[data-mod="chip"] {
+  --mod: var(--chips);
+}
+[data-mod="mult"] {
+  --mod: var(--mult);
+}
+[data-mod="gold"] {
+  --mod: var(--gold);
+}
+[data-mod="wild"] {
+  --mod: var(--rare-legendary);
+}
+[data-mod="steel"] {
+  --mod: #9fb4c8;
+}
+[data-mod="glass"] {
+  --mod: #7fd8e8;
+}
+
+/* After the colour rules above, so a modified green key still shows its ring. */
+.key[data-mod] {
+  box-shadow: inset 0 0 0 2px var(--mod);
+}
+
+.key.burnt[data-mod] {
+  box-shadow: none;
+}
+
+.mod-pip {
+  position: absolute;
+  bottom: 1px;
+  left: 3px;
+  font-size: 0.5rem;
+  font-weight: 800;
+  color: var(--mod);
+}
+
+.key.burnt .mod-pip {
+  color: #4a4b52;
 }
 
 .key:active {

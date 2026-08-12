@@ -1,6 +1,8 @@
 import { ALPHABET } from "../content/letters"
 import { CONSUMABLES } from "./consumables"
 import { JOKERS } from "./jokers"
+import type { ModId } from "./modifiers"
+import { MODIFIER_BY_ID } from "./modifiers"
 import type { Rng } from "./rng"
 import { pick, shuffled } from "./rng"
 import type { RunState, ShopItem, ShopState } from "./state"
@@ -15,11 +17,42 @@ export const rerollCost = (shop: ShopState): number => BASE_REROLL + shop.reroll
 export const sellValue = (cost: number): number => Math.max(1, Math.floor(cost / 2))
 
 /**
- * Weighted so jokers dominate — they are the only permanent build decision —
+ * Weighted so jokers dominate — they are the biggest permanent build decision —
  * while etchings give a cheap outlet for spare gold late in a run when every
  * joker on offer is already owned.
  */
-const ROLL_TABLE = ["joker", "joker", "consumable", "etch"] as const
+const ROLL_TABLE = ["joker", "joker", "consumable", "mod", "etch"] as const
+
+/**
+ * Which modifier a modifier slot offers. Weighted rather than uniform: the two
+ * ×mult ones are the build-defining pair and should feel like a find, not like
+ * the default stock.
+ */
+const MOD_TABLE: readonly ModId[] = [
+  "chip",
+  "chip",
+  "mult",
+  "mult",
+  "gold",
+  "wild",
+  "steel",
+  "glass",
+]
+
+/**
+ * A modifier on a letter that can still be typed and does not already carry it.
+ * Null when there is no such pairing left, which hands the slot back to the
+ * ordinary roll rather than selling a card that would do nothing.
+ */
+function rollMod(state: RunState, rng: Rng): ShopItem | null {
+  const modifier = MODIFIER_BY_ID.get(pick(rng, MOD_TABLE))
+  if (!modifier) return null
+  const candidates = [...ALPHABET].filter(
+    (letter) => !state.letters[letter]?.destroyed && state.letters[letter]?.mod !== modifier.id,
+  )
+  if (candidates.length === 0) return null
+  return { kind: "mod", letter: pick(rng, candidates), id: modifier.id, cost: modifier.cost }
+}
 
 /** Jokers already owned are off the table — duplicates do not stack. */
 const unowned = (state: RunState) => {
@@ -43,6 +76,11 @@ function rollItem(state: RunState, rng: Rng): ShopItem {
     return { kind: "joker", id: joker.id, cost: joker.cost }
   }
 
+  if (kind === "mod") {
+    const item = rollMod(state, rng)
+    if (item) return item
+  }
+
   if (kind === "etch" || available.length === 0) {
     const alive = [...ALPHABET].filter((letter) => !state.letters[letter]?.destroyed)
     if (alive.length > 0) return { kind: "etch", letter: pick(rng, alive), cost: ETCH_COST }
@@ -62,7 +100,12 @@ export function rollShop(state: RunState, rng: Rng, rerolls: number): ShopState 
     // is a legal roll and a dead shop: every visit should offer one real build
     // decision, even if the player cannot afford it.
     const item = items.length === 0 ? rollJoker(state, rng) : rollItem(state, rng)
-    const key = item.kind === "etch" ? `etch:${item.letter}` : `${item.kind}:${item.id}`
+    // Keyed by the letter for both letter-shaped items, so one shop never sells
+    // two things that land on the same key.
+    const key =
+      item.kind === "etch" || item.kind === "mod"
+        ? `letter:${item.letter}`
+        : `${item.kind}:${item.id}`
     if (seen.has(key)) continue
     seen.add(key)
     items.push(item)
