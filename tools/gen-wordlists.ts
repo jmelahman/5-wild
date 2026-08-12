@@ -103,20 +103,70 @@ function stems(w: string): string[] {
 
 const isEnglish = (w: string) => stems(w).some((s) => lemmas.has(s))
 
+/**
+ * A word that is just a shorter word with S on the end. Wordle bars these from
+ * its answer list and it is right to: a plural answer means the last slot is a
+ * free S, which turns a five-letter deduction into a four-letter one and makes
+ * every guess ending in S a better guess than it should be. The letter is
+ * already the most common one in the corpus; handing it a guaranteed position
+ * would make it the only letter worth buying anything for.
+ *
+ * Three shapes, which between them are what "add S" means in English:
+ *
+ *   ZONE  + s   -> ZONES     four-letter word, the one the note is about
+ *   BOX   + es  -> BOXES     the sibilant plural
+ *   TRY -> TRIES             the y-plural
+ *
+ * A double S ending is never one of these — the plural of a word ending in S is
+ * spelled ES — so GRASS, BLESS and CROSS are answers and always were.
+ *
+ * Judged against the hunspell lemmas rather than against `allowed`, which holds
+ * only five-letter words and could not answer the question at all. Being the
+ * small SCOWL list, it errs toward letting a plural through rather than toward
+ * eating a real word, which is the right direction: a missed plural is one
+ * awkward blind, an eaten word is a word nobody ever gets to be dealt.
+ */
+function isPlural(w: string): boolean {
+  if (!w.endsWith("s") || w.endsWith("ss")) return false
+  if (lemmas.has(w.slice(0, -1))) return true
+  if (w.endsWith("es") && lemmas.has(w.slice(0, -2))) return true
+  return w.endsWith("ies") && lemmas.has(`${w.slice(0, -3)}y`)
+}
+
 // Answers are the intersection of "allowed", "common" and "English", ranked by
 // corpus frequency. Unlike guesses, these ARE filtered for slurs — nobody wants
 // one as the secret word. The block list holds lemmas, so it gets the same stem
 // treatment; matching it literally lets RAPES and CUNTS straight through.
 // Substring matching would catch those too, but it also eats GRAPE and SPOON.
-const blocked = new Set(lines(profanityRaw))
+/**
+ * What the corpora between them still get wrong, one word at a time.
+ *
+ * Kept deliberately tiny and only for answers, because a hand list is a
+ * maintenance burden and every entry has to earn itself. SQUAW is a slur that
+ * the block list does not carry; VINOD is a given name that beat the lemma
+ * check by ending in D, so VINO answered for it. Both surfaced when the plural
+ * filter pulled 574 words in from deeper down the frequency ranks, which is the
+ * general risk of digging: the further down you go, the worse the corpus gets.
+ */
+const HAND_BLOCKED = ["squaw", "vinod"]
+
+const blocked = new Set([...lines(profanityRaw), ...HAND_BLOCKED])
 const isBlocked = (w: string) => stems(w).some((s) => blocked.has(s))
 const allowedSet = new Set(allowed)
 
 const ranked: string[] = []
+let plurals = 0
 for (const line of lines(freqRaw)) {
   const word = line.split(/\s+/)[0]
   if (!word || !isTarget(word)) continue
   if (!allowedSet.has(word) || isBlocked(word) || !isEnglish(word)) continue
+  // Counted rather than silently skipped: this rule rejects common words on
+  // purpose, and the number is how anyone re-running this can tell it is still
+  // rejecting roughly what it was written to reject.
+  if (isPlural(word)) {
+    plurals++
+    continue
+  }
   ranked.push(word)
   if (ranked.length >= ANSWER_COUNT) break
 }
@@ -135,3 +185,4 @@ await writeFile(join(OUT_DIR, "answers.txt"), `${answers.join("\n")}\n`)
 
 console.log(`allowed  ${allowed.length}`)
 console.log(`answers  ${answers.length}`)
+console.log(`plurals  ${plurals} rejected`)

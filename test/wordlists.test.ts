@@ -48,4 +48,34 @@ describe("the two lists together", () => {
     expect(answers.length).toBe(2300)
     expect(allowed.length).toBeGreaterThan(10_000)
   })
+
+  /*
+   * Wordle bars plural answers, and the reason is mechanical rather than
+   * literary: a plural answer makes the last slot a free S, which turns a
+   * five-letter deduction into a four-letter one. In this game it would also
+   * hand S a guaranteed position, which is a scoring problem as well as a
+   * deduction one — every letter here can be bought an etching and a modifier.
+   *
+   * Guessing one stays legal. BANKS is a fine probe; it is just never the word.
+   */
+  it("never makes a plural the secret word", () => {
+    const secret = new Set(answers)
+    for (const word of ["zones", "banks", "cakes", "words", "girls", "boxes", "tries"]) {
+      expect(secret.has(word), word).toBe(false)
+      expect(allowed.includes(word), word).toBe(true)
+    }
+  })
+
+  /*
+   * The catch-all behind that spot check. The generator judges "plural" against
+   * a hunspell lemma list this test cannot see, so it asserts the consequence
+   * instead: a corpus of ordinary English is about a quarter plural by these
+   * ranks, and 620 of these 2300 ended in S before the filter existed. What is
+   * left is the words that merely happen to — GRASS, FOCUS, CHAOS.
+   */
+  it("keeps S off the end of almost every answer", () => {
+    const sFinal = answers.filter((word) => word.endsWith("s"))
+    expect(sFinal.length).toBeLessThan(answers.length / 20)
+    expect(sFinal).toContain("grass")
+  })
 })
