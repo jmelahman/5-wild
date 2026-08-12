@@ -2,6 +2,7 @@ import type { Action, GameEvent, RunState, WordSource } from "../engine"
 import { reduce, startRun } from "../engine"
 import { Sound } from "./audio"
 import { clear, wait } from "./dom"
+import { formatNumber as num } from "./format"
 import type { Mood } from "./music"
 import { Music } from "./music"
 import type { Chrome, Handlers } from "./views"
@@ -261,8 +262,8 @@ export class App {
     const multEl = screen.querySelector(".readout .mult")
     const scoreEl = screen.querySelector(".hud .score")
     const readout = (chips: number, mult: number) => {
-      if (chipsEl) chipsEl.textContent = String(chips)
-      if (multEl) multEl.textContent = String(mult)
+      if (chipsEl) chipsEl.textContent = num(chips)
+      if (multEl) multEl.textContent = num(mult)
     }
 
     // The bar under the total is driven off the same numbers the count-up walks
@@ -279,7 +280,7 @@ export class App {
     // showing the total the animation is about to build up to. Wind it back to
     // the pre-guess figure first, or the reveal spoils its own punchline.
     const scored = events.find((event) => event.type === "guess_scored")
-    if (scoreEl && scored) scoreEl.textContent = String(scored.total - scored.score)
+    if (scoreEl && scored) scoreEl.textContent = num(scored.total - scored.score)
     /** The figure on screen, so the solve bonus knows what it is multiplying. */
     let onScreen = scored ? scored.total - scored.score : this.state.blind.score
     meter(onScreen)
@@ -415,7 +416,7 @@ export class App {
   ): void {
     if (!node) return
     if (this.skipping || reducedMotion() || from === to) {
-      node.textContent = String(to)
+      node.textContent = num(to)
       also?.(to)
       return
     }
@@ -426,11 +427,11 @@ export class App {
       // arriving rather than crawling.
       const eased = 1 - (1 - progress) ** 3
       const value = Math.round(from + (to - from) * eased)
-      node.textContent = String(value)
+      node.textContent = num(value)
       also?.(value)
       if (progress < 1 && !this.skipping) requestAnimationFrame(tick)
       else {
-        node.textContent = String(to)
+        node.textContent = num(to)
         also?.(to)
       }
     }

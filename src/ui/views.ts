@@ -41,6 +41,7 @@ import {
   TIER_ANTES,
 } from "../engine"
 import { h } from "./dom"
+import { money, formatNumber as num } from "./format"
 
 export type Handlers = {
   key: (letter: string) => void
@@ -72,8 +73,6 @@ export type Chrome = { muted: boolean; musicOff: boolean }
 
 const KEY_ROWS = ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
 
-const money = (amount: number) => `$${amount}`
-
 /* -------------------------------------------------------------- shared bits */
 
 /**
@@ -103,8 +102,8 @@ function hud(state: RunState, on: Handlers): HTMLElement {
     h(
       "div",
       { class: `hud-score ${blind.score >= blind.target ? "met" : ""}` },
-      h("div", { class: "score" }, String(blind.score)),
-      h("div", { class: "target" }, `of ${blind.target}`),
+      h("div", { class: "score" }, num(blind.score)),
+      h("div", { class: "target" }, `of ${num(blind.target)}`),
       // The same fact as the two numbers above it, in the form a glance can take
       // in. The scoring animation drives it frame by frame, so it fills as the
       // total climbs rather than jumping to the answer.
@@ -307,7 +306,7 @@ function solveHint(state: RunState): HTMLElement | false {
     { class: `solve-hint ${clears ? "clears" : ""}` },
     h("span", { class: "solve-factor" }, `solve ×${factor}`),
     blind.score > 0 &&
-      h("span", { class: "solve-floor" }, clears ? `→ ${floor}, clears` : `→ ${floor}`),
+      h("span", { class: "solve-floor" }, clears ? `→ ${num(floor)}, clears` : `→ ${num(floor)}`),
   )
 }
 
@@ -358,9 +357,9 @@ export function blindView(state: RunState, on: Handlers): HTMLElement {
     h(
       "div",
       { class: "readout" },
-      h("span", { class: "chips" }, String(last?.chips ?? 0)),
+      h("span", { class: "chips" }, num(last?.chips ?? 0)),
       h("span", { class: "times" }, "×"),
-      h("span", { class: "mult" }, String(last?.mult ?? 1)),
+      h("span", { class: "mult" }, num(last?.mult ?? 1)),
     ),
     solveHint(state),
     h("div", { class: "joker-tip" }),
@@ -395,7 +394,7 @@ export function introView(state: RunState, on: Handlers, chrome: Chrome): HTMLEl
       h("div", { class: "intro-name" }, boss ? boss.name : name),
       boss && h("div", { class: "intro-rule" }, boss.text),
       h("div", { class: "intro-label" }, "Score at least"),
-      h("div", { class: "intro-target" }, String(state.blind.target)),
+      h("div", { class: "intro-target" }, num(state.blind.target)),
       h(
         "div",
         { class: "intro-meta" },
@@ -439,7 +438,7 @@ export function rewardView(state: RunState, on: Handlers): HTMLElement {
       "div",
       { class: "panel" },
       h("div", { class: "answer-note" }, `The word was ${state.blind.answer.toUpperCase()}`),
-      h("div", { class: "score-note" }, `${state.blind.score} of ${state.blind.target}`),
+      h("div", { class: "score-note" }, `${num(state.blind.score)} of ${num(state.blind.target)}`),
       reward && line(BLIND_NAMES[state.blindIndex] ?? "Blind", reward.base),
       reward && reward.unusedGuesses > 0 && line("Unused guesses", reward.unusedGuesses),
       reward && reward.interest > 0 && line("Interest", reward.interest),
@@ -696,7 +695,7 @@ export function endView(state: RunState, on: Handlers): HTMLElement {
         h(
           "div",
           { class: "score-note" },
-          `${state.blind.score} of ${state.blind.target} — short by ${state.blind.target - state.blind.score}`,
+          `${num(state.blind.score)} of ${num(state.blind.target)} — short by ${num(state.blind.target - state.blind.score)}`,
         ),
       h(
         "div",
