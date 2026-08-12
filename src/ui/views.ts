@@ -1,21 +1,28 @@
-import type { RunState, ShopItem } from "../engine"
+import type { BossTier, Rarity, RunState, ShopItem } from "../engine"
 import {
   ANTES,
   BLIND_NAMES,
   BLIND_PAYOUT,
   BLINDS_PER_ANTE,
+  BOSS_TIERS,
+  BOSSES,
+  bossesIn,
+  CATEGORIES,
   CATEGORY_BY_ID,
   CHIPS_PER_LEVEL,
   CONSUMABLE_BY_ID,
   CONSUMABLE_SLOTS,
+  CONSUMABLES,
   categoryOf,
   ETCHING_BY_ID,
+  ETCHINGS,
   GOLD_PER_UNUSED_GUESS,
   getBoss,
   INTEREST_CAP,
   INTEREST_PER,
   JOKER_BY_ID,
   JOKER_SLOTS,
+  JOKERS,
   keyboardColors,
   levelBonus,
   levelOf,
@@ -25,11 +32,13 @@ import {
   PACK_BY_ID,
   PACKS,
   RANGE_BY_ID,
+  RANGES,
   rangeChips,
   rangeLevelOf,
   rerollCost,
   sellValue,
   solveBonusFor,
+  TIER_ANTES,
 } from "../engine"
 import { h } from "./dom"
 
@@ -52,6 +61,7 @@ export type Handlers = {
   toggleMusic: () => void
   openMenu: () => void
   openHelp: () => void
+  openCodex: () => void
   closeOverlay: () => void
   askQuit: () => void
   quit: () => void
@@ -718,6 +728,7 @@ export function titleView(on: Handlers, chrome: Chrome): HTMLElement {
       { class: "secondary", type: "button", onclick: () => on.openHelp() },
       "How to play",
     ),
+    h("button", { class: "secondary", type: "button", onclick: () => on.openCodex() }, "Codex"),
     muteButton(on, chrome),
     h("p", { class: "title-build" }, buildStamp()),
   )
@@ -832,27 +843,208 @@ export function helpView(on: Handlers): HTMLElement {
          keep one, free — the rest of the shop waits until you have picked or
          walked away, and walking away keeps nothing.`,
       ),
-      // From the table, for the same reason the modifier list below is.
-      ...PACKS.map((pack) => rule(pack.name, ` ${pack.text}.`)),
-      h("h3", { class: "sheet-heading" }, "Letter mods"),
+      rule(
+        "Letter mods",
+        ` The shop sells modifiers that stick to a single letter for the rest of the
+         run — every time you play that letter, it does this. A ×mult letter
+         multiplies what the word has scored up to where it sits, so it is worth
+         more late in a word than early.`,
+      ),
+      // The list of what each one does lives in the codex rather than here. Two
+      // screens restating the same table is how the two of them drift apart, and
+      // this one is meant to be read once.
       h(
         "p",
-        {},
-        `The shop also sells modifiers that stick to a single letter for the rest of
-         the run — every time you play that letter, it does this. One at a time per
-         letter, and the keyboard wears the mark.`,
+        { class: "sheet-lead" },
+        "The codex has every joker, boss, word shape and modifier in the game, listed in full.",
       ),
+    ),
+    h(
+      "div",
+      { class: "sheet-actions" },
       h(
-        "p",
-        {},
-        `A ×mult letter multiplies what the word has scored up to where it sits, so
-         the same letter is worth more at the end of a word than at the start.`,
+        "button",
+        { class: "secondary", type: "button", onclick: () => on.openCodex() },
+        "Open the codex",
       ),
-      // Built from the table rather than written out, so the sheet cannot drift
-      // from what the letters actually do.
-      ...MODIFIERS.map((mod) => rule(`${mod.name} ${mod.pip}`, ` The letter ${mod.text}.`)),
     ),
     h("button", { class: "primary", type: "button", onclick: () => on.closeOverlay() }, "Got it"),
+  )
+}
+
+/* ----------------------------------------------------------------- codex */
+
+/** One catalogue entry: what it is called, what it does, and what it costs. */
+function entry(name: string, text: string, note?: string): HTMLElement {
+  return h(
+    "div",
+    { class: "codex-entry" },
+    h(
+      "div",
+      { class: "codex-entry-head" },
+      h("strong", {}, name),
+      note ? h("span", { class: "codex-note" }, note) : null,
+    ),
+    h("span", { class: "codex-text" }, text),
+  )
+}
+
+/**
+ * One collapsible section, closed until asked for.
+ *
+ * Everything in the codex laid out flat runs to ten phone screens of scrolling,
+ * which makes the catalogue useless for the thing it is actually for — looking
+ * one card up, mid-run, having forgotten what it does. Closed, the whole screen
+ * is seven rows and a count, and the count is worth reading on its own: it is
+ * the size of the game, stated.
+ */
+function section(title: string, count: number, blurb: string, ...rows: HTMLElement[]): HTMLElement {
+  return h(
+    "details",
+    { class: "codex-section" },
+    h(
+      "summary",
+      { class: "codex-summary" },
+      h("span", {}, title),
+      h("span", { class: "codex-count" }, String(count)),
+    ),
+    h("p", { class: "codex-blurb" }, blurb),
+    ...rows,
+  )
+}
+
+const RARITIES: readonly Rarity[] = ["common", "uncommon", "rare", "legendary"]
+
+const TIER_NAMES: Record<BossTier, string> = {
+  early: "Early",
+  mid: "Mid",
+  late: "Late",
+}
+
+/**
+ * The catalogue. Every section maps over the table it describes rather than
+ * restating it, which is the same trick — and the same reason — as the modifier
+ * list that used to live in `helpView`: a reference that is written out by hand
+ * is a reference that goes stale the first time a number moves.
+ *
+ * Fully revealed rather than unlocked by discovery. The player who most needs to
+ * read what The Auditor does is the one who has not met it yet, and a codex that
+ * only tells you what you already know is a trophy cabinet, not a reference.
+ *
+ * Takes no run state on purpose: this is the catalogue, not the board. A scaling
+ * joker shows its rule here, never the number it happens to be holding.
+ */
+export function codexView(on: Handlers): HTMLElement {
+  return overlay(
+    on,
+    h("h2", { class: "sheet-title" }, "Codex"),
+    h(
+      "div",
+      { class: "sheet-body" },
+      h("p", { class: "sheet-lead" }, "Everything in the game, whether you have met it or not."),
+
+      section(
+        "Jokers",
+        JOKERS.length,
+        `Up to ${JOKER_SLOTS} at once, firing left to right — the order you buy them in
+         is part of the build.`,
+        // The rarity class goes on the wrapper rather than the header, so the
+        // band's colour reaches the cards under it the same way it reaches a
+        // joker in the tray.
+        ...RARITIES.flatMap((rarity) => {
+          const jokers = JOKERS.filter((joker) => joker.rarity === rarity)
+          if (jokers.length === 0) return []
+          return [
+            h(
+              "div",
+              { class: `codex-band rarity-${rarity}` },
+              h("div", { class: "codex-group" }, rarity),
+              ...jokers.map((joker) => entry(joker.name, joker.text, money(joker.cost))),
+            ),
+          ]
+        }),
+      ),
+
+      section(
+        "Bosses",
+        BOSSES.length,
+        `Every third blind. Each band is drawn without replacement, so a run never
+         meets the same boss twice.`,
+        ...BOSS_TIERS.map((tier) =>
+          h(
+            "div",
+            { class: "codex-band" },
+            h(
+              "div",
+              { class: "codex-group" },
+              `${TIER_NAMES[tier]} · antes ${TIER_ANTES[tier].first}–${TIER_ANTES[tier].last}`,
+            ),
+            ...bossesIn(tier).map((boss) => entry(boss.name, boss.text)),
+          ),
+        ),
+      ),
+
+      section(
+        "Word shapes",
+        CATEGORIES.length,
+        `Every guess scores as exactly one shape — the rarest one it matches, which is
+         the first in this list. Levelling a shape raises every future guess of it.`,
+        ...CATEGORIES.map((category) =>
+          entry(category.name, category.text, `+${category.chips} / +${category.mult} per level`),
+        ),
+      ),
+
+      section(
+        "Letter modifiers",
+        MODIFIERS.length,
+        `Stuck to a single letter for the rest of the run. One at a time per letter,
+         and the keyboard wears the mark. A ×mult letter multiplies what the word has
+         scored up to where it sits, so it is worth more late in a word than early.`,
+        ...MODIFIERS.map((mod) =>
+          entry(`${mod.name} ${mod.pip}`, `The letter ${mod.text}.`, money(mod.cost)),
+        ),
+      ),
+
+      section(
+        "Letter upgrades",
+        ETCHINGS.length + RANGES.length,
+        `Two lines that both add chips to letters, and stack: etchings raise a kind of
+         letter, ranges raise a slice of the alphabet. Every letter sits in exactly one
+         slice.`,
+        ...ETCHINGS.map((etching) => entry(etching.name, etching.text, money(etching.cost))),
+        ...RANGES.map((range) =>
+          entry(
+            range.name,
+            `${[...range.letters].join(" ").toUpperCase()} are worth +${CHIPS_PER_LEVEL} chips per level`,
+          ),
+        ),
+      ),
+
+      section(
+        "Cards",
+        CONSUMABLES.length,
+        `Used once, whenever you like. You can hold ${CONSUMABLE_SLOTS}.`,
+        ...CONSUMABLES.map((card) => entry(card.name, card.text, money(card.cost))),
+      ),
+
+      section(
+        "Packs",
+        PACKS.length,
+        `Sold in a slot of their own. A pack lays its cards out and you keep one, free —
+         the shop waits until you have chosen or walked away.`,
+        // "Choose one of three" already says how many you keep, so the count is
+        // only worth printing on a pack that keeps more than one — which none
+        // do yet, and which is exactly why it is derived rather than assumed.
+        ...PACKS.map((pack) =>
+          entry(
+            pack.name,
+            pack.picks > 1 ? `${pack.text}, and keep ${pack.picks}.` : `${pack.text}.`,
+            money(pack.cost),
+          ),
+        ),
+      ),
+    ),
+    h("button", { class: "primary", type: "button", onclick: () => on.closeOverlay() }, "Close"),
   )
 }
 
@@ -889,6 +1081,7 @@ export function menuView(on: Handlers, chrome: Chrome): HTMLElement {
         { class: "secondary", type: "button", onclick: () => on.openHelp() },
         "How to play",
       ),
+      h("button", { class: "secondary", type: "button", onclick: () => on.openCodex() }, "Codex"),
       h("button", { class: "danger", type: "button", onclick: () => on.askQuit() }, "Quit run"),
     ),
     h("button", { class: "primary", type: "button", onclick: () => on.closeOverlay() }, "Resume"),

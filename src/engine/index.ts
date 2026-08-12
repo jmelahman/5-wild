@@ -21,7 +21,7 @@ export {
 export { ALPHABET, LETTER_CHIPS } from "../content/letters"
 export { CONTENT_VERSION } from "../content/version"
 export type { Boss, BossTier } from "./bosses"
-export { BOSSES, bossesIn, getBoss, tierForAnte } from "./bosses"
+export { BOSS_TIERS, BOSSES, bossesIn, getBoss, TIER_ANTES, tierForAnte } from "./bosses"
 export type { Category } from "./categories"
 export {
   CATEGORIES,

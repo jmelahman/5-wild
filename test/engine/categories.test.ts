@@ -64,6 +64,15 @@ describe("word categories", () => {
     }
   })
 
+  it("states its rule in words as well as in code", () => {
+    // The codex reads these out, and a shape is the one thing in the game a
+    // player cannot work out by looking: `matches` is a predicate with no
+    // player-facing form. An empty string here is a shape nobody can learn.
+    for (const category of CATEGORIES) {
+      expect(category.text.length, category.id).toBeGreaterThan(0)
+    }
+  })
+
   it("grades the step by how hard the shape is to hit", () => {
     const chips = CATEGORIES.map((category) => category.chips)
     const mult = CATEGORIES.map((category) => category.mult)

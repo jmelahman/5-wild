@@ -1419,6 +1419,115 @@ button {
   color: var(--fg);
 }
 
+/* ----------------------------------------------------------------- codex */
+
+/*
+ * The catalogue is long — every joker, boss and shape in the game — so entries
+ * are denser than the rules sheet and lean on a left edge rather than on gaps
+ * to separate themselves. The edge takes the rarity colour where there is one,
+ * which is what lets the joker list be skimmed by tier without reading it.
+ */
+.codex-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.375rem 0 0.375rem 0.625rem;
+  border-left: 2px solid var(--rare, var(--line));
+}
+
+.codex-entry-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--fg);
+  font-weight: 700;
+}
+
+/* The price, or what a level is worth. Never wraps under the name it belongs to. */
+.codex-note {
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.codex-text {
+  font-size: 0.8125rem;
+}
+
+/*
+ * A band label inside a section — a rarity, or a boss tier. Sticky, because the
+ * joker list is longer than the sheet and losing track of which rarity you are
+ * reading is the one way this screen fails to answer the question you opened it
+ * with.
+ */
+.codex-group {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin-top: 0.25rem;
+  padding: 0.25rem 0;
+  background: var(--panel);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--rare, var(--muted));
+}
+
+.codex-blurb {
+  margin: 0 0 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+/*
+ * Sections are shut until asked for. Laid out flat the catalogue runs to ten
+ * phone screens, which is fine to read once and useless for the thing it is
+ * really for: looking one card up mid-run. Closed, the whole screen is seven
+ * rows and a count.
+ */
+.codex-section {
+  border-top: 1px solid var(--line);
+}
+
+.codex-summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.625rem 0;
+  cursor: pointer;
+  font-weight: 700;
+  list-style: none;
+}
+
+/* Safari still draws its own marker through `list-style`. */
+.codex-summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Points down when the section is open, right when it is shut. */
+.codex-summary::before {
+  content: "▸";
+  margin-right: 0.375rem;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+
+.codex-section[open] > .codex-summary::before {
+  transform: rotate(90deg);
+}
+
+.codex-count {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
 .sheet-actions {
   display: flex;
   flex-direction: column;

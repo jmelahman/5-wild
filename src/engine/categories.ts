@@ -23,6 +23,17 @@ import type { RunState } from "./state"
 export type Category = {
   id: string
   name: string
+  /**
+   * The rule, in words, for the codex to read out.
+   *
+   * Carried beside the predicate rather than written on the screen that shows
+   * it, for the reason the whole content layer is: a shape whose description
+   * lives somewhere else drifts away from the shape it describes. This is the
+   * only table where that mattered enough to add a field — a joker says what it
+   * does on its own card, but `matches` is a function, and a player who has
+   * never seen the source has no way at all to find out what Cluster means.
+   */
+  text: string
   /** What one level above the first adds to the base, before jokers see it. */
   chips: number
   mult: number
@@ -45,6 +56,7 @@ export const CATEGORIES: readonly Category[] = [
   {
     id: "alphabetical",
     name: "Alphabetical",
+    text: "Its letters never go backwards",
     chips: 40,
     mult: 5,
     // "" sorts below every letter, so the missing predecessor at index 0 is
@@ -54,6 +66,7 @@ export const CATEGORIES: readonly Category[] = [
   {
     id: "vowel_heavy",
     name: "Vowel Heavy",
+    text: "Three or more vowels",
     chips: 32,
     mult: 4,
     matches: (word) => [...word].filter(isVowel).length >= 3,
@@ -61,6 +74,7 @@ export const CATEGORIES: readonly Category[] = [
   {
     id: "cluster",
     name: "Cluster",
+    text: "Three consonants in a row",
     chips: 25,
     mult: 3,
     matches: (word) => {
@@ -75,6 +89,7 @@ export const CATEGORIES: readonly Category[] = [
   {
     id: "twinned",
     name: "Twinned",
+    text: "Some letter appears twice",
     chips: 20,
     mult: 3,
     matches: (word) => new Set(word).size < word.length,
@@ -84,6 +99,7 @@ export const CATEGORIES: readonly Category[] = [
     // per level because it is the shape you get for free by playing well.
     id: "distinct",
     name: "Distinct",
+    text: "No letter repeats",
     chips: 15,
     mult: 2,
     matches: (word) => new Set(word).size === word.length,

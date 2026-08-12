@@ -7,6 +7,7 @@ import { Music } from "./music"
 import type { Chrome, Handlers } from "./views"
 import {
   blindView,
+  codexView,
   endView,
   helpView,
   introView,
@@ -61,7 +62,7 @@ export class App {
   /** True when there is no run to return to and the front door is showing. */
   private atTitle: boolean
   /** The modal on top of everything, if any. */
-  private overlay: "help" | "menu" | "quit" | null = null
+  private overlay: "help" | "codex" | "menu" | "quit" | null = null
   /** The joker whose tip is currently up, so re-entering it is not a change. */
   private hovered: HTMLElement | null = null
   private readonly sound = new Sound()
@@ -621,6 +622,10 @@ export class App {
       markHelpSeen()
       this.render()
     },
+    openCodex: () => {
+      this.overlay = "codex"
+      this.render()
+    },
     closeOverlay: () => {
       this.overlay = null
       this.render()
@@ -673,11 +678,13 @@ export class App {
     const sheet =
       this.overlay === "help"
         ? helpView(this.handlers)
-        : this.overlay === "menu"
-          ? menuView(this.handlers, this.chrome)
-          : this.overlay === "quit"
-            ? quitView(this.state, this.handlers)
-            : packView(this.state, this.handlers)
+        : this.overlay === "codex"
+          ? codexView(this.handlers)
+          : this.overlay === "menu"
+            ? menuView(this.handlers, this.chrome)
+            : this.overlay === "quit"
+              ? quitView(this.state, this.handlers)
+              : packView(this.state, this.handlers)
 
     clear(this.root).append(view)
     if (sheet) this.root.append(sheet)

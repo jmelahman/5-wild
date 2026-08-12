@@ -26,7 +26,7 @@ export type BossTier = "early" | "mid" | "late"
  * Which antes each band owns. Late runs to `ANTES` rather than to 8 so that
  * lengthening the run cannot leave an ante without a band to draw from.
  */
-const TIER_ANTES: Record<BossTier, { first: number; last: number }> = {
+export const TIER_ANTES: Record<BossTier, { first: number; last: number }> = {
   early: { first: 1, last: 3 },
   mid: { first: 4, last: 6 },
   late: { first: 7, last: ANTES },
@@ -214,6 +214,9 @@ export function tierForAnte(ante: number): BossTier {
   if (ante <= TIER_ANTES.mid.last) return "mid"
   return "late"
 }
+
+/** The bands in the order a run meets them, for anything that lists all three. */
+export const BOSS_TIERS: readonly BossTier[] = ["early", "mid", "late"]
 
 export const bossesIn = (tier: BossTier): readonly Boss[] =>
   BOSSES.filter((boss) => boss.tier === tier)

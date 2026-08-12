@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import type { Action, RunState, WordSource } from "../../src/engine"
 import {
   ANTES,
+  BOSS_TIERS,
   BOSSES,
   bossesIn,
   getBoss,
@@ -201,6 +202,15 @@ describe("boss blinds", () => {
         expect(getBoss(id)?.tier).toBe(tierForAnte(ante))
       }
     }
+  })
+
+  it("accounts for every boss in the three bands", () => {
+    // `BOSS_TIERS` is what the codex walks to list them, so a band missing from
+    // it is a boss the player has no way to read about — and one `bossForAnte`
+    // would still deal them.
+    const banded = BOSS_TIERS.flatMap((tier) => [...bossesIn(tier)])
+    expect(banded).toHaveLength(BOSSES.length)
+    expect(new Set(banded.map((boss) => boss.id)).size).toBe(BOSSES.length)
   })
 
   it("draws a different set from run to run, which banding is what buys", () => {
