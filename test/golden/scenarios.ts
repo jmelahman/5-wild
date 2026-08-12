@@ -325,4 +325,60 @@ export const SCENARIOS: readonly Scenario[] = [
       return null
     },
   },
+  {
+    name: "pack-opener",
+    covers: "packs bought, held open across the shop, and chosen from",
+    seed: 5,
+    next: (state, words) => {
+      if (state.phase === "blind") {
+        // One probe, then the answer. Packs deal all three card lines, so the
+        // sort keys off modifiers first and levels second rather than off any
+        // single one — whichever the packs happened to hand this run, the probe
+        // is the word that collects the most of it.
+        const probes =
+          state.blind.guesses.length === 0
+            ? [...decoys(state, words, 11)].sort(
+                (a, b) =>
+                  modTiles(state, b) - modTiles(state, a) ||
+                  levelValue(state, b) - levelValue(state, a),
+              )
+            : []
+        return firstPlayable(state, words, [...probes, state.blind.answer])
+      }
+      if (state.phase === "reward") return [{ type: "collect" }]
+      if (state.phase === "shop") {
+        // An open pack holds the shop, so it has to be resolved before anything
+        // else is even legal. Taking the first card the engine accepts is the
+        // whole point of recording this bot: a pack applies its card for free,
+        // and a vector that only ever *bought* one could not tell whether the
+        // card that came out of it ever landed.
+        if (state.pack) {
+          // Ante one is walked away from on purpose, for the same reason the
+          // shopkeeper's backspace is there: the shelf no longer sells a pack
+          // that cannot be opened, so nothing these bots do would otherwise
+          // ever produce a skip — and a forfeit that quietly handed the gold
+          // back would then be outside the contract entirely.
+          if (state.ante === 1) return [{ type: "skip_pack" }]
+          const index = state.pack.options.findIndex(
+            (item, slot) => item && accepted(state, words, [{ type: "pick_pack", index: slot }]),
+          )
+          return index >= 0 ? [{ type: "pick_pack", index }] : [{ type: "skip_pack" }]
+        }
+        const items = state.shop?.items ?? []
+        // Two jokers before the packs, for the same reason the etcher wants
+        // them: packs deal cards that add to a score, and a run with nothing to
+        // multiply by stalls in ante two no matter how good the cards were.
+        const order =
+          state.jokers.length < 2 ? (["joker", "pack"] as const) : (["pack", "joker"] as const)
+        for (const kind of order) {
+          const index = items.findIndex((item) => item?.kind === kind && item.cost <= state.gold)
+          if (index >= 0 && accepted(state, words, [{ type: "buy", index }])) {
+            return [{ type: "buy", index }]
+          }
+        }
+        return [{ type: "next_blind" }]
+      }
+      return null
+    },
+  },
 ]

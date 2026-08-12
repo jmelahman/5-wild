@@ -12,6 +12,7 @@ import {
   introView,
   menuView,
   meterFill,
+  packView,
   quitView,
   rewardView,
   shopView,
@@ -578,6 +579,8 @@ export class App {
     sell: (index) => this.dispatch({ type: "sell_joker", index }),
     reroll: () => this.dispatch({ type: "reroll" }),
     nextBlind: () => this.dispatch({ type: "next_blind" }),
+    pickPack: (index) => this.dispatch({ type: "pick_pack", index }),
+    skipPack: () => this.dispatch({ type: "skip_pack" }),
     newRun: () => {
       this.state = startRun(rootSeed(), this.words).state
       this.atTitle = false
@@ -663,6 +666,10 @@ export class App {
 
     // Overlays sit beside the screen rather than replacing it, so the board is
     // still visible behind the sheet and the player keeps their bearings.
+    //
+    // A menu the player asked for outranks the open pack, so they can still quit
+    // or read the rules mid-decision; the pack is waiting underneath when they
+    // close it, because the engine will not let the shop move on until it is.
     const sheet =
       this.overlay === "help"
         ? helpView(this.handlers)
@@ -670,7 +677,7 @@ export class App {
           ? menuView(this.handlers, this.chrome)
           : this.overlay === "quit"
             ? quitView(this.state, this.handlers)
-            : null
+            : packView(this.state, this.handlers)
 
     clear(this.root).append(view)
     if (sheet) this.root.append(sheet)

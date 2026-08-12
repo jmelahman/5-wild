@@ -39,16 +39,18 @@ export type { Joker, JokerCtx } from "./jokers"
 export { JOKER_BY_ID, JOKERS } from "./jokers"
 export type { ModId, Modifier } from "./modifiers"
 export { MODIFIER_BY_ID, MODIFIERS, modifierOf } from "./modifiers"
+export type { Pack, PackId } from "./packs"
+export { PACK_BY_ID, PACKS } from "./packs"
 export type { Range } from "./ranges"
 export {
   CHIPS_PER_LEVEL,
   liveRanges,
   RANGE_BY_ID,
+  RANGES,
   rangeBonus,
   rangeChips,
   rangeLevelOf,
   rangeOf,
-  RANGES,
 } from "./ranges"
 export { reduce, startRun } from "./reduce"
 export { derive } from "./rng"

@@ -65,7 +65,7 @@ describe("the shop layout", () => {
     const base = startRun(3, realWords).state
     const state: RunState = { ...base, jokers: JOKERS.map((joker) => ({ id: joker.id })) }
     const items = rollShop(state, derive(3, "shop", 1, 0, 0), 0).items
-    expect(items).toHaveLength(4)
+    expect(items).toHaveLength(5)
     expect(items.map((item) => item?.kind)).not.toContain("joker")
     for (const item of items) expect(item).not.toBeNull()
   })

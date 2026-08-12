@@ -104,7 +104,7 @@ describe("economy", () => {
     const collected = apply(won, [{ type: "collect" }], words)
     expect(collected.gold).toBe(before + 8)
     expect(collected.phase).toBe("shop")
-    expect(collected.shop?.items).toHaveLength(4)
+    expect(collected.shop?.items).toHaveLength(5)
   })
 })
 

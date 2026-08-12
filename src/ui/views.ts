@@ -5,10 +5,10 @@ import {
   BLIND_PAYOUT,
   BLINDS_PER_ANTE,
   CATEGORY_BY_ID,
-  categoryOf,
   CHIPS_PER_LEVEL,
   CONSUMABLE_BY_ID,
   CONSUMABLE_SLOTS,
+  categoryOf,
   ETCHING_BY_ID,
   GOLD_PER_UNUSED_GUESS,
   getBoss,
@@ -22,6 +22,8 @@ import {
   MODIFIER_BY_ID,
   MODIFIERS,
   modifierOf,
+  PACK_BY_ID,
+  PACKS,
   RANGE_BY_ID,
   rangeChips,
   rangeLevelOf,
@@ -41,6 +43,8 @@ export type Handlers = {
   sell: (index: number) => void
   reroll: () => void
   nextBlind: () => void
+  pickPack: (index: number) => void
+  skipPack: () => void
   newRun: () => void
   inspect: (text: string) => void
   play: () => void
@@ -443,14 +447,27 @@ export function rewardView(state: RunState, on: Handlers): HTMLElement {
 
 /* ---------------------------------------------------------------- the shop */
 
-function shopItemCard(item: ShopItem, index: number, state: RunState, on: Handlers): HTMLElement {
-  const affordable = state.gold >= item.cost
-
+/**
+ * What a card says about itself. Split out from the card because a pack lays out
+ * the same items the shop sells, and a Steel E ought to read identically whether
+ * it is being bought or being chosen.
+ */
+function describeItem(
+  item: ShopItem,
+  state: RunState,
+): { title: string; text: string; rarity: string } {
   let title = ""
   let text = ""
   let rarity = "common"
 
-  if (item.kind === "joker") {
+  if (item.kind === "pack") {
+    const pack = PACK_BY_ID.get(item.id)
+    title = pack?.name ?? "Pack"
+    text = pack?.text ?? ""
+    // Packs read as the rare thing on the shelf because they are the dearest and
+    // the only one that asks a question back.
+    rarity = "rare"
+  } else if (item.kind === "joker") {
     const joker = JOKER_BY_ID.get(item.id)
     title = joker?.name ?? item.id
     text = joker?.text ?? ""
@@ -493,10 +510,19 @@ function shopItemCard(item: ShopItem, index: number, state: RunState, on: Handle
     text = etching?.text ?? ""
   }
 
+  return { title, text, rarity }
+}
+
+function shopItemCard(item: ShopItem, index: number, state: RunState, on: Handlers): HTMLElement {
+  const affordable = state.gold >= item.cost
+  const { title, text, rarity } = describeItem(item, state)
+
   return h(
     "button",
     {
-      class: `shop-item rarity-${rarity} ${affordable ? "" : "broke"}`,
+      class: `shop-item rarity-${rarity} ${item.kind === "pack" ? "pack" : ""} ${
+        affordable ? "" : "broke"
+      }`,
       // The stock deals in one card at a time rather than appearing all at once,
       // which is what makes a reroll feel like being dealt a new hand.
       style: `--deal:${index}`,
@@ -506,6 +532,67 @@ function shopItemCard(item: ShopItem, index: number, state: RunState, on: Handle
     h("div", { class: "shop-item-name" }, title),
     h("div", { class: "shop-item-text" }, text),
     h("div", { class: "shop-item-cost" }, money(item.cost)),
+  )
+}
+
+/**
+ * An open pack, laid out over the shop.
+ *
+ * Deliberately not the ordinary `overlay` shell: that one dismisses when the
+ * backdrop is tapped, which here would forfeit a pack that has already been paid
+ * for. Walking away has to be a button you meant to press.
+ */
+export function packView(state: RunState, on: Handlers): HTMLElement | null {
+  const open = state.pack
+  if (!open) return null
+  const pack = PACK_BY_ID.get(open.id)
+  const left = open.options.filter(Boolean).length
+
+  return h(
+    "div",
+    { class: "overlay pack-overlay" },
+    h(
+      "div",
+      { class: "sheet pack-sheet" },
+      h("h2", { class: "sheet-title" }, pack?.name ?? "Pack"),
+      h(
+        "p",
+        { class: "pack-hint" },
+        open.picks > 1 ? `Choose ${open.picks} of ${left}` : `Choose one of ${left}`,
+      ),
+      h(
+        "div",
+        { class: "pack-options" },
+        ...open.options.map((item, index) => {
+          if (!item) return h("div", { class: "shop-item sold", style: `--deal:${index}` }, "taken")
+          const { title, text, rarity } = describeItem(item, state)
+          return h(
+            "button",
+            {
+              class: `shop-item rarity-${rarity}`,
+              style: `--deal:${index}`,
+              type: "button",
+              onclick: () => on.pickPack(index),
+            },
+            h("div", { class: "shop-item-name" }, title),
+            h("div", { class: "shop-item-text" }, text),
+            // The price it would have carried in the stock, struck through: the
+            // pack already charged for it, and seeing what it would have cost is
+            // most of what makes opening one feel like a win.
+            h("div", { class: "shop-item-cost free" }, money(item.cost)),
+          )
+        }),
+      ),
+      h(
+        "div",
+        { class: "shop-actions" },
+        h(
+          "button",
+          { class: "secondary", type: "button", onclick: () => on.skipPack() },
+          open.picks > 1 ? "Take no more" : "Skip",
+        ),
+      ),
+    ),
   )
 }
 
@@ -739,6 +826,14 @@ export function helpView(on: Handlers): HTMLElement {
         ` Up to ${JOKER_SLOTS}, and they fire left to right, so the order you buy them
          in matters. Tap one to read it.`,
       ),
+      rule(
+        "Packs",
+        ` One slot sells a choice rather than a card. A pack lays three out and you
+         keep one, free — the rest of the shop waits until you have picked or
+         walked away, and walking away keeps nothing.`,
+      ),
+      // From the table, for the same reason the modifier list below is.
+      ...PACKS.map((pack) => rule(pack.name, ` ${pack.text}.`)),
       h("h3", { class: "sheet-heading" }, "Letter mods"),
       h(
         "p",

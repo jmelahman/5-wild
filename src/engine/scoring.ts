@@ -97,7 +97,9 @@ export type ScoreResult = {
  * compete — an etched E in a levelled A–E collects both.
  */
 export function baseChips(state: RunState, letter: string): number {
-  return (LETTER_CHIPS[letter] ?? 0) + (state.letters[letter]?.etch ?? 0) + rangeChips(state, letter)
+  return (
+    (LETTER_CHIPS[letter] ?? 0) + (state.letters[letter]?.etch ?? 0) + rangeChips(state, letter)
+  )
 }
 
 /**

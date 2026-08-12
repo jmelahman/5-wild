@@ -18,11 +18,13 @@ import { CONSUMABLE_BY_ID } from "./consumables"
 import { ETCHING_BY_ID } from "./etchings"
 import type { Joker, JokerCtx } from "./jokers"
 import { JOKER_BY_ID } from "./jokers"
+import { MODIFIER_BY_ID } from "./modifiers"
+import { PACK_BY_ID } from "./packs"
 import { RANGE_BY_ID, rangeLevelOf } from "./ranges"
 import type { Rng } from "./rng"
 import { derive, pick } from "./rng"
 import { scoreGuess } from "./scoring"
-import { rerollCost, rollShop, sellValue } from "./shop"
+import { packContents, rerollCost, rollShop, sellValue } from "./shop"
 import type {
   Action,
   BlindIndex,
@@ -31,6 +33,7 @@ import type {
   LetterState,
   Reduced,
   RunState,
+  ShopItem,
   WordSource,
 } from "./state"
 import { computeFeedback, toTiles } from "./words"
@@ -183,6 +186,92 @@ function resolveBlind(state: RunState, events: GameEvent[]): void {
   state.reward = { base, unusedGuesses, interest, total: base + unusedGuesses + interest }
   state.phase = "reward"
   events.push({ type: "blind_won" })
+}
+
+/**
+ * Commit an item to the run. Returns a reason it could not be, or null when it
+ * landed.
+ *
+ * Deliberately touches neither the gold nor the shelf it came off: what an item
+ * *does* is the same whether it was paid for in the stock or chosen out of a
+ * pack, and only the caller knows which of those happened.
+ */
+function applyItem(state: RunState, item: ShopItem): string | null {
+  switch (item.kind) {
+    case "joker": {
+      if (state.jokers.length >= JOKER_SLOTS) return "no joker slots free"
+      state.jokers.push({ id: item.id })
+      return null
+    }
+    case "consumable": {
+      if (state.consumables.length >= CONSUMABLE_SLOTS) return "no card slots free"
+      state.consumables.push({ id: item.id })
+      return null
+    }
+    case "etch": {
+      const etching = ETCHING_BY_ID.get(item.id)
+      if (!etching) return "unknown etching"
+      // Burnt-out letters are skipped rather than etched: they cannot be typed
+      // again, so the chips would be unspendable and the keyboard would wear a
+      // "+2" pip on a dead key.
+      for (const letter of etching.letters) {
+        const entry = state.letters[letter]
+        if (entry && !entry.destroyed) entry.etch += etching.chips
+      }
+      return null
+    }
+    case "level": {
+      const category = CATEGORY_BY_ID.get(item.id)
+      if (!category) return "unknown category"
+      // Written on first purchase rather than initialised at run start, so a run
+      // that never levels anything keeps `levels` out of its save.
+      state.levels = { ...state.levels, [category.id]: levelOf(state, category.id) + 1 }
+      return null
+    }
+    case "range": {
+      const range = RANGE_BY_ID.get(item.id)
+      if (!range) return "unknown range"
+      // Stored on the run rather than pushed out into `letters`, unlike an
+      // etching: a range level has to keep applying to a letter that is burnt
+      // out and later restored, and writing it per letter would lose that. It
+      // also means the save carries four numbers instead of 26.
+      state.ranges = { ...state.ranges, [range.id]: rangeLevelOf(state, range.id) + 1 }
+      return null
+    }
+    case "mod": {
+      const entry = state.letters[item.letter]
+      if (!entry) return "unknown letter"
+      // A letter holds one modifier, so this replaces rather than stacks — the
+      // card says so before the gold is spent.
+      entry.mod = item.id
+      return null
+    }
+    case "pack":
+      // Packs open rather than apply, which the caller has to handle because it
+      // needs a stream to roll the contents from. Reaching here means one was
+      // nested inside another, which nothing produces.
+      return "a pack cannot come out of a pack"
+  }
+}
+
+/** What the event log calls an item, for the one line that announces a pick. */
+function itemLabel(item: ShopItem): string {
+  switch (item.kind) {
+    case "joker":
+      return JOKER_BY_ID.get(item.id)?.name ?? item.id
+    case "consumable":
+      return CONSUMABLE_BY_ID.get(item.id)?.name ?? item.id
+    case "etch":
+      return ETCHING_BY_ID.get(item.id)?.name ?? item.id
+    case "level":
+      return CATEGORY_BY_ID.get(item.id)?.name ?? item.id
+    case "range":
+      return RANGE_BY_ID.get(item.id)?.name ?? item.id
+    case "mod":
+      return `${MODIFIER_BY_ID.get(item.id)?.name ?? item.id} ${item.letter.toUpperCase()}`
+    case "pack":
+      return PACK_BY_ID.get(item.id)?.name ?? item.id
+  }
 }
 
 const PLACEHOLDER_BLIND: BlindState = {
@@ -392,59 +481,35 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
 
     case "buy": {
       if (next.phase !== "shop" || !next.shop) return reject("not in the shop")
+      if (next.pack) return reject("finish the open pack first")
       const item = next.shop.items[action.index]
       if (!item) return reject("already bought")
       if (next.gold < item.cost) return reject("not enough gold")
 
-      switch (item.kind) {
-        case "joker": {
-          if (next.jokers.length >= JOKER_SLOTS) return reject("no joker slots free")
-          next.jokers.push({ id: item.id })
-          break
-        }
-        case "consumable": {
-          if (next.consumables.length >= CONSUMABLE_SLOTS) return reject("no card slots free")
-          next.consumables.push({ id: item.id })
-          break
-        }
-        case "etch": {
-          const etching = ETCHING_BY_ID.get(item.id)
-          if (!etching) return reject("unknown etching")
-          // Burnt-out letters are skipped rather than etched: they cannot be
-          // typed again, so the chips would be unspendable and the keyboard
-          // would wear a "+2" pip on a dead key.
-          for (const letter of etching.letters) {
-            const entry = next.letters[letter]
-            if (entry && !entry.destroyed) entry.etch += etching.chips
-          }
-          break
-        }
-        case "level": {
-          const category = CATEGORY_BY_ID.get(item.id)
-          if (!category) return reject("unknown category")
-          // Written on first purchase rather than initialised at run start, so a
-          // run that never levels anything keeps `levels` out of its save.
-          next.levels = { ...next.levels, [category.id]: levelOf(next, category.id) + 1 }
-          break
-        }
-        case "range": {
-          const range = RANGE_BY_ID.get(item.id)
-          if (!range) return reject("unknown range")
-          // Stored on the run rather than pushed out into `letters`, unlike an
-          // etching: a range level has to keep applying to a letter that is
-          // burnt out and later restored, and writing it per letter would lose
-          // that. It also means the save carries four numbers instead of 26.
-          next.ranges = { ...next.ranges, [range.id]: rangeLevelOf(next, range.id) + 1 }
-          break
-        }
-        case "mod": {
-          const entry = next.letters[item.letter]
-          if (!entry) return reject("unknown letter")
-          // A letter holds one modifier, so this replaces rather than stacks —
-          // the shop card says so before the gold is spent.
-          entry.mod = item.id
-          break
-        }
+      // A pack is the one item that is not applied when it is bought. It opens,
+      // and the gold buys the choice rather than any particular card in it —
+      // which is why the contents are rolled here, at open time, and why the
+      // reroll count is in the coordinate: rerolling the shelf to get a
+      // different pack has to get different cards in it too.
+      if (item.kind === "pack") {
+        const pack = PACK_BY_ID.get(item.id)
+        if (!pack) return reject("unknown pack")
+        const options = packContents(
+          next,
+          pack,
+          derive(next.seed, "pack", next.ante, next.blindIndex, next.shop.rerolls, action.index),
+        )
+        if (options.length === 0) return reject("nothing left to put in that pack")
+        next.pack = { id: pack.id, options, picks: Math.min(pack.picks, options.length) }
+        events.push({
+          type: "pack_opened",
+          id: pack.id,
+          name: pack.name,
+          options: options.length,
+        })
+      } else {
+        const reason = applyItem(next, item)
+        if (reason) return reject(reason)
       }
 
       next.gold -= item.cost
@@ -453,8 +518,33 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
       return { state: next, events }
     }
 
+    case "pick_pack": {
+      if (!next.pack) return reject("no pack is open")
+      const item = next.pack.options[action.index]
+      if (!item) return reject("already taken")
+      // Nothing is charged — the pack was. A pick can still be refused, though,
+      // by whatever the item itself needs: a joker with no slot free is the
+      // ordinary case, and the pack stays open so the choice can go elsewhere.
+      const reason = applyItem(next, item)
+      if (reason) return reject(reason)
+
+      next.pack.options[action.index] = null
+      next.pack.picks -= 1
+      events.push({ type: "pack_picked", id: next.pack.id, label: itemLabel(item) })
+      if (next.pack.picks <= 0) next.pack = null
+      return { state: next, events }
+    }
+
+    case "skip_pack": {
+      if (!next.pack) return reject("no pack is open")
+      events.push({ type: "pack_picked", id: next.pack.id, label: null })
+      next.pack = null
+      return { state: next, events }
+    }
+
     case "sell_joker": {
       if (next.phase !== "shop") return reject("you can only sell in the shop")
+      if (next.pack) return reject("finish the open pack first")
       const instance = next.jokers[action.index]
       if (!instance) return reject("no such joker")
       const value = sellValue(JOKER_BY_ID.get(instance.id)?.cost ?? 4)
@@ -466,6 +556,7 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
 
     case "reroll": {
       if (next.phase !== "shop" || !next.shop) return reject("not in the shop")
+      if (next.pack) return reject("finish the open pack first")
       const cost = rerollCost(next.shop)
       if (next.gold < cost) return reject("not enough gold")
       next.gold -= cost
@@ -482,6 +573,7 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
 
     case "next_blind": {
       if (next.phase !== "shop") return reject("not in the shop")
+      if (next.pack) return reject("finish the open pack first")
       if (next.blindIndex === 2) {
         next.ante += 1
         next.blindIndex = 0

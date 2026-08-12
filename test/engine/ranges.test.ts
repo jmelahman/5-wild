@@ -7,11 +7,11 @@ import {
   LETTER_CHIPS,
   liveRanges,
   RANGE_BY_ID,
+  RANGES,
   rangeBonus,
   rangeChips,
   rangeLevelOf,
   rangeOf,
-  RANGES,
   startRun,
 } from "../../src/engine"
 

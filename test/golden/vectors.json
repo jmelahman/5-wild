@@ -3,7 +3,7 @@
     "name": "greedy-solver",
     "covers": "the solve bonus at its largest, and a shop purchase every time one is affordable",
     "seed": 1,
-    "contentVersion": 8,
+    "contentVersion": 9,
     "actions": [
       {
         "type": "type_letter",
@@ -940,7 +940,7 @@
     "name": "chip-farmer",
     "covers": "grays scoring, the guess budget spent down to one, and the solve bonus at its smallest",
     "seed": 7,
-    "contentVersion": 8,
+    "contentVersion": 9,
     "actions": [
       {
         "type": "type_letter",
@@ -1367,7 +1367,7 @@
     "name": "banker",
     "covers": "a pile banked and then multiplied — the line the scoring rule exists for",
     "seed": 2024,
-    "contentVersion": 8,
+    "contentVersion": 9,
     "actions": [
       {
         "type": "type_letter",
@@ -1938,7 +1938,7 @@
     "name": "never-solves",
     "covers": "running a blind out of guesses, and the run ending in defeat",
     "seed": 42,
-    "contentVersion": 8,
+    "contentVersion": 9,
     "actions": [
       {
         "type": "type_letter",
@@ -2155,7 +2155,7 @@
     "name": "shopkeeper",
     "covers": "reroll, sell, consumables used rather than hoarded, and a corrected draft",
     "seed": 1234,
-    "contentVersion": 8,
+    "contentVersion": 9,
     "actions": [
       {
         "type": "type_letter",
@@ -2553,7 +2553,7 @@
     "name": "letter-smith",
     "covers": "letter modifiers bought, and then landed on tiles often enough to score",
     "seed": 9,
-    "contentVersion": 8,
+    "contentVersion": 9,
     "actions": [
       {
         "type": "type_letter",
@@ -3707,7 +3707,7 @@
     "name": "leveller",
     "covers": "category levels bought, stacked, and paid out on the guesses that match them",
     "seed": 77,
-    "contentVersion": 8,
+    "contentVersion": 9,
     "actions": [
       {
         "type": "type_letter",
@@ -5536,7 +5536,7 @@
     "name": "etcher",
     "covers": "alphabet range levels and etchings stacking on the same letters",
     "seed": 21,
-    "contentVersion": 8,
+    "contentVersion": 9,
     "actions": [
       {
         "type": "type_letter",
@@ -7361,6 +7361,2282 @@
       ],
       "grown": [
         "snowball:mult=188"
+      ],
+      "destroyed": []
+    }
+  },
+  {
+    "name": "pack-opener",
+    "covers": "packs bought, held open across the shop, and chosen from",
+    "seed": 5,
+    "contentVersion": 9,
+    "actions": [
+      {
+        "type": "type_letter",
+        "letter": "a"
+      },
+      {
+        "type": "type_letter",
+        "letter": "c"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "e"
+      },
+      {
+        "type": "type_letter",
+        "letter": "d"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "type_letter",
+        "letter": "h"
+      },
+      {
+        "type": "type_letter",
+        "letter": "u"
+      },
+      {
+        "type": "type_letter",
+        "letter": "b"
+      },
+      {
+        "type": "type_letter",
+        "letter": "b"
+      },
+      {
+        "type": "type_letter",
+        "letter": "y"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "collect"
+      },
+      {
+        "type": "buy",
+        "index": 0
+      },
+      {
+        "type": "next_blind"
+      },
+      {
+        "type": "type_letter",
+        "letter": "a"
+      },
+      {
+        "type": "type_letter",
+        "letter": "c"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "e"
+      },
+      {
+        "type": "type_letter",
+        "letter": "d"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "l"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "collect"
+      },
+      {
+        "type": "buy",
+        "index": 0
+      },
+      {
+        "type": "next_blind"
+      },
+      {
+        "type": "type_letter",
+        "letter": "a"
+      },
+      {
+        "type": "type_letter",
+        "letter": "c"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "e"
+      },
+      {
+        "type": "type_letter",
+        "letter": "d"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "type_letter",
+        "letter": "h"
+      },
+      {
+        "type": "type_letter",
+        "letter": "e"
+      },
+      {
+        "type": "type_letter",
+        "letter": "d"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "collect"
+      },
+      {
+        "type": "buy",
+        "index": 4
+      },
+      {
+        "type": "skip_pack"
+      },
+      {
+        "type": "buy",
+        "index": 0
+      },
+      {
+        "type": "next_blind"
+      },
+      {
+        "type": "type_letter",
+        "letter": "a"
+      },
+      {
+        "type": "type_letter",
+        "letter": "c"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "e"
+      },
+      {
+        "type": "type_letter",
+        "letter": "d"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "type_letter",
+        "letter": "c"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "p"
+      },
+      {
+        "type": "type_letter",
+        "letter": "e"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "collect"
+      },
+      {
+        "type": "buy",
+        "index": 0
+      },
+      {
+        "type": "next_blind"
+      },
+      {
+        "type": "type_letter",
+        "letter": "a"
+      },
+      {
+        "type": "type_letter",
+        "letter": "c"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "e"
+      },
+      {
+        "type": "type_letter",
+        "letter": "d"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "type_letter",
+        "letter": "h"
+      },
+      {
+        "type": "type_letter",
+        "letter": "a"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "y"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "collect"
+      },
+      {
+        "type": "buy",
+        "index": 4
+      },
+      {
+        "type": "pick_pack",
+        "index": 0
+      },
+      {
+        "type": "next_blind"
+      },
+      {
+        "type": "type_letter",
+        "letter": "b"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "l"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "r"
+      },
+      {
+        "type": "type_letter",
+        "letter": "k"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "collect"
+      },
+      {
+        "type": "buy",
+        "index": 4
+      },
+      {
+        "type": "pick_pack",
+        "index": 0
+      },
+      {
+        "type": "next_blind"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "r"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "type_letter",
+        "letter": "d"
+      },
+      {
+        "type": "type_letter",
+        "letter": "r"
+      },
+      {
+        "type": "type_letter",
+        "letter": "a"
+      },
+      {
+        "type": "type_letter",
+        "letter": "f"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "collect"
+      },
+      {
+        "type": "buy",
+        "index": 4
+      },
+      {
+        "type": "pick_pack",
+        "index": 0
+      },
+      {
+        "type": "next_blind"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "r"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "type_letter",
+        "letter": "k"
+      },
+      {
+        "type": "type_letter",
+        "letter": "n"
+      },
+      {
+        "type": "type_letter",
+        "letter": "e"
+      },
+      {
+        "type": "type_letter",
+        "letter": "e"
+      },
+      {
+        "type": "type_letter",
+        "letter": "l"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "collect"
+      },
+      {
+        "type": "buy",
+        "index": 4
+      },
+      {
+        "type": "pick_pack",
+        "index": 0
+      },
+      {
+        "type": "next_blind"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "r"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "type_letter",
+        "letter": "p"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "i"
+      },
+      {
+        "type": "type_letter",
+        "letter": "l"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "collect"
+      },
+      {
+        "type": "buy",
+        "index": 4
+      },
+      {
+        "type": "pick_pack",
+        "index": 0
+      },
+      {
+        "type": "next_blind"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "r"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "type_letter",
+        "letter": "m"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "r"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "collect"
+      },
+      {
+        "type": "buy",
+        "index": 4
+      },
+      {
+        "type": "pick_pack",
+        "index": 0
+      },
+      {
+        "type": "next_blind"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "r"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "h"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "collect"
+      },
+      {
+        "type": "buy",
+        "index": 4
+      },
+      {
+        "type": "pick_pack",
+        "index": 0
+      },
+      {
+        "type": "next_blind"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "r"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "type_letter",
+        "letter": "p"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "type_letter",
+        "letter": "e"
+      },
+      {
+        "type": "type_letter",
+        "letter": "d"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "collect"
+      },
+      {
+        "type": "buy",
+        "index": 4
+      },
+      {
+        "type": "pick_pack",
+        "index": 0
+      },
+      {
+        "type": "next_blind"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "r"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "h"
+      },
+      {
+        "type": "type_letter",
+        "letter": "a"
+      },
+      {
+        "type": "type_letter",
+        "letter": "n"
+      },
+      {
+        "type": "type_letter",
+        "letter": "k"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "collect"
+      },
+      {
+        "type": "buy",
+        "index": 4
+      },
+      {
+        "type": "pick_pack",
+        "index": 0
+      },
+      {
+        "type": "next_blind"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "r"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "type_letter",
+        "letter": "d"
+      },
+      {
+        "type": "type_letter",
+        "letter": "i"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "c"
+      },
+      {
+        "type": "type_letter",
+        "letter": "h"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "collect"
+      },
+      {
+        "type": "buy",
+        "index": 4
+      },
+      {
+        "type": "pick_pack",
+        "index": 0
+      },
+      {
+        "type": "next_blind"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "r"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "type_letter",
+        "letter": "m"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "a"
+      },
+      {
+        "type": "type_letter",
+        "letter": "n"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "collect"
+      },
+      {
+        "type": "buy",
+        "index": 4
+      },
+      {
+        "type": "pick_pack",
+        "index": 0
+      },
+      {
+        "type": "next_blind"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "r"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "type_letter",
+        "letter": "e"
+      },
+      {
+        "type": "type_letter",
+        "letter": "r"
+      },
+      {
+        "type": "type_letter",
+        "letter": "g"
+      },
+      {
+        "type": "type_letter",
+        "letter": "e"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "collect"
+      },
+      {
+        "type": "buy",
+        "index": 4
+      },
+      {
+        "type": "pick_pack",
+        "index": 0
+      },
+      {
+        "type": "next_blind"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "r"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "type_letter",
+        "letter": "l"
+      },
+      {
+        "type": "type_letter",
+        "letter": "u"
+      },
+      {
+        "type": "type_letter",
+        "letter": "m"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "collect"
+      },
+      {
+        "type": "buy",
+        "index": 4
+      },
+      {
+        "type": "pick_pack",
+        "index": 0
+      },
+      {
+        "type": "next_blind"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "r"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "type_letter",
+        "letter": "g"
+      },
+      {
+        "type": "type_letter",
+        "letter": "r"
+      },
+      {
+        "type": "type_letter",
+        "letter": "a"
+      },
+      {
+        "type": "type_letter",
+        "letter": "n"
+      },
+      {
+        "type": "type_letter",
+        "letter": "d"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "collect"
+      },
+      {
+        "type": "buy",
+        "index": 4
+      },
+      {
+        "type": "pick_pack",
+        "index": 0
+      },
+      {
+        "type": "next_blind"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "r"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "type_letter",
+        "letter": "y"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "u"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "h"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "collect"
+      },
+      {
+        "type": "buy",
+        "index": 4
+      },
+      {
+        "type": "pick_pack",
+        "index": 0
+      },
+      {
+        "type": "next_blind"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "r"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "type_letter",
+        "letter": "b"
+      },
+      {
+        "type": "type_letter",
+        "letter": "e"
+      },
+      {
+        "type": "type_letter",
+        "letter": "g"
+      },
+      {
+        "type": "type_letter",
+        "letter": "u"
+      },
+      {
+        "type": "type_letter",
+        "letter": "n"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "collect"
+      },
+      {
+        "type": "buy",
+        "index": 4
+      },
+      {
+        "type": "pick_pack",
+        "index": 0
+      },
+      {
+        "type": "next_blind"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "r"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "type_letter",
+        "letter": "r"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "b"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "collect"
+      },
+      {
+        "type": "buy",
+        "index": 4
+      },
+      {
+        "type": "pick_pack",
+        "index": 0
+      },
+      {
+        "type": "next_blind"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "r"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "type_letter",
+        "letter": "h"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "n"
+      },
+      {
+        "type": "type_letter",
+        "letter": "e"
+      },
+      {
+        "type": "type_letter",
+        "letter": "y"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "collect"
+      },
+      {
+        "type": "buy",
+        "index": 4
+      },
+      {
+        "type": "pick_pack",
+        "index": 0
+      },
+      {
+        "type": "next_blind"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "r"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "type_letter",
+        "letter": "h"
+      },
+      {
+        "type": "type_letter",
+        "letter": "i"
+      },
+      {
+        "type": "type_letter",
+        "letter": "v"
+      },
+      {
+        "type": "type_letter",
+        "letter": "e"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "collect"
+      },
+      {
+        "type": "buy",
+        "index": 4
+      },
+      {
+        "type": "pick_pack",
+        "index": 0
+      },
+      {
+        "type": "next_blind"
+      },
+      {
+        "type": "type_letter",
+        "letter": "t"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "r"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "type_letter",
+        "letter": "f"
+      },
+      {
+        "type": "type_letter",
+        "letter": "r"
+      },
+      {
+        "type": "type_letter",
+        "letter": "o"
+      },
+      {
+        "type": "type_letter",
+        "letter": "g"
+      },
+      {
+        "type": "type_letter",
+        "letter": "s"
+      },
+      {
+        "type": "submit"
+      },
+      {
+        "type": "collect"
+      }
+    ],
+    "expected": {
+      "guesses": [
+        {
+          "ante": 1,
+          "blind": 0,
+          "word": "acted",
+          "chips": 8,
+          "mult": 1,
+          "solveBonus": 1,
+          "score": 8
+        },
+        {
+          "ante": 1,
+          "blind": 0,
+          "word": "hubby",
+          "chips": 15,
+          "mult": 16,
+          "solveBonus": 5,
+          "score": 240
+        },
+        {
+          "ante": 1,
+          "blind": 1,
+          "word": "acted",
+          "chips": 8,
+          "mult": 2,
+          "solveBonus": 1,
+          "score": 16
+        },
+        {
+          "ante": 1,
+          "blind": 1,
+          "word": "stool",
+          "chips": 5,
+          "mult": 16,
+          "solveBonus": 6,
+          "score": 80
+        },
+        {
+          "ante": 1,
+          "blind": 2,
+          "word": "acted",
+          "chips": 8,
+          "mult": 3,
+          "solveBonus": 1,
+          "score": 24
+        },
+        {
+          "ante": 1,
+          "blind": 2,
+          "word": "sheds",
+          "chips": 9,
+          "mult": 16,
+          "solveBonus": 6,
+          "score": 144
+        },
+        {
+          "ante": 2,
+          "blind": 0,
+          "word": "acted",
+          "chips": 46,
+          "mult": 5,
+          "solveBonus": 1,
+          "score": 230
+        },
+        {
+          "ante": 2,
+          "blind": 0,
+          "word": "scope",
+          "chips": 79,
+          "mult": 16,
+          "solveBonus": 6,
+          "score": 1264
+        },
+        {
+          "ante": 2,
+          "blind": 1,
+          "word": "acted",
+          "chips": 68,
+          "mult": 3,
+          "solveBonus": 1,
+          "score": 204
+        },
+        {
+          "ante": 2,
+          "blind": 1,
+          "word": "hasty",
+          "chips": 111,
+          "mult": 48,
+          "solveBonus": 6,
+          "score": 5328
+        },
+        {
+          "ante": 2,
+          "blind": 2,
+          "word": "bolts",
+          "chips": 97,
+          "mult": 4,
+          "solveBonus": 1,
+          "score": 388
+        },
+        {
+          "ante": 2,
+          "blind": 2,
+          "word": "stork",
+          "chips": 139,
+          "mult": 48,
+          "solveBonus": 6,
+          "score": 6672
+        },
+        {
+          "ante": 3,
+          "blind": 0,
+          "word": "torso",
+          "chips": 125,
+          "mult": 3,
+          "solveBonus": 1,
+          "score": 375
+        },
+        {
+          "ante": 3,
+          "blind": 0,
+          "word": "draft",
+          "chips": 169,
+          "mult": 96,
+          "solveBonus": 6,
+          "score": 16224
+        },
+        {
+          "ante": 3,
+          "blind": 1,
+          "word": "torso",
+          "chips": 155,
+          "mult": 1,
+          "solveBonus": 1,
+          "score": 155
+        },
+        {
+          "ante": 3,
+          "blind": 1,
+          "word": "kneel",
+          "chips": 199,
+          "mult": 48,
+          "solveBonus": 6,
+          "score": 9552
+        },
+        {
+          "ante": 3,
+          "blind": 2,
+          "word": "torso",
+          "chips": 185,
+          "mult": 3,
+          "solveBonus": 1,
+          "score": 555
+        },
+        {
+          "ante": 3,
+          "blind": 2,
+          "word": "spoil",
+          "chips": 242,
+          "mult": 108,
+          "solveBonus": 6,
+          "score": 26136
+        },
+        {
+          "ante": 4,
+          "blind": 0,
+          "word": "torso",
+          "chips": 223,
+          "mult": 7,
+          "solveBonus": 1,
+          "score": 1561
+        },
+        {
+          "ante": 4,
+          "blind": 0,
+          "word": "moors",
+          "chips": 257,
+          "mult": 48,
+          "solveBonus": 6,
+          "score": 12336
+        },
+        {
+          "ante": 4,
+          "blind": 1,
+          "word": "torso",
+          "chips": 281,
+          "mult": 11,
+          "solveBonus": 1,
+          "score": 3091
+        },
+        {
+          "ante": 4,
+          "blind": 1,
+          "word": "tooth",
+          "chips": 308,
+          "mult": 57,
+          "solveBonus": 6,
+          "score": 17556
+        },
+        {
+          "ante": 4,
+          "blind": 2,
+          "word": "torso",
+          "chips": 303,
+          "mult": 15,
+          "solveBonus": 1,
+          "score": 4545
+        },
+        {
+          "ante": 4,
+          "blind": 2,
+          "word": "posed",
+          "chips": 333,
+          "mult": 132,
+          "solveBonus": 6,
+          "score": 43956
+        },
+        {
+          "ante": 5,
+          "blind": 0,
+          "word": "torso",
+          "chips": 353,
+          "mult": 18,
+          "solveBonus": 1,
+          "score": 6354
+        },
+        {
+          "ante": 5,
+          "blind": 0,
+          "word": "thank",
+          "chips": 367,
+          "mult": 108,
+          "solveBonus": 6,
+          "score": 39636
+        },
+        {
+          "ante": 5,
+          "blind": 1,
+          "word": "torso",
+          "chips": 375,
+          "mult": 16,
+          "solveBonus": 1,
+          "score": 6000
+        },
+        {
+          "ante": 5,
+          "blind": 1,
+          "word": "ditch",
+          "chips": 406,
+          "mult": 114,
+          "solveBonus": 6,
+          "score": 46284
+        },
+        {
+          "ante": 5,
+          "blind": 2,
+          "word": "torso",
+          "chips": 413,
+          "mult": 19,
+          "solveBonus": 1,
+          "score": 7847
+        },
+        {
+          "ante": 5,
+          "blind": 2,
+          "word": "moans",
+          "chips": 422,
+          "mult": 174,
+          "solveBonus": 6,
+          "score": 73428
+        },
+        {
+          "ante": 6,
+          "blind": 0,
+          "word": "torso",
+          "chips": 463,
+          "mult": 22,
+          "solveBonus": 1,
+          "score": 10186
+        },
+        {
+          "ante": 6,
+          "blind": 0,
+          "word": "serge",
+          "chips": 496,
+          "mult": 75,
+          "solveBonus": 6,
+          "score": 37200
+        },
+        {
+          "ante": 6,
+          "blind": 1,
+          "word": "torso",
+          "chips": 485,
+          "mult": 19,
+          "solveBonus": 1,
+          "score": 9215
+        },
+        {
+          "ante": 6,
+          "blind": 1,
+          "word": "slums",
+          "chips": 527,
+          "mult": 75,
+          "solveBonus": 6,
+          "score": 39525
+        },
+        {
+          "ante": 6,
+          "blind": 2,
+          "word": "torso",
+          "chips": 515,
+          "mult": 19,
+          "solveBonus": 1,
+          "score": 9785
+        },
+        {
+          "ante": 6,
+          "blind": 2,
+          "word": "grand",
+          "chips": 512,
+          "mult": 138,
+          "solveBonus": 4,
+          "score": 70656
+        },
+        {
+          "ante": 7,
+          "blind": 0,
+          "word": "torso",
+          "chips": 553,
+          "mult": 22,
+          "solveBonus": 1,
+          "score": 12166
+        },
+        {
+          "ante": 7,
+          "blind": 0,
+          "word": "youth",
+          "chips": 561,
+          "mult": 144,
+          "solveBonus": 6,
+          "score": 80784
+        },
+        {
+          "ante": 7,
+          "blind": 1,
+          "word": "torso",
+          "chips": 595,
+          "mult": 21,
+          "solveBonus": 1,
+          "score": 12495
+        },
+        {
+          "ante": 7,
+          "blind": 1,
+          "word": "begun",
+          "chips": 588,
+          "mult": 120,
+          "solveBonus": 6,
+          "score": 70560
+        },
+        {
+          "ante": 7,
+          "blind": 2,
+          "word": "torso",
+          "chips": 633,
+          "mult": 27,
+          "solveBonus": 1,
+          "score": 17091
+        },
+        {
+          "ante": 7,
+          "blind": 2,
+          "word": "robot",
+          "chips": 667,
+          "mult": 108,
+          "solveBonus": 3,
+          "score": 72036
+        },
+        {
+          "ante": 8,
+          "blind": 0,
+          "word": "torso",
+          "chips": 663,
+          "mult": 24,
+          "solveBonus": 1,
+          "score": 15912
+        },
+        {
+          "ante": 8,
+          "blind": 0,
+          "word": "honey",
+          "chips": 901,
+          "mult": 144,
+          "solveBonus": 6,
+          "score": 129744
+        },
+        {
+          "ante": 8,
+          "blind": 1,
+          "word": "torso",
+          "chips": 685,
+          "mult": 22,
+          "solveBonus": 1,
+          "score": 15070
+        },
+        {
+          "ante": 8,
+          "blind": 1,
+          "word": "hives",
+          "chips": 681,
+          "mult": 120,
+          "solveBonus": 6,
+          "score": 81720
+        },
+        {
+          "ante": 8,
+          "blind": 2,
+          "word": "torso",
+          "chips": 715,
+          "mult": 24,
+          "solveBonus": 1,
+          "score": 17160
+        },
+        {
+          "ante": 8,
+          "blind": 2,
+          "word": "frogs",
+          "chips": 706,
+          "mult": 144,
+          "solveBonus": 6,
+          "score": 101664
+        }
+      ],
+      "gold": [
+        {
+          "delta": 7,
+          "reason": "blind cleared"
+        },
+        {
+          "delta": -10,
+          "reason": "purchase"
+        },
+        {
+          "delta": 8,
+          "reason": "blind cleared"
+        },
+        {
+          "delta": -6,
+          "reason": "purchase"
+        },
+        {
+          "delta": 9,
+          "reason": "blind cleared"
+        },
+        {
+          "delta": -8,
+          "reason": "purchase"
+        },
+        {
+          "delta": -4,
+          "reason": "purchase"
+        },
+        {
+          "delta": 7,
+          "reason": "blind cleared"
+        },
+        {
+          "delta": -6,
+          "reason": "purchase"
+        },
+        {
+          "delta": 8,
+          "reason": "blind cleared"
+        },
+        {
+          "delta": -8,
+          "reason": "purchase"
+        },
+        {
+          "delta": 2,
+          "reason": "scoring"
+        },
+        {
+          "delta": 2,
+          "reason": "scoring"
+        },
+        {
+          "delta": 10,
+          "reason": "blind cleared"
+        },
+        {
+          "delta": -9,
+          "reason": "purchase"
+        },
+        {
+          "delta": 4,
+          "reason": "scoring"
+        },
+        {
+          "delta": 9,
+          "reason": "blind cleared"
+        },
+        {
+          "delta": -10,
+          "reason": "purchase"
+        },
+        {
+          "delta": 4,
+          "reason": "scoring"
+        },
+        {
+          "delta": 10,
+          "reason": "blind cleared"
+        },
+        {
+          "delta": -10,
+          "reason": "purchase"
+        },
+        {
+          "delta": 4,
+          "reason": "scoring"
+        },
+        {
+          "delta": 2,
+          "reason": "scoring"
+        },
+        {
+          "delta": 12,
+          "reason": "blind cleared"
+        },
+        {
+          "delta": -8,
+          "reason": "purchase"
+        },
+        {
+          "delta": 4,
+          "reason": "scoring"
+        },
+        {
+          "delta": 4,
+          "reason": "scoring"
+        },
+        {
+          "delta": 12,
+          "reason": "blind cleared"
+        },
+        {
+          "delta": -10,
+          "reason": "purchase"
+        },
+        {
+          "delta": 4,
+          "reason": "scoring"
+        },
+        {
+          "delta": 4,
+          "reason": "scoring"
+        },
+        {
+          "delta": 13,
+          "reason": "blind cleared"
+        },
+        {
+          "delta": -8,
+          "reason": "purchase"
+        },
+        {
+          "delta": 14,
+          "reason": "blind cleared"
+        },
+        {
+          "delta": -10,
+          "reason": "purchase"
+        },
+        {
+          "delta": 12,
+          "reason": "blind cleared"
+        },
+        {
+          "delta": -8,
+          "reason": "purchase"
+        },
+        {
+          "delta": 13,
+          "reason": "blind cleared"
+        },
+        {
+          "delta": -8,
+          "reason": "purchase"
+        },
+        {
+          "delta": 14,
+          "reason": "blind cleared"
+        },
+        {
+          "delta": -10,
+          "reason": "purchase"
+        },
+        {
+          "delta": 12,
+          "reason": "blind cleared"
+        },
+        {
+          "delta": -10,
+          "reason": "purchase"
+        },
+        {
+          "delta": 13,
+          "reason": "blind cleared"
+        },
+        {
+          "delta": -8,
+          "reason": "purchase"
+        },
+        {
+          "delta": 12,
+          "reason": "blind cleared"
+        },
+        {
+          "delta": -10,
+          "reason": "purchase"
+        },
+        {
+          "delta": 12,
+          "reason": "blind cleared"
+        },
+        {
+          "delta": -10,
+          "reason": "purchase"
+        },
+        {
+          "delta": 13,
+          "reason": "blind cleared"
+        },
+        {
+          "delta": -8,
+          "reason": "purchase"
+        },
+        {
+          "delta": 11,
+          "reason": "blind cleared"
+        },
+        {
+          "delta": -10,
+          "reason": "purchase"
+        },
+        {
+          "delta": 12,
+          "reason": "blind cleared"
+        },
+        {
+          "delta": -10,
+          "reason": "purchase"
+        },
+        {
+          "delta": 13,
+          "reason": "blind cleared"
+        },
+        {
+          "delta": -8,
+          "reason": "purchase"
+        },
+        {
+          "delta": 14,
+          "reason": "blind cleared"
+        }
+      ],
+      "rewards": [
+        {
+          "base": 3,
+          "unusedGuesses": 4,
+          "interest": 0,
+          "total": 7
+        },
+        {
+          "base": 4,
+          "unusedGuesses": 4,
+          "interest": 0,
+          "total": 8
+        },
+        {
+          "base": 5,
+          "unusedGuesses": 4,
+          "interest": 0,
+          "total": 9
+        },
+        {
+          "base": 3,
+          "unusedGuesses": 4,
+          "interest": 0,
+          "total": 7
+        },
+        {
+          "base": 4,
+          "unusedGuesses": 4,
+          "interest": 0,
+          "total": 8
+        },
+        {
+          "base": 5,
+          "unusedGuesses": 4,
+          "interest": 1,
+          "total": 10
+        },
+        {
+          "base": 3,
+          "unusedGuesses": 4,
+          "interest": 2,
+          "total": 9
+        },
+        {
+          "base": 4,
+          "unusedGuesses": 4,
+          "interest": 2,
+          "total": 10
+        },
+        {
+          "base": 5,
+          "unusedGuesses": 4,
+          "interest": 3,
+          "total": 12
+        },
+        {
+          "base": 3,
+          "unusedGuesses": 4,
+          "interest": 5,
+          "total": 12
+        },
+        {
+          "base": 4,
+          "unusedGuesses": 4,
+          "interest": 5,
+          "total": 13
+        },
+        {
+          "base": 5,
+          "unusedGuesses": 4,
+          "interest": 5,
+          "total": 14
+        },
+        {
+          "base": 3,
+          "unusedGuesses": 4,
+          "interest": 5,
+          "total": 12
+        },
+        {
+          "base": 4,
+          "unusedGuesses": 4,
+          "interest": 5,
+          "total": 13
+        },
+        {
+          "base": 5,
+          "unusedGuesses": 4,
+          "interest": 5,
+          "total": 14
+        },
+        {
+          "base": 3,
+          "unusedGuesses": 4,
+          "interest": 5,
+          "total": 12
+        },
+        {
+          "base": 4,
+          "unusedGuesses": 4,
+          "interest": 5,
+          "total": 13
+        },
+        {
+          "base": 5,
+          "unusedGuesses": 2,
+          "interest": 5,
+          "total": 12
+        },
+        {
+          "base": 3,
+          "unusedGuesses": 4,
+          "interest": 5,
+          "total": 12
+        },
+        {
+          "base": 4,
+          "unusedGuesses": 4,
+          "interest": 5,
+          "total": 13
+        },
+        {
+          "base": 5,
+          "unusedGuesses": 1,
+          "interest": 5,
+          "total": 11
+        },
+        {
+          "base": 3,
+          "unusedGuesses": 4,
+          "interest": 5,
+          "total": 12
+        },
+        {
+          "base": 4,
+          "unusedGuesses": 4,
+          "interest": 5,
+          "total": 13
+        },
+        {
+          "base": 5,
+          "unusedGuesses": 4,
+          "interest": 5,
+          "total": 14
+        }
+      ],
+      "outcome": "victory",
+      "ante": 8,
+      "blind": 2,
+      "finalGold": 101,
+      "jokers": [
+        "long_game",
+        "hot_streak",
+        "green_thumb",
+        "speedrunner",
+        "anagrammer"
+      ],
+      "etched": [],
+      "mods": [
+        "a:steel",
+        "f:wild",
+        "j:chip",
+        "o:mult",
+        "v:glass",
+        "y:anchor"
+      ],
+      "levels": [
+        "alphabetical:2",
+        "cluster:3",
+        "distinct:3",
+        "twinned:5",
+        "vowel_heavy:2"
+      ],
+      "ranges": [],
+      "grown": [
+        "hot_streak:chips=660"
       ],
       "destroyed": []
     }

@@ -91,11 +91,32 @@ export type ShopItem =
   /** One level for a slice of the alphabet. */
   | { kind: "range"; id: string; cost: number }
   | { kind: "mod"; letter: string; id: ModId; cost: number }
+  /**
+   * A booster pack. The only item that is not applied when it is bought — it
+   * opens instead, and what comes out of it is chosen rather than dealt.
+   */
+  | { kind: "pack"; id: string; cost: number }
 
 export type ShopState = {
   /** Slots go null once bought, so the layout does not reflow under the thumb. */
   items: (ShopItem | null)[]
   rerolls: number
+}
+
+/**
+ * A pack laid out on the table, mid-decision.
+ *
+ * The options are ordinary `ShopItem`s and they keep the price they would have
+ * carried in the stock, which is not charged — the pack was paid for already.
+ * Carrying it anyway is what lets the screen say what a card is worth, and it
+ * means one function applies an item to the run whether it was bought or won.
+ */
+export type OpenPack = {
+  id: string
+  /** Cards laid out; a slot goes null once its card has been taken. */
+  options: (ShopItem | null)[]
+  /** Picks still owed. The pack closes when this reaches zero. */
+  picks: number
 }
 
 export type Phase =
@@ -130,6 +151,18 @@ export type RunState = {
   ranges?: Record<string, number>
   blind: BlindState
   shop: ShopState | null
+  /**
+   * The pack currently open, if one is. Absent rather than null when there is
+   * none, on the same reasoning as `levels` and `ranges`: a save written before
+   * packs existed loads unchanged, and a shop visit that buys none adds nothing
+   * to the file.
+   *
+   * While this is set the shop is held: nothing else can be bought, rerolled or
+   * left behind until the pack is resolved. A pack is a decision, and letting
+   * one sit open while the stock changed underneath it would make the pack's
+   * own cards stale.
+   */
+  pack?: OpenPack | null
   /** Set when a blind is cleared, so the reward screen can itemise it. */
   reward: RewardBreakdown | null
 }
@@ -152,6 +185,10 @@ export type Action =
   | { type: "sell_joker"; index: number }
   | { type: "reroll" }
   | { type: "next_blind" }
+  /** Take one of the open pack's cards. */
+  | { type: "pick_pack"; index: number }
+  /** Walk away from the open pack, forfeiting whatever is left in it. */
+  | { type: "skip_pack" }
 
 /**
  * A flat, ordered log the UI replays as animation. Scoring events carry the
@@ -194,6 +231,10 @@ export type GameEvent =
   | { type: "blind_lost" }
   | { type: "gold"; delta: number; reason: string }
   | { type: "shop_entered" }
+  /** A pack laid out on the table, waiting to be chosen from. */
+  | { type: "pack_opened"; id: string; name: string; options: number }
+  /** A card taken out of a pack, or the pack walked away from when `label` is null. */
+  | { type: "pack_picked"; id: string; label: string | null }
   | { type: "run_won" }
 
 export type Reduced = { state: RunState; events: GameEvent[] }

@@ -1,3 +1,4 @@
+import { JOKER_SLOTS } from "../content/blinds"
 import { ALPHABET } from "../content/letters"
 import { CATEGORIES } from "./categories"
 import { CONSUMABLES } from "./consumables"
@@ -6,6 +7,8 @@ import type { Joker } from "./jokers"
 import { JOKERS } from "./jokers"
 import type { ModId } from "./modifiers"
 import { MODIFIER_BY_ID } from "./modifiers"
+import type { Pack } from "./packs"
+import { PACKS } from "./packs"
 import { liveRanges } from "./ranges"
 import type { Rng } from "./rng"
 import { pick } from "./rng"
@@ -161,6 +164,71 @@ const unowned = (state: RunState): readonly Joker[] => {
   return JOKERS.filter((joker) => !owned.has(joker.id))
 }
 
+/**
+ * Whether a joker could actually be taken right now — one exists to offer, and
+ * there is somewhere to put it.
+ *
+ * The slot half matters more for packs than for the joker slots. An unbuyable
+ * joker on the shelf costs nothing: the buy is refused and the gold stays put.
+ * An unbuyable joker *pack* is a trap, because the gold goes when the pack
+ * opens and the refusal comes three cards later.
+ */
+const canTakeJoker = (state: RunState): boolean =>
+  state.jokers.length < JOKER_SLOTS && unowned(state).length > 0
+
+/**
+ * Which pack the pack slot offers. Uniform across the three, since each one
+ * points at a different line of the run and none is the fallback for another.
+ *
+ * The joker pack drops out when there is no joker to be had, for the same
+ * reason the joker slots do: there would be nothing to lay out in it.
+ */
+function rollPack(state: RunState, rng: Rng): ShopItem {
+  const usable = PACKS.filter((pack) => pack.id !== "joker" || canTakeJoker(state))
+  const pack = pick(rng, usable.length > 0 ? usable : PACKS)
+  return { kind: "pack", id: pack.id, cost: pack.cost }
+}
+
+/**
+ * What a pack lays out when it is opened, rolled at open time rather than at
+ * stock time so an unopened pack keeps its secret.
+ *
+ * Distinct cards, not distinct rolls: a pack that laid out Steel E three times
+ * would be selling a choice it was not actually offering. The retry budget is
+ * what makes that cheap to guarantee without a shuffle — the pools are far
+ * larger than three, so a collision is rare and giving up after a few tries
+ * costs a short pack rather than a hang.
+ *
+ * Empty is a meaningful answer, and the caller refuses the sale on it. The
+ * shelf goes stale: a joker pack rolled while a slot was free is still sitting
+ * there after the joker in the next slot along fills it, and opening it then
+ * would spend the gold on three cards none of which could land.
+ */
+export function packContents(state: RunState, pack: Pack, rng: Rng): ShopItem[] {
+  if (pack.id === "joker" && !canTakeJoker(state)) return []
+  const out: ShopItem[] = []
+  const seen = new Set<string>()
+  const key = (item: ShopItem) => (item.kind === "mod" ? `${item.id}:${item.letter}` : item.id)
+
+  for (let tries = 0; tries < pack.options * 6 && out.length < pack.options; tries++) {
+    let item: ShopItem | null = null
+    if (pack.id === "alphabet") item = rollMod(state, rng)
+    else if (pack.id === "joker") {
+      const pool = JOKERS.filter((joker) => !seen.has(joker.id)).filter(
+        (joker) => !state.jokers.some((held) => held.id === joker.id),
+      )
+      item = pool.length > 0 ? jokerItem(pick(rng, pool)) : null
+    } else {
+      const category = pick(rng, CATEGORIES)
+      item = { kind: "level", id: category.id, cost: LEVEL_COST }
+    }
+    if (!item || seen.has(key(item))) continue
+    seen.add(key(item))
+    out.push(item)
+  }
+  return out
+}
+
 const jokerItem = (joker: Joker): ShopItem => ({
   kind: "joker",
   id: joker.id,
@@ -173,11 +241,17 @@ const jokerItem = (joker: Joker): ShopItem => ({
  * ```
  *   slot 0   joker
  *   slot 1   joker — and the cap, never a third
- *   slot 2   upgrade: an etching group, or a card
+ *   slot 2   upgrade: an etching group, a slice level, a category level, or a card
  *   slot 3   letter: a modifier, or a card
+ *   slot 4   a pack
  * ```
  *
- * Every visit now offers the same four kinds of decision. The old version rolled
+ * The pack gets a slot of its own rather than a share of an existing one. It is
+ * the dearest thing on the shelf and the only one that asks a question back, so
+ * a visit where the roll happened not to offer one would be a visit missing its
+ * most interesting decision.
+ *
+ * Every visit now offers the same five kinds of decision. The old version rolled
  * each slot from one weighted table and could legally deal four etchings — a
  * shop with no build decision in it at all — which is what the retry loop and
  * the dedupe key dance existed to paper over. A layout that cannot deal a
@@ -200,6 +274,7 @@ export function rollShop(state: RunState, rng: Rng, rerolls: number): ShopState 
       second ? jokerItem(second) : rollLetter(state, rng),
       rollUpgrade(state, rng),
       rollLetter(state, rng),
+      rollPack(state, rng),
     ],
     rerolls,
   }

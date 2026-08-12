@@ -979,9 +979,43 @@ button {
   font-size: 0.875rem;
 }
 
+/*
+ * The pack takes the full width of the shelf. Five cards in a two-column grid
+ * would otherwise strand it in a half-row, and it is the one purchase that opens
+ * into a decision rather than resolving on the spot — the wide card is what says
+ * so before it is tapped.
+ */
+.shop-item.pack {
+  grid-column: 1 / -1;
+  min-height: 4.5rem;
+}
+
 .shop-actions {
   display: flex;
   gap: 0.5rem;
+}
+
+/*
+ * An open pack. Same sheet as every other modal, but without the tap-to-dismiss
+ * backdrop: the pack is already paid for, so walking away from it has to be a
+ * button that was meant to be pressed.
+ */
+.pack-hint {
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.pack-options {
+  display: grid;
+  gap: 0.5rem;
+  overflow-y: auto;
+}
+
+/* What the card would have cost in the stock, struck out: the pack covered it. */
+.shop-item-cost.free {
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-decoration: line-through;
 }
 
 .owned-label {
