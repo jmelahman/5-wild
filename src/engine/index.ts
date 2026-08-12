@@ -22,6 +22,15 @@ export { ALPHABET, LETTER_CHIPS } from "../content/letters"
 export { CONTENT_VERSION } from "../content/version"
 export type { Boss } from "./bosses"
 export { BOSSES, getBoss } from "./bosses"
+export type { Category } from "./categories"
+export {
+  CATEGORIES,
+  CATEGORY_BY_ID,
+  categoryOf,
+  isCategory,
+  levelBonus,
+  levelOf,
+} from "./categories"
 export type { Consumable } from "./consumables"
 export { CONSUMABLE_BY_ID, CONSUMABLES } from "./consumables"
 export type { Etching } from "./etchings"

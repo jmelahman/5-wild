@@ -51,6 +51,8 @@ export type Vector = {
     etched: string[]
     /** "e:steel" — letter and the modifier stuck to it. */
     mods: string[]
+    /** "distinct:3" — word category and the level it was bought up to. */
+    levels: string[]
     destroyed: string[]
   }
 }
@@ -79,6 +81,12 @@ function summarise(
     mods: letters
       .filter(([, value]) => value.mod !== null)
       .map(([letter, value]) => `${letter}:${value.mod}`)
+      .sort(),
+    // The third permanent upgrade line, recorded beside the other two: a
+    // levelling bug that happens not to move a score is still a bug, and this
+    // is what makes the diff say which levels a run actually bought.
+    levels: Object.entries(state.levels ?? {})
+      .map(([id, level]) => `${id}:${level}`)
       .sort(),
     destroyed: letters
       .filter(([, value]) => value.destroyed)

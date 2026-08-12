@@ -12,7 +12,7 @@
  */
 
 import type { Action, RunState, WordSource } from "../../src/engine"
-import { reduce } from "../../src/engine"
+import { categoryOf, levelBonus, reduce } from "../../src/engine"
 
 export type Scenario = {
   name: string
@@ -83,6 +83,12 @@ function decoys(state: RunState, words: WordSource, offset: number): string[] {
 /** How many tiles of a word would carry a modifier — copies counted separately. */
 function modTiles(state: RunState, word: string): number {
   return [...word].filter((letter) => state.letters[letter]?.mod).length
+}
+
+/** What a word's category level is currently worth to it, chips and mult together. */
+function levelValue(state: RunState, word: string): number {
+  const bonus = levelBonus(state, categoryOf(word))
+  return bonus.chips + bonus.mult
 }
 
 /** Bank the reward, then leave the shop without spending. */
@@ -226,6 +232,46 @@ export const SCENARIOS: readonly Scenario[] = [
         const index = items.findIndex((item) => item && item.cost <= state.gold)
         if (index >= 0 && accepted(state, words, [{ type: "buy", index }])) {
           return [{ type: "buy", index }]
+        }
+        return [{ type: "next_blind" }]
+      }
+      return null
+    },
+  },
+  {
+    name: "leveller",
+    covers: "category levels bought, stacked, and paid out on the guesses that match them",
+    seed: 77,
+    next: (state, words) => {
+      if (state.phase === "blind") {
+        // One probe chosen for the level bonus it would collect, then the
+        // answer. The sort is what makes this vector worth recording: it pins
+        // that levels land on the base *and* that `categoryOf` picked the same
+        // shape the shop charged for, because a mismatch would show up as a
+        // probe that scored like an unlevelled word.
+        const probes =
+          state.blind.guesses.length === 0
+            ? [...decoys(state, words, 3)].sort(
+                (a, b) => levelValue(state, b) - levelValue(state, a),
+              )
+            : []
+        return firstPlayable(state, words, [...probes, state.blind.answer])
+      }
+      if (state.phase === "reward") return [{ type: "collect" }]
+      if (state.phase === "shop") {
+        const items = state.shop?.items ?? []
+        // Levels before anything else, whichever category the slot dealt. It
+        // cannot choose — the shop picks the category — so this ends the run
+        // holding several at level two rather than one high, which is a fair
+        // picture of what buying every level you are offered actually gets you.
+        const wanted = items.findIndex((item) => item?.kind === "level" && item.cost <= state.gold)
+        if (wanted >= 0 && accepted(state, words, [{ type: "buy", index: wanted }])) {
+          return [{ type: "buy", index: wanted }]
+        }
+        // Jokers otherwise, so the run has ×mult for the levels to pass through.
+        const joker = items.findIndex((item) => item?.kind === "joker" && item.cost <= state.gold)
+        if (joker >= 0 && accepted(state, words, [{ type: "buy", index: joker }])) {
+          return [{ type: "buy", index: joker }]
         }
         return [{ type: "next_blind" }]
       }

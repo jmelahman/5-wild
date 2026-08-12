@@ -4,8 +4,10 @@ import {
   BLIND_NAMES,
   BLIND_PAYOUT,
   BLINDS_PER_ANTE,
+  CATEGORY_BY_ID,
   CONSUMABLE_BY_ID,
   CONSUMABLE_SLOTS,
+  categoryOf,
   ETCHING_BY_ID,
   GOLD_PER_UNUSED_GUESS,
   getBoss,
@@ -14,6 +16,8 @@ import {
   JOKER_BY_ID,
   JOKER_SLOTS,
   keyboardColors,
+  levelBonus,
+  levelOf,
   MODIFIER_BY_ID,
   MODIFIERS,
   modifierOf,
@@ -285,6 +289,36 @@ function solveHint(state: RunState): HTMLElement | false {
   )
 }
 
+/**
+ * What shape of word is on the board, and what that shape is currently worth.
+ *
+ * Balatro names the hand you have selected before you play it, and that label is
+ * how a player learns the hand list without being taught it. This is the same
+ * job: a category at level one pays nothing, so without this line there would be
+ * no way to discover the system exists until after buying into it.
+ *
+ * Reads the draft once it is a full word, and otherwise the last guess — the
+ * same rule the readout beside it follows, so the two never disagree about which
+ * word they are describing.
+ */
+function categoryLine(state: RunState): HTMLElement | false {
+  const blind = state.blind
+  const last = blind.guesses[blind.guesses.length - 1]
+  const word = blind.draft.length === blind.answer.length ? blind.draft : (last?.word ?? "")
+  if (word.length !== blind.answer.length) return false
+
+  const category = categoryOf(word)
+  const bonus = levelBonus(state, category)
+  return h(
+    "div",
+    { class: "category" },
+    h("span", { class: "category-name" }, category.name),
+    h("span", { class: "category-level" }, `Lv ${bonus.level}`),
+    bonus.chips > 0 &&
+      h("span", { class: "category-bonus" }, `+${bonus.chips} +${bonus.mult} mult`),
+  )
+}
+
 export function blindView(state: RunState, on: Handlers): HTMLElement {
   const boss = getBoss(state.blind.bossId)
   // The readout holds the last guess rather than resetting to 0 x 1, so the
@@ -298,6 +332,7 @@ export function blindView(state: RunState, on: Handlers): HTMLElement {
     jokerRow(state, on),
     consumableRow(state, on),
     grid(state),
+    categoryLine(state),
     h(
       "div",
       { class: "readout" },
@@ -428,6 +463,14 @@ function shopItemCard(item: ShopItem, index: number, state: RunState, on: Handle
     if (current && current !== item.id) {
       text += `, replacing ${MODIFIER_BY_ID.get(current)?.name ?? current}`
     }
+  } else if (item.kind === "level") {
+    const category = CATEGORY_BY_ID.get(item.id)
+    // Named as the level it buys rather than as the level you hold, because the
+    // gold buys the step and the step is what the price is for.
+    title = category ? `${category.name} → Lv ${levelOf(state, item.id) + 1}` : "Level"
+    text = category
+      ? `${category.name} words score +${category.chips} chips and +${category.mult} mult per level`
+      : ""
   } else {
     // Falls back to something readable rather than to `undefined`, so a save
     // written before etchings were sold by the group degrades quietly.

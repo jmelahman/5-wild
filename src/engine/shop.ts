@@ -1,4 +1,5 @@
 import { ALPHABET } from "../content/letters"
+import { CATEGORIES } from "./categories"
 import { CONSUMABLES } from "./consumables"
 import { ETCHINGS } from "./etchings"
 import type { Joker } from "./jokers"
@@ -17,10 +18,31 @@ export const rerollCost = (shop: ShopState): number => BASE_REROLL + shop.reroll
 export const sellValue = (cost: number): number => Math.max(1, Math.floor(cost / 2))
 
 /**
- * The upgrade slot: breadth, sold as an etching group, with a card as the
- * alternate so the slot is not the same shape every single visit.
+ * What one word-category level costs, flat: the card says the price it charges.
+ *
+ * Priced against the modifier line rather than in the abstract. A $4 Chip
+ * modifier is worth roughly five score a gold on the guesses it lands in; a
+ * level at $8 is worth about seven. Levels stay the better long-run buy — they
+ * are the only thing in the run that compounds, and the rubric asked for one —
+ * but not by so much that the letter slot becomes something to skip.
  */
-const UPGRADE_TABLE = ["etch", "etch", "etch", "consumable"] as const
+const LEVEL_COST = 8
+
+/**
+ * The upgrade slot: the run's two permanent scaling lines. An etching raises what
+ * *letters* are worth, a level raises what a *shape of word* is worth, and a card
+ * turns up often enough that the slot is not the same shape every visit.
+ */
+const UPGRADE_TABLE = [
+  "etch",
+  "etch",
+  "etch",
+  "level",
+  "level",
+  "level",
+  "consumable",
+  "consumable",
+] as const
 
 /** The letter slot: depth, sold as a modifier on one letter. Same alternate. */
 const LETTER_TABLE = ["mod", "mod", "mod", "consumable"] as const
@@ -76,9 +98,19 @@ function rollEtch(state: RunState, rng: Rng): ShopItem | null {
 }
 
 function rollUpgrade(state: RunState, rng: Rng): ShopItem {
-  if (pick(rng, UPGRADE_TABLE) === "etch") {
+  const kind = pick(rng, UPGRADE_TABLE)
+  if (kind === "etch") {
     const item = rollEtch(state, rng)
     if (item) return item
+  }
+  if (kind === "level") {
+    // Uniform across the categories, because the player picks the shape they
+    // build toward rather than being dealt one — a rare category is harder to
+    // type on purpose, not harder to find on the shelf. Balatro's model, where
+    // the offer leans toward hands you have actually played, would need play
+    // counts in the run state; it is the upgrade if uniform reads as noise.
+    const category = pick(rng, CATEGORIES)
+    return { kind: "level", id: category.id, cost: LEVEL_COST }
   }
   return rollConsumable(rng)
 }

@@ -1,5 +1,6 @@
 import { ALPHABET, LETTER_CHIPS, MIN_LIVE_LETTERS, MULT_FOR_COLOR } from "../content/letters"
 import { getBoss } from "./bosses"
+import { categoryOf, levelBonus } from "./categories"
 import { JOKER_BY_ID } from "./jokers"
 import type { ModCtx } from "./modifiers"
 import { modifierOf } from "./modifiers"
@@ -13,7 +14,8 @@ import type { GameEvent, RunState, Tile } from "./state"
  *   per tile, left to right:  base chips + colour mult, then the letter's own
  *                             modifier, then every joker's onTile hook in slot
  *                             order
- *   after the tiles:          every joker's onGuess hook in slot order
+ *   after the tiles:          the word's category, at whatever level it holds
+ *   then:                     every joker's onGuess hook in slot order
  *   finally:                  the solve bonus
  *
  * The modifier goes before the jokers because the letter is what was played and
@@ -256,6 +258,25 @@ export function scoreGuess(params: {
       slotFiring = null
     })
   })
+
+  // The word's category, after the tiles and before the jokers. That position is
+  // the whole point: a level raises the *base*, so every ×mult joker downstream
+  // multiplies it. Levelling and multiplying compound instead of competing,
+  // which is what makes a levelled category a build rather than a bonus.
+  const category = categoryOf(word)
+  const bonus = levelBonus(state, category)
+  if (bonus.chips > 0 || bonus.mult > 0) {
+    ctx.chips += bonus.chips
+    ctx.mult += bonus.mult
+    events.push({
+      type: "category",
+      id: category.id,
+      name: category.name,
+      level: bonus.level,
+      chips: ctx.chips,
+      mult: ctx.mult,
+    })
+  }
 
   jokers.forEach((joker, slot) => {
     if (!joker?.onGuess) return

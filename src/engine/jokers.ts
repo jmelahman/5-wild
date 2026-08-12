@@ -1,4 +1,5 @@
 import { ALPHABET, isVowel, MIN_LIVE_LETTERS } from "../content/letters"
+import { isCategory } from "./categories"
 import type { Rng } from "./rng"
 import { shuffled } from "./rng"
 import type { ScoreCtx } from "./scoring"
@@ -127,14 +128,7 @@ export const JOKERS: readonly Joker[] = [
     rarity: "common",
     cost: RARITY_COST.common,
     onGuess: (ctx) => {
-      let run = 0
-      for (const letter of ctx.word) {
-        run = isVowel(letter) ? 0 : run + 1
-        if (run >= 3) {
-          ctx.timesMult(1.5)
-          return
-        }
-      }
+      if (isCategory("cluster", ctx.word)) ctx.timesMult(1.5)
     },
   },
   {
@@ -171,7 +165,7 @@ export const JOKERS: readonly Joker[] = [
     // exact opposite of what Doppelgänger wants. They do not belong in the
     // same build, which is what makes each of them a choice.
     onGuess: (ctx) => {
-      if (new Set(ctx.word).size === ctx.word.length) ctx.timesMult(2)
+      if (isCategory("distinct", ctx.word)) ctx.timesMult(2)
     },
   },
   {
@@ -247,10 +241,7 @@ export const JOKERS: readonly Joker[] = [
     rarity: "rare",
     cost: RARITY_COST.rare,
     onGuess: (ctx) => {
-      // "" sorts below every letter, so the missing predecessor at index 0 is
-      // trivially satisfied — the same thing the index guard would have said.
-      const ordered = [...ctx.word].every((letter, i, all) => letter >= (all[i - 1] ?? ""))
-      if (ordered) ctx.timesMult(2)
+      if (isCategory("alphabetical", ctx.word)) ctx.timesMult(2)
     },
   },
   {

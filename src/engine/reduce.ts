@@ -13,6 +13,7 @@ import {
 import { ALPHABET } from "../content/letters"
 import type { Boss } from "./bosses"
 import { bossForAnte, getBoss } from "./bosses"
+import { CATEGORY_BY_ID, levelOf } from "./categories"
 import { CONSUMABLE_BY_ID } from "./consumables"
 import { ETCHING_BY_ID } from "./etchings"
 import type { Joker, JokerCtx } from "./jokers"
@@ -402,6 +403,14 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
             const entry = next.letters[letter]
             if (entry && !entry.destroyed) entry.etch += etching.chips
           }
+          break
+        }
+        case "level": {
+          const category = CATEGORY_BY_ID.get(item.id)
+          if (!category) return reject("unknown category")
+          // Written on first purchase rather than initialised at run start, so a
+          // run that never levels anything keeps `levels` out of its save.
+          next.levels = { ...next.levels, [category.id]: levelOf(next, category.id) + 1 }
           break
         }
         case "mod": {

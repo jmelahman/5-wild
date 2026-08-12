@@ -55,7 +55,7 @@ describe("the shop layout", () => {
   it("keeps the upgrade and letter slots to their own stock", () => {
     for (let seed = 1; seed <= 50; seed++) {
       const items = shopAt(seed).items
-      expect(["etch", "consumable"]).toContain(items[2]?.kind)
+      expect(["etch", "level", "consumable"]).toContain(items[2]?.kind)
       expect(["mod", "consumable"]).toContain(items[3]?.kind)
     }
   })

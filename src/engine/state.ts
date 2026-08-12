@@ -86,6 +86,8 @@ export type ShopItem =
   | { kind: "consumable"; id: string; cost: number }
   /** A group etching. Keyed by the group, not by a letter — it buys many. */
   | { kind: "etch"; id: string; cost: number }
+  /** One level for a named word category. */
+  | { kind: "level"; id: string; cost: number }
   | { kind: "mod"; letter: string; id: ModId; cost: number }
 
 export type ShopState = {
@@ -111,6 +113,13 @@ export type RunState = {
   jokers: JokerInstance[]
   consumables: ConsumableInstance[]
   letters: Record<string, LetterState>
+  /**
+   * Word category levels, by category id, where absent means level one. Optional
+   * and unwritten until a level is bought, on the same reasoning as
+   * `JokerInstance.data`: a run that never levels anything costs its save
+   * nothing, and a save from before levelling existed loads unchanged.
+   */
+  levels?: Record<string, number>
   blind: BlindState
   shop: ShopState | null
   /** Set when a blind is cleared, so the reward screen can itemise it. */
@@ -162,6 +171,12 @@ export type GameEvent =
       chips: number
       mult: number
     }
+  /**
+   * A levelled word category paying out, between the tiles and the jokers. Only
+   * emitted when it is actually worth something — at level one the category is
+   * still named on the board, but it has nothing to announce.
+   */
+  | { type: "category"; id: string; name: string; level: number; chips: number; mult: number }
   /** `total` is the blind's score *after* the multiply, not the guess's. */
   | { type: "solve_bonus"; factor: number; total: number }
   | { type: "guess_scored"; score: number; total: number }

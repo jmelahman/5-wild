@@ -312,6 +312,18 @@ export class App {
           slot?.classList.remove("fired")
           break
         }
+        case "category": {
+          // Lights the line that was already naming this shape on the board, so
+          // the label the player read before submitting is the thing that pays.
+          const line = screen.querySelector(".category")
+          line?.classList.add("fired")
+          this.floater(screen, `${event.name} Lv ${event.level}`)
+          this.sound.joker()
+          readout(event.chips, event.mult)
+          await this.pace(PACE.joker)
+          line?.classList.remove("fired")
+          break
+        }
         case "joker_grew": {
           // Lands after the guess has finished scoring, because that is when it
           // happens: the blind ended, and this card is worth more next time. No
