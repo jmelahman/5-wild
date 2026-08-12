@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest"
-import type { Action, ModId, RunState } from "../../src/engine"
+import type { Action, ModId, Rarity, RunState } from "../../src/engine"
 import {
   ALPHABET,
+  ANTES,
   derive,
   ETCHING_BY_ID,
   ETCHINGS,
+  JOKER_BY_ID,
   JOKERS,
   MODIFIER_BY_ID,
   reduce,
@@ -263,5 +265,77 @@ describe("placing a bought modifier", () => {
     expect(state.gold).toBe(20)
     expect(state.placing).toBeUndefined()
     expect(events).toContainEqual({ type: "rejected", reason: "no letter left for that" })
+  })
+})
+
+/** The shelf as it is rolled at a given ante, which is what the odds read. */
+const shelfAt = (seed: number, ante: number) => {
+  const base = startRun(seed, realWords).state
+  return rollShop({ ...base, ante }, derive(seed, "shop", ante, 0, 0), 0).items
+}
+
+function jokerRarities(ante: number, seeds = 200): Rarity[] {
+  const out: Rarity[] = []
+  for (let seed = 1; seed <= seeds; seed++) {
+    for (const item of shelfAt(seed, ante)) {
+      if (item?.kind === "joker") out.push(JOKER_BY_ID.get(item.id)?.rarity ?? "common")
+    }
+  }
+  return out
+}
+
+const shareOf = (list: readonly Rarity[], ...of: Rarity[]) =>
+  list.filter((rarity) => of.includes(rarity)).length / list.length
+
+describe("what rarity the joker slots deal", () => {
+  it("starts at the shelf the catalogue was already dealing", () => {
+    // The first ante is deliberately the neutral point: the same mix a uniform
+    // draw over the whole catalogue gives. Tilting it toward cheap cards was
+    // tried three ways and every one of them cost the bots a tenth of an ante
+    // and a quarter of their wins, because five joker slots fill by ante 2 and
+    // a cheaper shelf is a permanently weaker tray.
+    const early = jokerRarities(1)
+    const catalogue = JOKERS.map((joker) => joker.rarity)
+    for (const rarity of ["common", "uncommon", "rare", "legendary"] satisfies Rarity[]) {
+      expect(shareOf(early, rarity)).toBeCloseTo(shareOf(catalogue, rarity), 1)
+    }
+  })
+
+  it("opens up the expensive ones as the run gets rich", () => {
+    // Gold compounds through interest while joker prices never move, so a shelf
+    // still reading mostly common at ante 7 is one the run has outgrown.
+    const early = jokerRarities(1)
+    const late = jokerRarities(ANTES)
+    expect(shareOf(late, "rare", "legendary")).toBeGreaterThan(
+      shareOf(early, "rare", "legendary") * 1.5,
+    )
+    // And commons have to actually recede, or the tilt is just extra rares on
+    // top of a shelf that still reads the same.
+    expect(shareOf(late, "common")).toBeLessThan(shareOf(early, "common") / 1.6)
+  })
+
+  it("holds the odds steady past the last authored ante", () => {
+    // `blindTargets` keeps climbing out there but the odds have nowhere left to
+    // go, so an endless run should not drift toward an all-legendary shelf.
+    expect(shareOf(jokerRarities(40), "legendary")).toBeLessThan(0.3)
+  })
+
+  it("keeps dealing jokers when a rarity has been bought out", () => {
+    // Owning every cheap joker must not make the slot fail four times in five —
+    // the odds are a shape for the shelf, not a promise to leave it empty.
+    const base = startRun(3, realWords).state
+    const cheap = JOKERS.filter((joker) => joker.rarity !== "rare")
+    const state: RunState = { ...base, ante: 1, jokers: cheap.map((joker) => ({ id: joker.id })) }
+    const items = rollShop(state, derive(3, "shop", 1, 0, 0), 0).items
+    expect(items.slice(0, 2).map((item) => item?.kind)).toEqual(["joker", "joker"])
+  })
+
+  it("deals the whole catalogue at some ante or other", () => {
+    // Every rarity has to be reachable at both ends of the ramp, or a column
+    // that reads as a weight is really a card the shop never sells.
+    for (const ante of [1, ANTES]) {
+      const dealt = new Set(jokerRarities(ante))
+      expect([...dealt].sort()).toEqual(["common", "legendary", "rare", "uncommon"])
+    }
   })
 })
