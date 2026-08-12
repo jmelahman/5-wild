@@ -18,8 +18,10 @@ import {
   packView,
   quitView,
   rewardView,
+  shapesView,
   shopView,
   titleView,
+  wordInPlay,
 } from "./views"
 
 /** Bumping the suffix orphans every save in the wild — treat it as a migration. */
@@ -64,7 +66,7 @@ export class App {
   /** True when there is no run to return to and the front door is showing. */
   private atTitle: boolean
   /** The modal on top of everything, if any. */
-  private overlay: "help" | "codex" | "menu" | "quit" | null = null
+  private overlay: "help" | "codex" | "shapes" | "menu" | "quit" | null = null
   /** The joker whose tip is currently up, so re-entering it is not a change. */
   private hovered: HTMLElement | null = null
   private readonly sound = new Sound()
@@ -653,6 +655,10 @@ export class App {
       this.overlay = "codex"
       this.render()
     },
+    openShapes: () => {
+      this.overlay = "shapes"
+      this.render()
+    },
     closeOverlay: () => {
       this.overlay = null
       this.render()
@@ -707,11 +713,13 @@ export class App {
         ? helpView(this.handlers)
         : this.overlay === "codex"
           ? codexView(this.handlers)
-          : this.overlay === "menu"
-            ? menuView(this.handlers, this.chrome)
-            : this.overlay === "quit"
-              ? quitView(this.state, this.handlers)
-              : packView(this.state, this.handlers)
+          : this.overlay === "shapes"
+            ? shapesView(this.state, this.handlers, phase === "blind" ? wordInPlay(this.state) : "")
+            : this.overlay === "menu"
+              ? menuView(this.handlers, this.chrome)
+              : this.overlay === "quit"
+                ? quitView(this.state, this.handlers)
+                : packView(this.state, this.handlers)
 
     clear(this.root).append(view)
     if (sheet) this.root.append(sheet)

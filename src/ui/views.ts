@@ -72,6 +72,8 @@ export type Handlers = {
   openMenu: () => void
   openHelp: () => void
   openCodex: () => void
+  /** The shape panel, from the board or from the shop. */
+  openShapes: () => void
   closeOverlay: () => void
   askQuit: () => void
   quit: () => void
@@ -342,21 +344,30 @@ function solveHint(state: RunState): HTMLElement | false {
  * same rule the readout beside it follows, so the two never disagree about which
  * word they are describing.
  */
-function categoryLine(state: RunState): HTMLElement | false {
+export function wordInPlay(state: RunState): string {
   const blind = state.blind
   const last = blind.guesses[blind.guesses.length - 1]
   const word = blind.draft.length === blind.answer.length ? blind.draft : (last?.word ?? "")
-  if (word.length !== blind.answer.length) return false
+  return word.length === blind.answer.length ? word : ""
+}
+
+function categoryLine(state: RunState, on: Handlers): HTMLElement | false {
+  const word = wordInPlay(state)
+  if (!word) return false
 
   const category = categoryOf(word)
   const bonus = levelBonus(state, category)
+  // A button rather than a div, because this line is the only place the shape
+  // system announces itself during a blind, and a player who wants to know what
+  // the other four shapes are has nowhere else to press.
   return h(
-    "div",
-    { class: "category" },
+    "button",
+    { class: "category", type: "button", onclick: () => on.openShapes() },
     h("span", { class: "category-name" }, category.name),
     h("span", { class: "category-level" }, `Lv ${bonus.level}`),
     bonus.chips > 0 &&
       h("span", { class: "category-bonus" }, `+${bonus.chips} +${bonus.mult} mult`),
+    h("span", { class: "category-more" }, "shapes ›"),
   )
 }
 
@@ -373,7 +384,7 @@ export function blindView(state: RunState, on: Handlers): HTMLElement {
     jokerRow(state, on),
     consumableRow(state, on),
     grid(state),
-    categoryLine(state),
+    categoryLine(state, on),
     h(
       "div",
       { class: "readout" },
@@ -651,6 +662,34 @@ export function packView(state: RunState, on: Handlers): HTMLElement | null {
   )
 }
 
+/**
+ * The levels a run is holding, under the stock that sells more of them.
+ *
+ * The shop is where the decision is — "Twinned → Lv 3" for $8 is unanswerable
+ * without knowing what else you have levelled — and the card itself can only
+ * speak for the one shape it is selling. Always present rather than hidden
+ * behind the levels being non-trivial, because the visit where you own nothing
+ * is exactly the visit where you have not heard of the system.
+ */
+function shopShapes(state: RunState, on: Handlers): HTMLElement {
+  const levelled = CATEGORIES.filter((category) => levelOf(state, category.id) > 1)
+  return h(
+    "button",
+    { class: "shapes-line", type: "button", onclick: () => on.openShapes() },
+    h("span", { class: "shapes-line-label" }, "Word shapes"),
+    h(
+      "span",
+      { class: "shapes-line-body" },
+      levelled.length > 0
+        ? levelled
+            .map((category) => `${category.name} Lv ${levelOf(state, category.id)}`)
+            .join(" · ")
+        : "all at level 1",
+    ),
+    h("span", { class: "shapes-line-more" }, "›"),
+  )
+}
+
 export function shopView(state: RunState, on: Handlers): HTMLElement {
   const shop = state.shop
   const reroll = shop ? rerollCost(shop) : 0
@@ -690,6 +729,7 @@ export function shopView(state: RunState, on: Handlers): HTMLElement {
           : h("div", { class: "shop-item sold", style: `--deal:${index}` }, "sold"),
       ),
     ),
+    shopShapes(state, on),
     h(
       "div",
       { class: "shop-actions" },
@@ -1140,6 +1180,73 @@ const TIER_NAMES: Record<BossTier, string> = {
  * Takes no run state on purpose: this is the catalogue, not the board. A scaling
  * joker shows its rule here, never the number it happens to be holding.
  */
+/**
+ * The five word shapes, what they are worth, and which of them the word on the
+ * board is.
+ *
+ * The system was invisible before this. One line under the grid named the shape
+ * in play; nothing named the other four, nothing listed the levels a run had
+ * bought, and nothing anywhere stated the rule that decides which shape a word
+ * scores as — `categoryOf` returns the *rarest* match, so a word that is both
+ * Twinned and Vowel Heavy scores as Vowel Heavy and a player levelling Twinned
+ * would watch it not pay and never learn why.
+ *
+ * So the panel says all three things at once: every shape a word matches gets a
+ * tag, the one that counts gets a louder one, and the list is in the order the
+ * engine checks it in. The rule is not written down anywhere the player has to
+ * be told it — it is the order of the rows.
+ */
+export function shapesView(state: RunState, on: Handlers, word: string): HTMLElement {
+  const scoring = word ? categoryOf(word) : null
+
+  return overlay(
+    on,
+    h("h2", { class: "sheet-title" }, "Word shapes"),
+    h(
+      "p",
+      { class: "sheet-lead" },
+      scoring ? `${word.toUpperCase()} scores as ${scoring.name}` : "Every guess has a shape.",
+    ),
+    h(
+      "p",
+      { class: "shapes-note" },
+      "A guess scores as the rarest shape it matches, which is the first of these it " +
+        "matches. Levelling a shape raises every future guess of that shape — level 1 " +
+        "pays nothing, so a level is what makes a shape worth aiming at.",
+    ),
+    h(
+      "div",
+      { class: "shapes" },
+      ...CATEGORIES.map((category) => {
+        const bonus = levelBonus(state, category)
+        const scores = scoring?.id === category.id
+        const matched = !scores && word !== "" && category.matches(word)
+        return h(
+          "div",
+          { class: `shape ${scores ? "scoring" : ""} ${matched ? "matched" : ""}` },
+          h(
+            "div",
+            { class: "shape-head" },
+            h("strong", {}, category.name),
+            scores ? h("span", { class: "shape-tag" }, "scoring") : null,
+            matched ? h("span", { class: "shape-tag also" }, "also matches") : null,
+            h("span", { class: "shape-level" }, `Lv ${bonus.level}`),
+          ),
+          h("span", { class: "shape-text" }, category.text),
+          h(
+            "span",
+            { class: "shape-pay" },
+            bonus.chips > 0
+              ? `now +${bonus.chips} chips, +${bonus.mult} mult`
+              : `+${category.chips} chips, +${category.mult} mult per level`,
+          ),
+        )
+      }),
+    ),
+    h("button", { class: "primary", type: "button", onclick: () => on.closeOverlay() }, "Close"),
+  )
+}
+
 export function codexView(on: Handlers): HTMLElement {
   return overlay(
     on,
