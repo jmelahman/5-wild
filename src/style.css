@@ -1103,6 +1103,21 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
+/* The win, on a screen that is otherwise reporting a death. It keeps the colour
+ * the banner would have had, because the run really did beat the game. */
+.won-note {
+  color: var(--green);
+  font-weight: 700;
+}
+
+/* What playing on costs, said before the button that does it. */
+.endless-note {
+  margin: 0.5rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  text-align: left;
+}
+
 /* ------------------------------------------------------------ blind intro */
 
 /*

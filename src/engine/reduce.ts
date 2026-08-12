@@ -154,6 +154,23 @@ function beginBlind(state: RunState, words: WordSource, events: GameEvent[]): vo
   state.shop = null
 }
 
+/**
+ * Roll the shop and stand the player in it.
+ *
+ * Shared by the two ways in — banking a reward, and choosing to play on past the
+ * win — so the endless path cannot drift from the ordinary one. The hooks run
+ * before the roll, so a joker that bends the shop bends the one it is about to
+ * be shown rather than the next one.
+ */
+function enterShop(state: RunState, events: GameEvent[]): void {
+  const rng = derive(state.seed, "shop_enter", state.ante, state.blindIndex)
+  for (const [joker, ctx] of jokerHooks(state, rng, events)) joker.onShopEnter?.(ctx)
+
+  state.shop = rollShop(state, derive(state.seed, "shop", state.ante, state.blindIndex, 0), 0)
+  state.phase = "shop"
+  events.push({ type: "shop_entered" })
+}
+
 /** The single fail state: score below target when the blind ends. */
 function resolveBlind(state: RunState, events: GameEvent[]): void {
   const blind = state.blind
@@ -462,20 +479,27 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
       next.gold += next.reward.total
       events.push({ type: "gold", delta: next.reward.total, reason: "blind cleared" })
 
-      if (next.ante >= ANTES && next.blindIndex === 2) {
+      // The win is offered once, and `won` is what makes it once: past this the
+      // run keeps passing ante `ANTES`'s last blind every three blinds, and a
+      // victory screen every ante would turn the ending into a nag.
+      if (!next.won && next.ante >= ANTES && next.blindIndex === 2) {
+        next.won = true
         next.phase = "victory"
         events.push({ type: "run_won" })
         return { state: next, events }
       }
 
-      // Before the roll, so a joker that bends the shop bends the one it is
-      // about to be shown rather than the next one.
-      const shopRng = derive(next.seed, "shop_enter", next.ante, next.blindIndex)
-      for (const [joker, ctx] of jokerHooks(next, shopRng, events)) joker.onShopEnter?.(ctx)
+      enterShop(next, events)
+      return { state: next, events }
+    }
 
-      next.shop = rollShop(next, derive(next.seed, "shop", next.ante, next.blindIndex, 0), 0)
-      next.phase = "shop"
-      events.push({ type: "shop_entered" })
+    case "continue_run": {
+      if (next.phase !== "victory") return reject("the run is not won")
+      // Picks up exactly where `collect` stopped. The win was offered *instead*
+      // of the shop, so continuing is that shop, rolled now rather than then —
+      // which is why a player who banks the win never fires a shop hook for a
+      // shop they will not see.
+      enterShop(next, events)
       return { state: next, events }
     }
 
@@ -581,12 +605,13 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
         next.blindIndex = (next.blindIndex + 1) as BlindIndex
       }
 
-      if (next.ante > ANTES) {
-        next.phase = "victory"
-        events.push({ type: "run_won" })
-        return { state: next, events }
-      }
-
+      // No ceiling here any more. Passing ante `ANTES` used to be the end of the
+      // run and is now the end of the *authored* run: `blindTargets` is
+      // geometric past the last hand-set ante and `bossForAnte` wraps within its
+      // band, so ante 9 and ante 90 are both ordinary antes as far as this is
+      // concerned. The win was already offered when the reward for the final
+      // ante's last blind was banked, which is the only place it belongs — this
+      // gate could only ever have fired for a run that skipped that one.
       beginBlind(next, words, events)
       return { state: next, events }
     }

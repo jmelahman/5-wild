@@ -53,6 +53,7 @@ export type Handlers = {
   sell: (index: number) => void
   reroll: () => void
   nextBlind: () => void
+  continueRun: () => void
   pickPack: (index: number) => void
   skipPack: () => void
   newRun: () => void
@@ -97,7 +98,13 @@ function hud(state: RunState, on: Handlers): HTMLElement {
       "div",
       { class: "hud-blind" },
       h("div", { class: "blind-name" }, BLIND_NAMES[state.blindIndex] ?? ""),
-      h("div", { class: "ante" }, `Ante ${state.ante}/${ANTES}`),
+      // "Ante 9/8" is nonsense, and so is any denominator once the run is past
+      // the last authored one. A won run counts up instead of counting down.
+      h(
+        "div",
+        { class: "ante" },
+        state.won ? `Ante ${state.ante} ∞` : `Ante ${state.ante}/${ANTES}`,
+      ),
     ),
     h(
       "div",
@@ -386,7 +393,11 @@ export function introView(state: RunState, on: Handlers, chrome: Chrome): HTMLEl
   return h(
     "div",
     { class: "screen center intro", onclick: () => on.play() },
-    h("div", { class: "intro-ante" }, `Ante ${state.ante} of ${ANTES}`),
+    h(
+      "div",
+      { class: "intro-ante" },
+      state.won ? `Ante ${state.ante} · endless` : `Ante ${state.ante} of ${ANTES}`,
+    ),
     h(
       "div",
       { class: `intro-card ${boss ? "boss-card" : ""}` },
@@ -680,30 +691,66 @@ export function shopView(state: RunState, on: Handlers): HTMLElement {
 
 /* ----------------------------------------------------------- run over */
 
+/**
+ * The end of a run, whichever end it is.
+ *
+ * The win is a fork rather than a finish. Ante `ANTES` is where the authored
+ * game stops, not where the run has to: the targets keep growing geometrically
+ * and the bosses keep coming, so a build that has beaten the game can be asked
+ * how far it actually goes.
+ *
+ * The screen says plainly that the win survives either choice, rather than
+ * inventing a stake to make the fork feel weightier. It has no stake to invent —
+ * nothing is wagered by playing on, and a screen that implied otherwise would be
+ * lying to make a button look brave. What is really being asked is whether to
+ * start something new or find out where this one breaks.
+ */
 export function endView(state: RunState, on: Handlers): HTMLElement {
-  const won = state.phase === "victory"
+  const offering = state.phase === "victory"
+  const lost = state.phase === "game_over"
   return h(
     "div",
     { class: "screen center" },
-    h("h1", { class: `banner ${won ? "win" : "lose"}` }, won ? "Run complete" : "Run over"),
+    h(
+      "h1",
+      { class: `banner ${offering ? "win" : "lose"}` },
+      offering ? "Run complete" : "Run over",
+    ),
     h(
       "div",
       { class: "panel" },
-      !won &&
+      lost &&
         h("div", { class: "answer-note" }, `The word was ${state.blind.answer.toUpperCase()}`),
-      !won &&
+      lost &&
         h(
           "div",
           { class: "score-note" },
           `${num(state.blind.score)} of ${num(state.blind.target)} — short by ${num(state.blind.target - state.blind.score)}`,
         ),
+      lost &&
+        state.won &&
+        h("div", { class: "score-note won-note" }, `Beat ante ${ANTES} and kept going`),
       h(
         "div",
         { class: "score-note" },
         `Reached ante ${state.ante}, ${BLIND_NAMES[state.blindIndex]}`,
       ),
+      offering &&
+        h(
+          "p",
+          { class: "endless-note" },
+          `Ante ${ANTES} is where the game stops, not where the run has to. The win is
+           yours either way — playing on only asks how far this build really goes, and
+           the targets keep growing at the same rate the whole way.`,
+        ),
     ),
-    h("button", { class: "primary", type: "button", onclick: () => on.newRun() }, "New run"),
+    offering &&
+      h("button", { class: "primary", type: "button", onclick: () => on.continueRun() }, "Play on"),
+    h(
+      "button",
+      { class: offering ? "secondary" : "primary", type: "button", onclick: () => on.newRun() },
+      offering ? "Bank the win" : "New run",
+    ),
   )
 }
 
@@ -823,6 +870,12 @@ export function helpView(on: Handlers): HTMLElement {
         "Beat the target",
         ` ${ANTES} antes of ${BLINDS_PER_ANTE} blinds. Fall short of a blind's target
          and the run is over — that is the only way to lose.`,
+      ),
+      rule(
+        "Then keep going, if you dare",
+        ` Clearing ante ${ANTES} wins the run, and you can bank it there or play on into
+         antes nobody balanced. The targets keep growing at the same rate, and dying out
+         there does not take the win back.`,
       ),
       rule("Bosses", " Every third blind bends a rule. Read it before you play."),
       rule(
@@ -1102,7 +1155,7 @@ export function quitView(state: RunState, on: Handlers): HTMLElement {
       h(
         "p",
         {},
-        `You are on ante ${state.ante} of ${ANTES}, ${
+        `You are on ante ${state.ante}${state.won ? "" : ` of ${ANTES}`}, ${
           BLIND_NAMES[state.blindIndex] ?? "a blind"
         }. Quitting deletes it — there is no way back to this run.`,
       ),

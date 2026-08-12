@@ -125,6 +125,11 @@ export type Phase =
   | "reward"
   | "shop"
   | "game_over"
+  /**
+   * The final ante's last blind is banked. Not a terminus: the run is complete
+   * and the player chooses whether it is over, so this phase is a held screen
+   * rather than a stopped machine. `continue_run` releases it into the shop.
+   */
   | "victory"
 
 export type RunState = {
@@ -149,6 +154,16 @@ export type RunState = {
    * a range level is a property of the slice rather than of any letter in it.
    */
   ranges?: Record<string, number>
+  /**
+   * Whether this run has already cleared the final ante.
+   *
+   * Set once and never cleared, which is what makes it more than a phase: it is
+   * why the win is only offered once however far past ante `ANTES` the run goes,
+   * and it is how a run that wins and then dies at ante 14 is told apart from
+   * one that simply died. Optional, so a save written before endless existed
+   * loads as a run that has not won — which is what it is.
+   */
+  won?: boolean
   blind: BlindState
   shop: ShopState | null
   /**
@@ -185,6 +200,8 @@ export type Action =
   | { type: "sell_joker"; index: number }
   | { type: "reroll" }
   | { type: "next_blind" }
+  /** Play on past the win, into antes nobody authored. */
+  | { type: "continue_run" }
   /** Take one of the open pack's cards. */
   | { type: "pick_pack"; index: number }
   /** Walk away from the open pack, forfeiting whatever is left in it. */

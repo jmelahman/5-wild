@@ -581,6 +581,7 @@ export class App {
     sell: (index) => this.dispatch({ type: "sell_joker", index }),
     reroll: () => this.dispatch({ type: "reroll" }),
     nextBlind: () => this.dispatch({ type: "next_blind" }),
+    continueRun: () => this.dispatch({ type: "continue_run" }),
     pickPack: (index) => this.dispatch({ type: "pick_pack", index }),
     skipPack: () => this.dispatch({ type: "skip_pack" }),
     newRun: () => {
