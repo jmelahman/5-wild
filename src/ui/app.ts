@@ -3,6 +3,7 @@ import { reduce, startRun } from "../engine"
 import { Sound } from "./audio"
 import { clear, wait } from "./dom"
 import { formatNumber as num } from "./format"
+import { Profile } from "./meta"
 import type { Mood } from "./music"
 import { Music } from "./music"
 import type { Chrome, Handlers } from "./views"
@@ -68,6 +69,8 @@ export class App {
   private hovered: HTMLElement | null = null
   private readonly sound = new Sound()
   private readonly music = new Music()
+  /** The one thing here that outlives the run being played. */
+  private readonly profile = new Profile()
 
   constructor(
     private readonly root: HTMLElement,
@@ -143,6 +146,13 @@ export class App {
     // only thing that makes the shop and the board feel like separate places.
     if (this.state.phase === "blind" && wasPhase !== "blind") this.intro = true
     this.save()
+
+    // The win is recorded where it is offered rather than where the run ends,
+    // because those are no longer the same moment: a run can take the win and
+    // then go looking for ante 20. The engine fires this once per run.
+    //
+    // Zero until P7 gives a run an ascension of its own to report.
+    if (events.some((event) => event.type === "run_won")) this.profile.won(0)
 
     const paid = events.some((event) => event.type === "gold")
     if (paid) this.sound.coin()
@@ -589,6 +599,10 @@ export class App {
       this.atTitle = false
       this.overlay = null
       this.intro = true
+      // Counted here rather than in the constructor: the class always holds a
+      // run so that nothing downstream has to handle a null one, and most of
+      // those are scaffolding the player never sees.
+      this.profile.started()
       // Persisted before the first keypress: a fresh run is already a run, and
       // closing the app on the intro card should not silently reroll the word.
       this.save()
@@ -660,7 +674,7 @@ export class App {
     // here would read as "still hovering" and suppress the next tip.
     this.hovered = null
     const view = this.atTitle
-      ? titleView(this.handlers, this.chrome)
+      ? titleView(this.handlers, this.chrome, this.profile.stats)
       : phase === "blind" && this.intro && !as
         ? introView(this.state, this.handlers, this.chrome)
         : phase === "reward"
@@ -700,6 +714,10 @@ export class App {
     } catch {
       // A full or disabled store costs the player their resume, not their run.
     }
+    // Every moment the run is worth persisting is a moment its ante may have
+    // moved, so the record rides along here rather than keeping its own watch.
+    // It writes only when the mark actually moves.
+    this.profile.reached(this.state.ante)
   }
 
   private bindPhysicalKeyboard(): void {

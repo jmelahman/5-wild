@@ -42,6 +42,7 @@ import {
 } from "../engine"
 import { h } from "./dom"
 import { money, formatNumber as num } from "./format"
+import type { MetaState } from "./meta"
 
 export type Handlers = {
   key: (letter: string) => void
@@ -762,12 +763,13 @@ export function endView(state: RunState, on: Handlers): HTMLElement {
  * charging a tap for it every launch is exactly the friction a phone game
  * cannot afford.
  */
-export function titleView(on: Handlers, chrome: Chrome): HTMLElement {
+export function titleView(on: Handlers, chrome: Chrome, meta: MetaState): HTMLElement {
   return h(
     "div",
     { class: "screen center title" },
     h("h1", { class: "title-name" }, "5 WILD"),
     h("p", { class: "title-tag" }, "A Wordle roguelike"),
+    record(meta),
     h("button", { class: "primary", type: "button", onclick: () => on.newRun() }, "Play"),
     h(
       "button",
@@ -778,6 +780,28 @@ export function titleView(on: Handlers, chrome: Chrome): HTMLElement {
     muteButton(on, chrome),
     h("p", { class: "title-build" }, buildStamp()),
   )
+}
+
+/**
+ * What every run before this one added up to.
+ *
+ * Silent on a fresh profile: a row of zeros is worse than nothing, because it
+ * tells a first-time player they are already behind on a scoreboard they have
+ * not seen the game for yet. The first line appears after the first run, which
+ * is also the first moment it says anything.
+ *
+ * Wins are dropped rather than shown as zero for the same reason, and read as a
+ * count rather than as a word: "beaten" next to two other numbers is a sentence
+ * pretending to be a statistic, and it is ambiguous about who beat whom.
+ */
+function record(meta: MetaState): HTMLElement | null {
+  if (meta.runs === 0) return null
+  const parts = [
+    `${meta.runs} run${meta.runs === 1 ? "" : "s"}`,
+    ...(meta.wins > 0 ? [`${meta.wins} win${meta.wins === 1 ? "" : "s"}`] : []),
+    `best ante ${meta.bestAnte}`,
+  ]
+  return h("p", { class: "title-record" }, parts.join(" · "))
 }
 
 /**

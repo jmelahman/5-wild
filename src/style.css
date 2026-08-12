@@ -1324,6 +1324,21 @@ button {
   font-size: 0.875rem;
 }
 
+/*
+ * The career line. Quieter than the tagline above it and set in the digit font,
+ * because it is read as numbers rather than as a sentence — and it sits above
+ * the buttons rather than below them so it reads as part of the masthead instead
+ * of as a caption on Play.
+ */
+.title-record {
+  margin-top: -0.25rem;
+  margin-bottom: 0.5rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+
 .title {
   /* Anchor for the build stamp below. */
   position: relative;
