@@ -14,6 +14,7 @@ import { ALPHABET } from "../content/letters"
 import type { Boss } from "./bosses"
 import { bossForAnte, getBoss } from "./bosses"
 import { CONSUMABLE_BY_ID } from "./consumables"
+import { ETCHING_BY_ID } from "./etchings"
 import type { Joker, JokerCtx } from "./jokers"
 import { JOKER_BY_ID } from "./jokers"
 import type { Rng } from "./rng"
@@ -392,9 +393,15 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
           break
         }
         case "etch": {
-          const entry = next.letters[item.letter]
-          if (!entry) return reject("unknown letter")
-          entry.etch += 1
+          const etching = ETCHING_BY_ID.get(item.id)
+          if (!etching) return reject("unknown etching")
+          // Burnt-out letters are skipped rather than etched: they cannot be
+          // typed again, so the chips would be unspendable and the keyboard
+          // would wear a "+2" pip on a dead key.
+          for (const letter of etching.letters) {
+            const entry = next.letters[letter]
+            if (entry && !entry.destroyed) entry.etch += etching.chips
+          }
           break
         }
         case "mod": {

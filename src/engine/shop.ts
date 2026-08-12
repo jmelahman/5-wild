@@ -1,14 +1,14 @@
 import { ALPHABET } from "../content/letters"
 import { CONSUMABLES } from "./consumables"
+import { ETCHINGS } from "./etchings"
+import type { Joker } from "./jokers"
 import { JOKERS } from "./jokers"
 import type { ModId } from "./modifiers"
 import { MODIFIER_BY_ID } from "./modifiers"
 import type { Rng } from "./rng"
-import { pick, shuffled } from "./rng"
+import { pick } from "./rng"
 import type { RunState, ShopItem, ShopState } from "./state"
 
-export const SHOP_SLOTS = 4
-export const ETCH_COST = 4
 const BASE_REROLL = 3
 
 export const rerollCost = (shop: ShopState): number => BASE_REROLL + shop.rerolls
@@ -17,11 +17,13 @@ export const rerollCost = (shop: ShopState): number => BASE_REROLL + shop.reroll
 export const sellValue = (cost: number): number => Math.max(1, Math.floor(cost / 2))
 
 /**
- * Weighted so jokers dominate — they are the biggest permanent build decision —
- * while etchings give a cheap outlet for spare gold late in a run when every
- * joker on offer is already owned.
+ * The upgrade slot: breadth, sold as an etching group, with a card as the
+ * alternate so the slot is not the same shape every single visit.
  */
-const ROLL_TABLE = ["joker", "joker", "consumable", "mod", "etch"] as const
+const UPGRADE_TABLE = ["etch", "etch", "etch", "consumable"] as const
+
+/** The letter slot: depth, sold as a modifier on one letter. Same alternate. */
+const LETTER_TABLE = ["mod", "mod", "mod", "consumable"] as const
 
 /**
  * Which modifier a modifier slot offers. Weighted rather than uniform: the two
@@ -39,6 +41,11 @@ const MOD_TABLE: readonly ModId[] = [
   "glass",
 ]
 
+const rollConsumable = (rng: Rng): ShopItem => {
+  const card = pick(rng, CONSUMABLES)
+  return { kind: "consumable", id: card.id, cost: card.cost }
+}
+
 /**
  * A modifier on a letter that can still be typed and does not already carry it.
  * Null when there is no such pairing left, which hands the slot back to the
@@ -54,65 +61,82 @@ function rollMod(state: RunState, rng: Rng): ShopItem | null {
   return { kind: "mod", letter: pick(rng, candidates), id: modifier.id, cost: modifier.cost }
 }
 
+/**
+ * An etching whose group still has a letter alive in it. Groups stack forever,
+ * so unlike every other slot there is nothing to dedupe against — buying the
+ * same etching twice is the whole idea.
+ */
+function rollEtch(state: RunState, rng: Rng): ShopItem | null {
+  const usable = ETCHINGS.filter((etching) =>
+    [...etching.letters].some((letter) => !state.letters[letter]?.destroyed),
+  )
+  if (usable.length === 0) return null
+  const etching = pick(rng, usable)
+  return { kind: "etch", id: etching.id, cost: etching.cost }
+}
+
+function rollUpgrade(state: RunState, rng: Rng): ShopItem {
+  if (pick(rng, UPGRADE_TABLE) === "etch") {
+    const item = rollEtch(state, rng)
+    if (item) return item
+  }
+  return rollConsumable(rng)
+}
+
+function rollLetter(state: RunState, rng: Rng): ShopItem {
+  if (pick(rng, LETTER_TABLE) === "mod") {
+    const item = rollMod(state, rng)
+    if (item) return item
+  }
+  return rollConsumable(rng)
+}
+
 /** Jokers already owned are off the table — duplicates do not stack. */
-const unowned = (state: RunState) => {
+const unowned = (state: RunState): readonly Joker[] => {
   const owned = new Set(state.jokers.map((instance) => instance.id))
   return JOKERS.filter((joker) => !owned.has(joker.id))
 }
 
-/** Falls back to an ordinary roll only once every joker is already owned. */
-function rollJoker(state: RunState, rng: Rng): ShopItem {
-  const available = unowned(state)
-  const joker = available.length > 0 ? pick(rng, available) : null
-  return joker ? { kind: "joker", id: joker.id, cost: joker.cost } : rollItem(state, rng)
-}
+const jokerItem = (joker: Joker): ShopItem => ({
+  kind: "joker",
+  id: joker.id,
+  cost: joker.cost,
+})
 
-function rollItem(state: RunState, rng: Rng): ShopItem {
-  const available = unowned(state)
-  const kind = pick(rng, ROLL_TABLE)
-
-  if (kind === "joker" && available.length > 0) {
-    const joker = pick(rng, available)
-    return { kind: "joker", id: joker.id, cost: joker.cost }
-  }
-
-  if (kind === "mod") {
-    const item = rollMod(state, rng)
-    if (item) return item
-  }
-
-  if (kind === "etch" || available.length === 0) {
-    const alive = [...ALPHABET].filter((letter) => !state.letters[letter]?.destroyed)
-    if (alive.length > 0) return { kind: "etch", letter: pick(rng, alive), cost: ETCH_COST }
-  }
-
-  const card = pick(rng, CONSUMABLES)
-  return { kind: "consumable", id: card.id, cost: card.cost }
-}
-
+/**
+ * A fixed layout rather than four weighted rolls:
+ *
+ * ```
+ *   slot 0   joker
+ *   slot 1   joker — and the cap, never a third
+ *   slot 2   upgrade: an etching group, or a card
+ *   slot 3   letter: a modifier, or a card
+ * ```
+ *
+ * Every visit now offers the same four kinds of decision. The old version rolled
+ * each slot from one weighted table and could legally deal four etchings — a
+ * shop with no build decision in it at all — which is what the retry loop and
+ * the dedupe key dance existed to paper over. A layout that cannot deal a
+ * duplicate does not need either, so both are gone.
+ *
+ * The two joker slots keep their fallback for the late run where every joker is
+ * already owned; they fall through to what the slot beside them would have sold.
+ */
 export function rollShop(state: RunState, rng: Rng, rerolls: number): ShopState {
-  // Deal distinct items where possible: two identical jokers in one shop reads
-  // as a bug even when it is only luck.
-  const items: ShopItem[] = []
-  const seen = new Set<string>()
-  for (let attempt = 0; attempt < SHOP_SLOTS * 6 && items.length < SHOP_SLOTS; attempt++) {
-    // The first slot is always a joker when one is left to sell. Four etchings
-    // is a legal roll and a dead shop: every visit should offer one real build
-    // decision, even if the player cannot afford it.
-    const item = items.length === 0 ? rollJoker(state, rng) : rollItem(state, rng)
-    // Keyed by the letter for both letter-shaped items, so one shop never sells
-    // two things that land on the same key.
-    const key =
-      item.kind === "etch" || item.kind === "mod"
-        ? `letter:${item.letter}`
-        : `${item.kind}:${item.id}`
-    if (seen.has(key)) continue
-    seen.add(key)
-    items.push(item)
+  const pool = unowned(state)
+  const first = pool.length > 0 ? pick(rng, pool) : null
+  // The one dedupe that survives, because it is the one the layout cannot make
+  // impossible: two joker slots drawing from one pool.
+  const rest = first ? pool.filter((joker) => joker.id !== first.id) : pool
+  const second = rest.length > 0 ? pick(rng, rest) : null
+
+  return {
+    items: [
+      first ? jokerItem(first) : rollUpgrade(state, rng),
+      second ? jokerItem(second) : rollLetter(state, rng),
+      rollUpgrade(state, rng),
+      rollLetter(state, rng),
+    ],
+    rerolls,
   }
-  while (items.length < SHOP_SLOTS) {
-    const letter = shuffled(rng, [...ALPHABET])[0] ?? "e"
-    items.push({ kind: "etch", letter, cost: ETCH_COST })
-  }
-  return { items, rerolls }
 }

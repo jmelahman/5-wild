@@ -84,7 +84,8 @@ export type BlindState = {
 export type ShopItem =
   | { kind: "joker"; id: string; cost: number }
   | { kind: "consumable"; id: string; cost: number }
-  | { kind: "etch"; letter: string; cost: number }
+  /** A group etching. Keyed by the group, not by a letter — it buys many. */
+  | { kind: "etch"; id: string; cost: number }
   | { kind: "mod"; letter: string; id: ModId; cost: number }
 
 export type ShopState = {

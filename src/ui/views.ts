@@ -6,6 +6,7 @@ import {
   BLINDS_PER_ANTE,
   CONSUMABLE_BY_ID,
   CONSUMABLE_SLOTS,
+  ETCHING_BY_ID,
   GOLD_PER_UNUSED_GUESS,
   getBoss,
   INTEREST_CAP,
@@ -428,8 +429,11 @@ function shopItemCard(item: ShopItem, index: number, state: RunState, on: Handle
       text += `, replacing ${MODIFIER_BY_ID.get(current)?.name ?? current}`
     }
   } else {
-    title = `Etch ${item.letter.toUpperCase()}`
-    text = `${item.letter.toUpperCase()} is worth +1 chip for the rest of the run`
+    // Falls back to something readable rather than to `undefined`, so a save
+    // written before etchings were sold by the group degrades quietly.
+    const etching = ETCHING_BY_ID.get(item.id)
+    title = etching?.name ?? "Etching"
+    text = etching?.text ?? ""
   }
 
   return h(
