@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest"
 import type { Action, RunState, WordSource } from "../../src/engine"
-import { ANTES, BOSSES, getBoss, reduce, solveBonusFor, startRun } from "../../src/engine"
+import {
+  ANTES,
+  BOSSES,
+  bossesIn,
+  getBoss,
+  LETTER_CHIPS,
+  reduce,
+  solveBonusFor,
+  startRun,
+  tierForAnte,
+} from "../../src/engine"
 // Not part of the engine's public surface — the draw is an internal detail that
 // only the ante loop and this test have any business calling.
 import { bossForAnte } from "../../src/engine/bosses"
@@ -119,16 +129,92 @@ describe("boss blinds", () => {
     }
   })
 
-  // Eight bosses, eight antes, drawn without replacement: a full run should meet
-  // every one of them and no one of them twice. Adding a ninth boss without
-  // adding a ninth ante would silently start hiding one, so this is pinned.
-  it("shows each boss exactly once over a full run", () => {
-    expect(BOSSES).toHaveLength(ANTES)
-    const base = startRun(1, words).state
-    const seen = new Set<string>()
-    for (let ante = 1; ante <= ANTES; ante++) {
-      seen.add(bossForAnte({ ...base, ante }))
+  it("The Drought refuses to pay for vowels", () => {
+    // AROSE is A-R-O-S-E: three vowels worth nothing, two consonants that still
+    // score. The Glutton, in the same band, demands the letters this one voids.
+    const state = apply(underBoss("drought"), type("arose"))
+    const consonants = (LETTER_CHIPS.r ?? 0) + (LETTER_CHIPS.s ?? 0)
+    expect(state.blind.guesses[0]?.chips).toBe(consonants)
+  })
+
+  it("The Mirror reverses what you see and nothing else", () => {
+    const state = apply(underBoss("mirror"), type("dairy"))
+    const plain = apply(startRun(1, words).state, type("dairy"))
+    const guess = state.blind.guesses[0]
+    // Identical arithmetic, reversed reading.
+    expect(guess).toMatchObject({ chips: plain.blind.guesses[0]?.chips, mult: 5 })
+    expect(guess?.tiles.map((tile) => tile.shown)).toEqual(
+      plain.blind.guesses[0]?.tiles.map((tile) => tile.shown).reverse(),
+    )
+    expect(guess?.tiles.map((tile) => tile.color)).toEqual(
+      plain.blind.guesses[0]?.tiles.map((tile) => tile.color),
+    )
+  })
+
+  it("The Famine allows only three guesses", () => {
+    let state = underBoss("famine")
+    expect(state.blind.maxGuesses).toBe(3)
+    for (let i = 0; i < 3; i++) state = apply(state, type("arose"))
+    expect(state.blind.done).toBe(true)
+  })
+
+  it("The Rust pays a letter what it started as, whatever was etched on it", () => {
+    const base = underBoss("rust")
+    const etched: RunState = {
+      ...base,
+      letters: { ...base.letters, a: { etch: 50, destroyed: false, mod: null } },
     }
-    expect(seen.size).toBe(ANTES)
+    expect(apply(etched, type("braid")).blind.guesses[0]?.chips).toBe(
+      apply(base, type("braid")).blind.guesses[0]?.chips,
+    )
+  })
+
+  it("gives every boss a band, and every band enough bosses to fill its antes", () => {
+    for (const tier of ["early", "mid", "late"] as const) {
+      const band = bossesIn(tier)
+      const antes = Array.from({ length: ANTES }, (_, i) => i + 1).filter(
+        (ante) => tierForAnte(ante) === tier,
+      )
+      // A band with fewer bosses than antes would have to repeat one, which is
+      // the property the old flat draw guaranteed and this one has to earn.
+      expect(band.length, `${tier} band is short`).toBeGreaterThanOrEqual(antes.length)
+    }
+    expect(bossesIn("early").length + bossesIn("mid").length + bossesIn("late").length).toBe(
+      BOSSES.length,
+    )
+  })
+
+  /*
+   * What replaced "every boss exactly once". A run no longer meets all of them
+   * — that is the point of banding — but it must still never meet one twice,
+   * and must never meet a late boss early. Both are checked across many seeds
+   * because a single seed could pass by luck.
+   */
+  it("never repeats a boss, and never shows one out of its band", () => {
+    const base = startRun(1, words).state
+    for (let seed = 1; seed <= 120; seed++) {
+      const seen = new Set<string>()
+      for (let ante = 1; ante <= ANTES; ante++) {
+        const id = bossForAnte({ ...base, seed, ante })
+        expect(seen.has(id), `seed ${seed} repeated ${id}`).toBe(false)
+        seen.add(id)
+        expect(getBoss(id)?.tier).toBe(tierForAnte(ante))
+      }
+    }
+  })
+
+  it("draws a different set from run to run, which banding is what buys", () => {
+    const base = startRun(1, words).state
+    const runs = new Set<string>()
+    for (let seed = 1; seed <= 60; seed++) {
+      const ids = Array.from({ length: ANTES }, (_, i) =>
+        bossForAnte({ ...base, seed, ante: i + 1 }),
+      )
+      runs.add(ids.join(","))
+    }
+    // The old draw produced one sequence per permutation of all eight; this one
+    // also varies *which* bosses appear at all. Anything close to 1 would mean
+    // the band streams had collapsed onto the same order.
+    expect(runs.size).toBeGreaterThan(30)
   })
 })

@@ -53,6 +53,8 @@ export type Vector = {
     mods: string[]
     /** "distinct:3" — word category and the level it was bought up to. */
     levels: string[]
+    /** "snowball:mult=310" — what each growing joker has banked. */
+    grown: string[]
     destroyed: string[]
   }
 }
@@ -87,6 +89,15 @@ function summarise(
     // is what makes the diff say which levels a run actually bought.
     levels: Object.entries(state.levels ?? {})
       .map(([id, level]) => `${id}:${level}`)
+      .sort(),
+    // The fourth line that outlives a blind. Recorded for the same reason as
+    // `levels`: a joker that banks the wrong amount is a bug even on the runs
+    // where the wrong amount happens to score the same, and this is the only
+    // place the number is ever written down.
+    grown: state.jokers
+      .flatMap((joker) =>
+        Object.entries(joker.data ?? {}).map(([key, value]) => `${joker.id}:${key}=${value}`),
+      )
       .sort(),
     destroyed: letters
       .filter(([, value]) => value.destroyed)

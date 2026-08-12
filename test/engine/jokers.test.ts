@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { Action, GuessRecord, RunState, WordSource } from "../../src/engine"
-import { JOKERS, reduce, startRun } from "../../src/engine"
+import { INTEREST_CAP, JOKERS, reduce, startRun } from "../../src/engine"
 import { realWords } from "../helpers/words"
 
 const words: WordSource = {
@@ -162,6 +162,127 @@ describe("jokers", () => {
     expect(new Set(JOKERS.map((joker) => joker.id)).size).toBe(JOKERS.length)
     expect(new Set(JOKERS.map((joker) => joker.name)).size).toBe(JOKERS.length)
     for (const joker of JOKERS) expect(joker.cost).toBeGreaterThan(0)
+  })
+})
+
+/*
+ * The five that close the gaps the build rubric found. Two are terminals for
+ * archetypes that previously had no way to cash in — money and sacrifice — and
+ * three grow, one per lifecycle hook, which is what P1's `data` was built for.
+ */
+describe("the jokers that close a build", () => {
+  const held = (id: string, gold: number, word: string): GuessRecord => {
+    const base = startRun(1, words).state
+    const state: RunState = { ...base, gold, jokers: [{ id }] }
+    const last = apply(state, type(word)).blind.guesses[0]
+    if (!last) throw new Error("no guess was scored")
+    return last
+  }
+
+  it("The Mint turns a held pile into mult, five dollars at a time", () => {
+    // CRANE is 7 x 7. At $23 that is four whole $5 steps, so +12 mult.
+    expect(held("mint", 23, "crane")).toMatchObject({ chips: 7, mult: 19 })
+    expect(held("mint", 4, "crane")).toMatchObject({ mult: 7 })
+  })
+
+  it("The Mint takes the interest away, which is what pays for it", () => {
+    const base = startRun(1, words).state
+    // Parked at the end of a cleared blind with enough gold to cap interest.
+    const cleared = (jokers: RunState["jokers"]): number => {
+      const state: RunState = { ...base, gold: 40, jokers, blind: { ...base.blind, target: 1 } }
+      return apply(state, type("braid")).reward?.interest ?? -1
+    }
+    expect(cleared([])).toBe(INTEREST_CAP)
+    expect(cleared([{ id: "mint" }])).toBe(0)
+  })
+
+  it("Scorched Earth pays for every letter the run has burnt", () => {
+    const base = startRun(1, words).state
+    const letters = { ...base.letters }
+    for (const letter of "jkvwxz") letters[letter] = { etch: 0, destroyed: true, mod: null }
+    const state: RunState = { ...base, letters, jokers: [{ id: "scorched_earth" }] }
+    // Six burnt: 7 + 72 mult, and none of those letters is in CRANE.
+    expect(apply(state, type("crane")).blind.guesses[0]).toMatchObject({ chips: 7, mult: 79 })
+  })
+
+  it("Scorched Earth is worth nothing to a run that has burnt nothing", () => {
+    expect(withJoker("scorched_earth", "crane").last).toMatchObject({ mult: 7 })
+  })
+
+  it("Snowball pays what it banked, then counts the guess that grew it", () => {
+    // CRANE lands two greens against BRAID. The first guess pays nothing and
+    // banks +4; the second pays that 4 and banks another.
+    const { state } = withJoker("snowball", "crane")
+    expect(state.blind.guesses[0]).toMatchObject({ mult: 7 })
+    expect(state.jokers[0]?.data).toEqual({ mult: 4 })
+
+    const second = apply(state, type("crane")).blind.guesses[1]
+    expect(second).toMatchObject({ mult: 11 })
+  })
+
+  it("Snowball survives the save round trip with its growth intact", () => {
+    const { state } = withJoker("snowball", "crane")
+    const revived = JSON.parse(JSON.stringify(state)) as RunState
+    expect(apply(revived, type("crane")).blind.guesses[1]?.mult).toBe(11)
+  })
+
+  it("Hot Streak grows on a fast clear and not on a slow one", () => {
+    const base = startRun(1, words).state
+    // Target of 1, so any guess clears it; the guess count is what differs.
+    const run = (probes: string[]): RunState => {
+      let state: RunState = {
+        ...base,
+        jokers: [{ id: "hot_streak" }],
+        blind: { ...base.blind, target: 1 },
+      }
+      for (const word of probes) state = apply(state, type(word))
+      return apply(state, type("braid"))
+    }
+    expect(run([]).jokers[0]?.data).toEqual({ chips: 30 })
+    // Four guesses to solve is past the three-guess line: nothing banked.
+    expect(run(["crane", "quazy", "dairy"]).jokers[0]?.data).toBeUndefined()
+  })
+
+  it("The Hoarder grows only when both card slots are full", () => {
+    const base = startRun(1, words).state
+    const shopped = (consumables: RunState["consumables"]): RunState => {
+      const state: RunState = {
+        ...base,
+        consumables,
+        jokers: [{ id: "hoarder" }],
+        phase: "reward",
+        reward: { base: 0, unusedGuesses: 0, interest: 0, total: 0 },
+      }
+      return reduce(state, { type: "collect" }, words).state
+    }
+    expect(shopped([]).jokers[0]?.data).toBeUndefined()
+    expect(shopped([{ id: "oracle" }]).jokers[0]?.data).toBeUndefined()
+    expect(shopped([{ id: "oracle" }, { id: "hermit" }]).jokers[0]?.data).toEqual({ chips: 40 })
+  })
+
+  it("announces every growth, so the card visibly gets bigger", () => {
+    const base = startRun(1, words).state
+    const state: RunState = {
+      ...base,
+      jokers: [{ id: "snowball" }],
+      blind: { ...base.blind, draft: "crane" },
+    }
+    const { events } = reduce(state, { type: "submit" }, words)
+    expect(events).toContainEqual({
+      type: "joker_grew",
+      slot: 0,
+      id: "snowball",
+      label: "+4 mult",
+    })
+  })
+
+  it("wears what it has grown to, so the board never has to be guessed at", () => {
+    for (const id of ["snowball", "hot_streak", "hoarder"]) {
+      const joker = JOKERS.find((entry) => entry.id === id)
+      expect(joker?.detail, `${id} has no detail`).toBeDefined()
+      expect(joker?.detail?.({ id })).toMatch(/^\+0 /)
+      expect(joker?.detail?.({ id, data: { mult: 5, chips: 5 } })).toMatch(/^\+5 /)
+    }
   })
 })
 

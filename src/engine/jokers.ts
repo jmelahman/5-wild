@@ -1,3 +1,4 @@
+import { CONSUMABLE_SLOTS, INTEREST_PER } from "../content/blinds"
 import { ALPHABET, isVowel, MIN_LIVE_LETTERS } from "../content/letters"
 import { isCategory } from "./categories"
 import type { Rng } from "./rng"
@@ -58,6 +59,29 @@ export type Joker = {
    * from the state alone.
    */
   solveBonus?: (state: RunState) => number
+  /**
+   * Rewrites the interest a cleared blind pays, in slot order. Shaped like
+   * `solveBonus` — a run-level number a card is allowed to bend — rather than a
+   * flag, because the interesting version of this is a card that *takes the
+   * interest away* in exchange for something, and a boolean could only ever say
+   * one thing.
+   */
+  interest?: (base: number, state: RunState) => number
+}
+
+/** What a growing joker has banked, and the key every one of them stores it under. */
+const grown = (instance: JokerInstance, key: string): number => instance.data?.[key] ?? 0
+
+/**
+ * Bank a step of growth and announce it. Shared because all three growing
+ * jokers do exactly this and the announcement is the part worth keeping
+ * identical: the player learns "this card just got bigger" from one animation,
+ * whatever earned it.
+ */
+function grow(ctx: JokerCtx, id: string, key: string, step: number, unit: string): void {
+  const total = grown(ctx.instance, key) + step
+  ctx.instance.data = { ...ctx.instance.data, [key]: total }
+  ctx.events.push({ type: "joker_grew", slot: ctx.slot, id, label: `+${total} ${unit}` })
 }
 
 const RARITY_COST: Record<Rarity, number> = {
@@ -68,7 +92,7 @@ const RARITY_COST: Record<Rarity, number> = {
 }
 
 /**
- * Eighteen jokers, spread deliberately across archetypes so a build identity
+ * Twenty-three jokers, spread deliberately across archetypes so a build identity
  * shows up within the first shop. Note that scoring always reads `tile.color`,
  * never `tile.shown` — The Fog lies to the player, not to the math.
  *
@@ -77,6 +101,12 @@ const RARITY_COST: Record<Rarity, number> = {
  * multiplier per guess. Slow Burn and The Vault pay for staying; Sunk Cost and
  * Speedrunner pay for leaving. Owning a pair from opposite ends is a real
  * dilemma rather than a stack, which is the point.
+ *
+ * The last five arrived together, and each answers something the build rubric
+ * found missing: a terminal for the money build, a payoff that makes burning
+ * the alphabet a plan rather than a tax, and three cards that *grow* — one on a
+ * guess condition, one on a blind condition, one on a shop condition — so that
+ * scaling reads as a class of card and not as one oddity.
  */
 export const JOKERS: readonly Joker[] = [
   {
@@ -225,6 +255,67 @@ export const JOKERS: readonly Joker[] = [
     },
   },
   {
+    id: "snowball",
+    name: "Snowball",
+    text: "Permanently gains +2 mult for each green tile you play",
+    rarity: "uncommon",
+    cost: RARITY_COST.uncommon,
+    // Pays what it had, *then* counts this guess — so a tile never pays on the
+    // guess that earned it. Growing after paying is what keeps the card legible:
+    // the number on the card is the number it just added.
+    //
+    // Two, not the five this first shipped at. A full run plays well over a
+    // hundred green tiles, and at +5 the card ended a run at +590 mult against
+    // a game whose largest flat mult is Pyromaniac's +40. A growing card should
+    // finish as the biggest thing on the board — that is what growth means —
+    // but at four or five times the flat cards, not fifteen.
+    onGuess: (ctx) => {
+      const banked = ctx.getData("mult")
+      if (banked > 0) ctx.addMult(banked)
+      const greens = ctx.tiles.filter((tile) => tile.color === "green").length
+      if (greens > 0) ctx.setData("mult", banked + 2 * greens)
+    },
+    detail: (instance) => `+${grown(instance, "mult")} mult`,
+  },
+  {
+    id: "hot_streak",
+    name: "Hot Streak",
+    text: "Permanently gains +30 chips each blind you clear in 3 guesses or fewer",
+    rarity: "uncommon",
+    cost: RARITY_COST.uncommon,
+    // The growth counterpart to Speedrunner, on the chip axis: both pull toward
+    // cashing out early, and both are dead weight in a Slow Burn build. A
+    // farming run will never trip this, which is the whole point of it.
+    onGuess: (ctx) => {
+      const banked = ctx.getData("chips")
+      if (banked > 0) ctx.addChips(banked)
+    },
+    onBlindEnd: (ctx, blind) => {
+      if (blind.solved && blind.guesses.length <= 3) grow(ctx, "hot_streak", "chips", 30, "chips")
+    },
+    detail: (instance) => `+${grown(instance, "chips")} chips`,
+  },
+  {
+    id: "hoarder",
+    name: "The Hoarder",
+    text: "Permanently gains +40 chips when you reach the shop with both card slots full",
+    rarity: "uncommon",
+    cost: RARITY_COST.uncommon,
+    // Consumables exist to be spent, and this pays you not to spend them. That
+    // is the tension it is for: every Oracle you sit on is information you chose
+    // not to have, banked as chips instead.
+    onGuess: (ctx) => {
+      const banked = ctx.getData("chips")
+      if (banked > 0) ctx.addChips(banked)
+    },
+    onShopEnter: (ctx) => {
+      if (ctx.state.consumables.length >= CONSUMABLE_SLOTS) {
+        grow(ctx, "hoarder", "chips", 40, "chips")
+      }
+    },
+    detail: (instance) => `+${grown(instance, "chips")} chips`,
+  },
+  {
     id: "masochist",
     name: "Masochist",
     text: "+8 mult per gray tile",
@@ -256,6 +347,40 @@ export const JOKERS: readonly Joker[] = [
     // the strongest argument against.
     onGuess: (ctx) => {
       if (ctx.guessIndex > 0) ctx.addChips(25 * ctx.guessIndex)
+    },
+  },
+  {
+    id: "mint",
+    name: "The Mint",
+    text: "+3 mult per $5 you hold. You earn no interest.",
+    rarity: "rare",
+    cost: RARITY_COST.rare,
+    // The money build's terminal — the thing that finally converts a pile of
+    // gold into score instead of into more gold.
+    //
+    // Priced by taking the interest away rather than by picking a small number.
+    // Interest already pays you to hoard; a card that *also* paid you to hoard
+    // would not be a choice, it would be the answer. This way the two are
+    // alternatives: compound the pile, or cash it in every guess.
+    onGuess: (ctx) => {
+      const steps = Math.floor(ctx.state.gold / INTEREST_PER)
+      if (steps > 0) ctx.addMult(3 * steps)
+    },
+    interest: () => 0,
+  },
+  {
+    id: "scorched_earth",
+    name: "Scorched Earth",
+    text: "+12 mult for each letter burnt out of the alphabet",
+    rarity: "rare",
+    cost: RARITY_COST.rare,
+    // What makes Pyromaniac and Glass a plan rather than a tax. The alphabet
+    // stops at MIN_LIVE_LETTERS, so eleven letters is the ceiling and +132 mult
+    // is what a fully committed sacrifice run is buying — paid for with a
+    // keyboard that can no longer type eleven letters, which is a real price.
+    onGuess: (ctx) => {
+      const burnt = [...ALPHABET].filter((letter) => ctx.state.letters[letter]?.destroyed).length
+      if (burnt > 0) ctx.addMult(12 * burnt)
     },
   },
   {

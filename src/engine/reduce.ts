@@ -171,7 +171,13 @@ function resolveBlind(state: RunState, events: GameEvent[]): void {
   // rewards exactly the restraint the scoring punishes.
   const base = BLIND_PAYOUT[state.blindIndex]
   const unusedGuesses = (blind.maxGuesses - blind.guesses.length) * GOLD_PER_UNUSED_GUESS
-  const interest = Math.min(INTEREST_CAP, Math.floor(state.gold / INTEREST_PER))
+  // Jokers get to bend this the way they bend the solve multiplier, in slot
+  // order and after the cap — so a card that zeroes it really zeroes it.
+  let interest = Math.min(INTEREST_CAP, Math.floor(state.gold / INTEREST_PER))
+  for (const instance of state.jokers) {
+    const bend = JOKER_BY_ID.get(instance.id)?.interest
+    if (bend) interest = bend(interest, state)
+  }
 
   state.reward = { base, unusedGuesses, interest, total: base + unusedGuesses + interest }
   state.phase = "reward"
@@ -305,7 +311,14 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
       // grew to, and this is where growing becomes part of the run.
       for (const { slot, data } of result.jokerData) {
         const instance = next.jokers[slot]
-        if (instance) instance.data = data
+        if (!instance) continue
+        instance.data = data
+        // Growth earned while scoring gets the same announcement as growth
+        // earned at a blind's end. Only slots that actually wrote turn up here,
+        // so this never fires for a card that merely read its own counter, and
+        // the label is whatever the card wears — floater and joker agree.
+        const label = JOKER_BY_ID.get(instance.id)?.detail?.(instance)
+        if (label) events.push({ type: "joker_grew", slot, id: instance.id, label })
       }
 
       if (result.gold > 0) {
