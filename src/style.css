@@ -337,6 +337,18 @@ button {
   color: var(--gold);
 }
 
+/*
+ * What a scaling joker has grown to. Tinted like mult rather than like the card,
+ * because it is a live number rather than part of the card's identity — the one
+ * thing on a joker that is worth re-reading between blinds.
+ */
+.joker-detail {
+  font-size: 0.5625rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--mult);
+}
+
 .joker.fired {
   transform: translateY(-3px) scale(1.06);
   box-shadow: 0 0 0 2px var(--gold);

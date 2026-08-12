@@ -312,6 +312,19 @@ export class App {
           slot?.classList.remove("fired")
           break
         }
+        case "joker_grew": {
+          // Lands after the guess has finished scoring, because that is when it
+          // happens: the blind ended, and this card is worth more next time. No
+          // readout — nothing about this guess's chips or mult moved, which is
+          // exactly what distinguishes growing from firing.
+          const slot = screen.querySelector(`.joker[data-slot="${event.slot}"]`)
+          slot?.classList.add("fired")
+          this.floater(screen, event.label)
+          this.sound.joker()
+          await this.pace(PACE.joker)
+          slot?.classList.remove("fired")
+          break
+        }
         case "solve_bonus": {
           // Arrives after the guess has already been counted onto the total, so
           // this is the pile itself multiplying — the biggest number movement in

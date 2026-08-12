@@ -31,14 +31,12 @@ export type ModId = "chip" | "mult" | "gold" | "steel" | "glass" | "wild"
 
 export type ModCtx = ScoreCtx & {
   /**
-   * A seeded roll for the tile being scored, in [0, 1). Chance effects have to
-   * replay identically from a save and from a golden vector, so this is the only
-   * randomness a modifier may consult.
-   */
-  roll(): number
-  /**
    * Retire a letter from the alphabet once the guess has finished scoring.
    * Refused if it would leave too little alphabet to spell with.
+   *
+   * The only thing a modifier gets that a joker does not — `roll` lives on
+   * `ScoreCtx` now, since both need seeded chance and neither may reach for
+   * anything else.
    */
   burn(letter: string): void
 }

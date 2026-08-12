@@ -2,7 +2,25 @@ import { ALPHABET, isVowel, MIN_LIVE_LETTERS } from "../content/letters"
 import type { Rng } from "./rng"
 import { shuffled } from "./rng"
 import type { ScoreCtx } from "./scoring"
-import type { GameEvent, Rarity, RunState, Tile } from "./state"
+import type { BlindState, GameEvent, JokerInstance, Rarity, RunState, Tile } from "./state"
+
+/**
+ * What a run-level hook gets.
+ *
+ * These fire inside the reducer, which is what owns mutation, so unlike the
+ * scoring hooks they write `state` and `instance` straight through rather than
+ * handing back a patch. Growth is `ctx.instance.data`, and `slot` is here so a
+ * card that grows can emit an event pointing at itself.
+ */
+export type JokerCtx = {
+  state: RunState
+  /** This copy's row in `state.jokers`. Write `data` to grow. */
+  instance: JokerInstance
+  /** This copy's slot, for events that point at the card. */
+  slot: number
+  rng: Rng
+  events: GameEvent[]
+}
 
 export type Joker = {
   id: string
@@ -15,7 +33,24 @@ export type Joker = {
   /** Fires once after all tiles, in slot order. */
   onGuess?: (ctx: ScoreCtx) => void
   /** Fires when a blind begins — before the answer is chosen. */
-  onBlindStart?: (state: RunState, rng: Rng, events: GameEvent[]) => void
+  onBlindStart?: (ctx: JokerCtx) => void
+  /**
+   * Fires when a blind ends, win or lose, with the finished blind to read —
+   * `solved`, the guess list, the final score. The home for growth that is
+   * earned over a round rather than over a guess.
+   */
+  onBlindEnd?: (ctx: JokerCtx, blind: BlindState) => void
+  /**
+   * Fires on entering the shop, before its stock is rolled — so a joker that
+   * bends what the shop offers bends the shop it is about to be shown.
+   */
+  onShopEnter?: (ctx: JokerCtx) => void
+  /**
+   * What this copy has grown to, for the card to wear: "+12 mult". Only scaling
+   * jokers define it — a joker whose value never moves has nothing to report
+   * that its `text` does not already say.
+   */
+  detail?: (instance: JokerInstance) => string
   /**
    * Added to the blind's solve multiplier. Separate from `onGuess` because the
    * board quotes this figure before the guess exists, so it has to be knowable
@@ -252,7 +287,7 @@ export const JOKERS: readonly Joker[] = [
     onGuess: (ctx) => ctx.addMult(40),
     // Runs before the answer is drawn, so a burnt letter genuinely cannot
     // appear in the word — the search space shrinks along with your keyboard.
-    onBlindStart: (state, rng, events) => {
+    onBlindStart: ({ state, rng, events }) => {
       const alive = [...ALPHABET].filter((letter) => !state.letters[letter]?.destroyed)
       // Leave enough alphabet to still form words; refuse to burn past that.
       // The same floor a shattering letter stops at — one rule, two ways in.

@@ -47,6 +47,25 @@ export type ScoreCtx = {
   addGold(amount: number): void
   /** The chip value a letter is worth right now, etchings included. */
   baseChipsOf(letter: string): number
+  /**
+   * A seeded roll for whatever is currently firing, in [0, 1). Chance effects
+   * have to replay identically from a save and from a golden vector, so this is
+   * the only randomness an effect may consult. Each hook gets its own stream,
+   * keyed by where it fired rather than by the order things ran in.
+   */
+  roll(): number
+  /**
+   * This joker's own persistent counter, 0 if it has never written one. Reads
+   * what the joker has grown to *including* anything written earlier in this
+   * same guess.
+   */
+  getData(key: string): number
+  /**
+   * Grow this joker. Collected rather than applied: scoring prices a guess, it
+   * does not edit the run — the same rule that puts `burned` in the result
+   * instead of mutating `state.letters` here. The caller commits it.
+   */
+  setData(key: string, value: number): void
 }
 
 export type ScoreResult = {
@@ -60,6 +79,12 @@ export type ScoreResult = {
    * here: scoring prices a guess, it does not edit the run.
    */
   burned: string[]
+  /**
+   * Jokers that grew this guess, by slot. Same discipline as `burned` — only
+   * the slots that actually wrote appear, so committing this never plants an
+   * empty `data` on a joker that does not scale.
+   */
+  jokerData: Array<{ slot: number; data: Record<string, number> }>
 }
 
 export function baseChips(state: RunState, letter: string): number {
@@ -110,10 +135,27 @@ export function scoreGuess(params: {
   let firing: ((label: string) => void) | null = null
   const fire = (label: string) => firing?.(label)
 
-  /** The tile's own seeded stream, replaced as the loop walks across them. */
+  /** The firing hook's own seeded stream, replaced around each hook call. */
   let roll: Rng = () => 0
 
   const burned: string[] = []
+
+  /**
+   * Which joker slot is firing, so `setData` knows whose counter it is writing.
+   * Null while a modifier or the tile loop itself is running — a letter has no
+   * slot to grow in.
+   */
+  let slotFiring: number | null = null
+  const grown = new Map<number, Record<string, number>>()
+
+  /** Copy-on-write, so a slot only lands in the result once it actually grows. */
+  const bucketFor = (slot: number): Record<string, number> => {
+    const existing = grown.get(slot)
+    if (existing) return existing
+    const fresh = { ...(state.jokers[slot]?.data ?? {}) }
+    grown.set(slot, fresh)
+    return fresh
+  }
 
   const ctx: ModCtx = {
     state,
@@ -143,6 +185,19 @@ export function scoreGuess(params: {
       fire(`+$${amount}`)
     },
     roll: () => roll(),
+    getData(key) {
+      if (slotFiring === null) return 0
+      // Reads through to what this guess has already written, so a joker that
+      // grows and then spends its own counter in the same guess sees the new
+      // value rather than a stale one.
+      const bucket = grown.get(slotFiring)
+      if (bucket) return bucket[key] ?? 0
+      return state.jokers[slotFiring]?.data?.[key] ?? 0
+    },
+    setData(key, value) {
+      if (slotFiring === null) return
+      bucketFor(slotFiring)[key] = value
+    },
     burn(letter) {
       if (burned.includes(letter)) return
       // Counted against what the alphabet *will* be, so a guess that shatters
@@ -189,19 +244,30 @@ export function scoreGuess(params: {
 
     jokers.forEach((joker, slot) => {
       if (!joker?.onTile) return
+      // One stream per slot per tile, so a chance effect is a property of where
+      // it fired rather than of the order the slots happened to run in — the
+      // same rule the modifier stream above follows.
+      roll = derive(state.seed, "joker", state.ante, state.blindIndex, guessIndex, slot, index)
+      slotFiring = slot
       firing = (label) =>
         events.push({ type: "joker", slot, id: joker.id, label, chips: ctx.chips, mult: ctx.mult })
       joker.onTile(ctx, tile, index, base)
       firing = null
+      slotFiring = null
     })
   })
 
   jokers.forEach((joker, slot) => {
     if (!joker?.onGuess) return
+    // One coordinate shorter than the per-tile stream above, so the two cannot
+    // collide even for the same slot and guess.
+    roll = derive(state.seed, "joker", state.ante, state.blindIndex, guessIndex, slot)
+    slotFiring = slot
     firing = (label) =>
       events.push({ type: "joker", slot, id: joker.id, label, chips: ctx.chips, mult: ctx.mult })
     joker.onGuess(ctx)
     firing = null
+    slotFiring = null
   })
 
   // Solving pays tempo and ends the blind on the spot, and its bonus multiplies
@@ -220,5 +286,6 @@ export function scoreGuess(params: {
     score: Math.round(ctx.chips * ctx.mult),
     gold: ctx.gold,
     burned,
+    jokerData: [...grown].map(([slot, data]) => ({ slot, data })),
   }
 }

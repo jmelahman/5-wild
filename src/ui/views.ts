@@ -106,6 +106,10 @@ function jokerRow(state: RunState, on: Handlers): HTMLElement {
     if (!instance) return h("div", { class: "joker empty" })
     const joker = JOKER_BY_ID.get(instance.id)
     if (!joker) return h("div", { class: "joker empty" })
+    // What a scaling joker has grown to. A card whose value moves and does not
+    // say so is a card the player cannot plan around, so it goes on the face
+    // rather than only in the tip.
+    const detail = joker.detail?.(instance)
     return h(
       "button",
       {
@@ -115,12 +119,13 @@ function jokerRow(state: RunState, on: Handlers): HTMLElement {
         // element because the tray clips its own children — the panel that
         // shows this has to be built outside it, and so cannot inherit either.
         // The name is left out: it is already on the card the tip points at.
-        "data-tip": joker.text,
+        "data-tip": detail ? `${joker.text} (${detail})` : joker.text,
         "data-rarity": joker.rarity,
         type: "button",
-        onclick: () => on.inspect(`${joker.name} — ${joker.text}`),
+        onclick: () => on.inspect(`${joker.name} — ${joker.text}${detail ? ` (${detail})` : ""}`),
       },
       h("span", { class: "joker-name" }, joker.name),
+      detail ? h("span", { class: "joker-detail" }, detail) : null,
     )
   })
   return h("div", { class: "jokers" }, ...slots)

@@ -14,7 +14,9 @@ import { ALPHABET } from "../content/letters"
 import type { Boss } from "./bosses"
 import { bossForAnte, getBoss } from "./bosses"
 import { CONSUMABLE_BY_ID } from "./consumables"
+import type { Joker, JokerCtx } from "./jokers"
 import { JOKER_BY_ID } from "./jokers"
+import type { Rng } from "./rng"
 import { derive, pick } from "./rng"
 import { scoreGuess } from "./scoring"
 import { rerollCost, rollShop, sellValue } from "./shop"
@@ -46,6 +48,25 @@ import { computeFeedback, toTiles } from "./words"
  * puts a Map or a Date in the state, saves break here first and loudly.
  */
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
+
+/**
+ * Every equipped joker paired with the context its run-level hooks get.
+ *
+ * One `Rng` shared across the slots rather than one each, so the draws stay in
+ * slot order and a joker bought later cannot shift what an earlier one rolled.
+ */
+function jokerHooks(
+  state: RunState,
+  rng: Rng,
+  events: GameEvent[],
+): Array<readonly [Joker, JokerCtx]> {
+  const out: Array<readonly [Joker, JokerCtx]> = []
+  state.jokers.forEach((instance, slot) => {
+    const joker = JOKER_BY_ID.get(instance.id)
+    if (joker) out.push([joker, { state, instance, slot, rng, events }])
+  })
+  return out
+}
 
 function freshLetters(): Record<string, LetterState> {
   const letters: Record<string, LetterState> = {}
@@ -93,9 +114,7 @@ function beginBlind(state: RunState, words: WordSource, events: GameEvent[]): vo
   // Blind-start hooks run before the answer is drawn, so a joker that shrinks
   // the alphabet actually shrinks the search space too.
   const rng = derive(state.seed, "blind_start", state.ante, state.blindIndex)
-  for (const instance of state.jokers) {
-    JOKER_BY_ID.get(instance.id)?.onBlindStart?.(state, rng, events)
-  }
+  for (const [joker, ctx] of jokerHooks(state, rng, events)) joker.onBlindStart?.(ctx)
 
   const boss = getBoss(bossId)
 
@@ -132,6 +151,14 @@ function beginBlind(state: RunState, words: WordSource, events: GameEvent[]): vo
 /** The single fail state: score below target when the blind ends. */
 function resolveBlind(state: RunState, events: GameEvent[]): void {
   const blind = state.blind
+
+  // Before the win/lose branch, so a joker that grows on a blind ending counts
+  // the blind that ended — including the one that ended the run. Losing makes
+  // that moot rather than wrong, and the alternative is a hook whose firing
+  // depends on an outcome it might itself be about to read.
+  const rng = derive(state.seed, "blind_end", state.ante, state.blindIndex)
+  for (const [joker, ctx] of jokerHooks(state, rng, events)) joker.onBlindEnd?.(ctx, blind)
+
   if (blind.score < blind.target) {
     state.phase = "game_over"
     events.push({ type: "blind_lost" })
@@ -272,6 +299,13 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
         events.push({ type: "letter_destroyed", letter })
       }
 
+      // Same discipline as the burns above: scoring decided what each joker
+      // grew to, and this is where growing becomes part of the run.
+      for (const { slot, data } of result.jokerData) {
+        const instance = next.jokers[slot]
+        if (instance) instance.data = data
+      }
+
       if (result.gold > 0) {
         next.gold += result.gold
         events.push({ type: "gold", delta: result.gold, reason: "scoring" })
@@ -328,6 +362,11 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
         events.push({ type: "run_won" })
         return { state: next, events }
       }
+
+      // Before the roll, so a joker that bends the shop bends the one it is
+      // about to be shown rather than the next one.
+      const shopRng = derive(next.seed, "shop_enter", next.ante, next.blindIndex)
+      for (const [joker, ctx] of jokerHooks(next, shopRng, events)) joker.onShopEnter?.(ctx)
 
       next.shop = rollShop(next, derive(next.seed, "shop", next.ante, next.blindIndex, 0), 0)
       next.phase = "shop"

@@ -34,7 +34,15 @@ export type GuessRecord = {
 
 export type Rarity = "common" | "uncommon" | "rare" | "legendary"
 
-export type JokerInstance = { id: string }
+/**
+ * Where a scaling joker keeps what it has grown.
+ *
+ * `data` is absent until the joker actually writes to it, which is what keeps
+ * this compatible in both directions: a save written before scaling existed
+ * loads unchanged, and a run full of non-scaling jokers adds nothing to the
+ * file. Plain numbers only, for the same reason the rest of RunState is plain.
+ */
+export type JokerInstance = { id: string; data?: Record<string, number> }
 export type ConsumableInstance = { id: string }
 
 export type LetterState = {
@@ -136,6 +144,13 @@ export type GameEvent =
   | { type: "rejected"; reason: string }
   | { type: "tile"; index: number; gained: number; chips: number; mult: number }
   | { type: "joker"; slot: number; id: string; label: string; chips: number; mult: number }
+  /**
+   * A joker permanently growing. Distinct from `joker` because it happens
+   * outside the scoring pipeline, where there is no running chips or mult for
+   * it to quote — and because the screen should say "this is worth more now"
+   * differently from how it says "this just paid".
+   */
+  | { type: "joker_grew"; slot: number; id: string; label: string }
   /** A letter's own modifier firing, on the tile that carried it. */
   | {
       type: "mod"
