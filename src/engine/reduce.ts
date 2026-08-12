@@ -18,6 +18,7 @@ import { CONSUMABLE_BY_ID } from "./consumables"
 import { ETCHING_BY_ID } from "./etchings"
 import type { Joker, JokerCtx } from "./jokers"
 import { JOKER_BY_ID } from "./jokers"
+import { RANGE_BY_ID, rangeLevelOf } from "./ranges"
 import type { Rng } from "./rng"
 import { derive, pick } from "./rng"
 import { scoreGuess } from "./scoring"
@@ -424,6 +425,16 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
           // Written on first purchase rather than initialised at run start, so a
           // run that never levels anything keeps `levels` out of its save.
           next.levels = { ...next.levels, [category.id]: levelOf(next, category.id) + 1 }
+          break
+        }
+        case "range": {
+          const range = RANGE_BY_ID.get(item.id)
+          if (!range) return reject("unknown range")
+          // Stored on the run rather than pushed out into `letters`, unlike an
+          // etching: a range level has to keep applying to a letter that is
+          // burnt out and later restored, and writing it per letter would lose
+          // that. It also means the save carries four numbers instead of 26.
+          next.ranges = { ...next.ranges, [range.id]: rangeLevelOf(next, range.id) + 1 }
           break
         }
         case "mod": {

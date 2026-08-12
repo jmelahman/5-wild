@@ -6,6 +6,7 @@ import type { Joker } from "./jokers"
 import { JOKERS } from "./jokers"
 import type { ModId } from "./modifiers"
 import { MODIFIER_BY_ID } from "./modifiers"
+import { liveRanges } from "./ranges"
 import type { Rng } from "./rng"
 import { pick } from "./rng"
 import type { RunState, ShopItem, ShopState } from "./state"
@@ -29,14 +30,26 @@ export const sellValue = (cost: number): number => Math.max(1, Math.floor(cost /
 const LEVEL_COST = 8
 
 /**
- * The upgrade slot: the run's two permanent scaling lines. An etching raises what
- * *letters* are worth, a level raises what a *shape of word* is worth, and a card
+ * What one alphabet range level costs. Priced in `ranges.ts` against the etching
+ * line it sits beside; the number lives here because the shop is what charges it.
+ */
+const RANGE_COST = 7
+
+/**
+ * The upgrade slot: the run's permanent scaling lines. An etching raises what a
+ * *kind* of letter is worth, a range level raises what a *slice of the alphabet*
+ * is worth, a category level raises what a *shape of word* is worth, and a card
  * turns up often enough that the slot is not the same shape every visit.
+ *
+ * Etchings give up a share to make room rather than the slot growing: four kinds
+ * of decision in one slot is already the most it can carry legibly, and the two
+ * letter lines answer the same question, so they can afford to split a seat.
  */
 const UPGRADE_TABLE = [
   "etch",
   "etch",
-  "etch",
+  "range",
+  "range",
   "level",
   "level",
   "level",
@@ -59,6 +72,9 @@ const MOD_TABLE: readonly ModId[] = [
   "mult",
   "gold",
   "wild",
+  "lucky",
+  "echo",
+  "anchor",
   "steel",
   "glass",
 ]
@@ -69,14 +85,15 @@ const rollConsumable = (rng: Rng): ShopItem => {
 }
 
 /**
- * A modifier on a letter that can still be typed and does not already carry it.
- * Null when there is no such pairing left, which hands the slot back to the
- * ordinary roll rather than selling a card that would do nothing.
+ * A modifier on a letter that can still be typed, does not already carry it, and
+ * that the modifier is willing to be sold on at all. Null when there is no such
+ * pairing left, which hands the slot back to the ordinary roll rather than
+ * selling a card that would do nothing.
  */
 function rollMod(state: RunState, rng: Rng): ShopItem | null {
   const modifier = MODIFIER_BY_ID.get(pick(rng, MOD_TABLE))
   if (!modifier) return null
-  const candidates = [...ALPHABET].filter(
+  const candidates = [...(modifier.letters ?? ALPHABET)].filter(
     (letter) => !state.letters[letter]?.destroyed && state.letters[letter]?.mod !== modifier.id,
   )
   if (candidates.length === 0) return null
@@ -97,10 +114,25 @@ function rollEtch(state: RunState, rng: Rng): ShopItem | null {
   return { kind: "etch", id: etching.id, cost: etching.cost }
 }
 
+/**
+ * A range with a letter left alive in it. Uniform across the four, and unlike
+ * the category roll that is not a compromise: the ranges are cut to be worth the
+ * same, so there is no rare one to lean the odds toward.
+ */
+function rollRange(state: RunState, rng: Rng): ShopItem | null {
+  const usable = liveRanges(state)
+  if (usable.length === 0) return null
+  return { kind: "range", id: pick(rng, usable).id, cost: RANGE_COST }
+}
+
 function rollUpgrade(state: RunState, rng: Rng): ShopItem {
   const kind = pick(rng, UPGRADE_TABLE)
   if (kind === "etch") {
     const item = rollEtch(state, rng)
+    if (item) return item
+  }
+  if (kind === "range") {
+    const item = rollRange(state, rng)
     if (item) return item
   }
   if (kind === "level") {

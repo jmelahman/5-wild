@@ -192,12 +192,13 @@ export const BOSSES: readonly Boss[] = [
     id: "rust",
     tier: "late",
     name: "The Rust",
-    text: "Etchings score nothing. Letters are worth only what they started as.",
+    text: "Letter upgrades score nothing. Letters are worth only what they started as.",
     // Aimed squarely at the permanent upgrade line: a run that bought four
     // etchings meets a blind where none of them exist. It reads `LETTER_CHIPS`
-    // rather than subtracting the etch, so it stays correct if the etching rules
+    // rather than subtracting them, so it stays correct if the upgrade rules
     // ever change — the claim is "what the letter started as", not "minus what
-    // you added".
+    // you added". Which is why it caught alphabet range levels for free, and
+    // why the text says upgrades rather than naming either line.
     tileChips: (_base, tile) => LETTER_CHIPS[tile.letter] ?? 0,
   },
 ]

@@ -27,7 +27,16 @@ import type { Rarity, RunState, Tile } from "./state"
  * something this game otherwise has no way to ask about.
  */
 
-export type ModId = "chip" | "mult" | "gold" | "steel" | "glass" | "wild"
+export type ModId =
+  | "chip"
+  | "mult"
+  | "gold"
+  | "steel"
+  | "glass"
+  | "wild"
+  | "lucky"
+  | "echo"
+  | "anchor"
 
 export type ModCtx = ScoreCtx & {
   /**
@@ -50,12 +59,33 @@ export type Modifier = {
   pip: string
   rarity: Rarity
   cost: number
+  /**
+   * The letters the shop may sell this on, when it cannot go on just any of
+   * them. Absent means the whole alphabet, which is the ordinary case.
+   *
+   * This exists because a conditional modifier can be sold onto a letter that
+   * can never satisfy the condition, and then it is not a weak card but a dead
+   * one. Echo pays on a repeated letter, and no five-letter answer repeats a J,
+   * Q or X at all — the shop was charging $5 for a card guaranteed to do
+   * nothing. A restriction is the honest fix, because the alternative is
+   * pricing every conditional card for the worst letter it might land on, which
+   * makes it worthless on the good ones too.
+   *
+   * Only for conditions that are *independent* of how often the letter comes
+   * up. Anchor needs a green tile, and a rare letter is green rarely for the
+   * same reason it scores rarely — that is the ordinary Gold Z bet the whole
+   * layer is built on, and it does not need protecting from.
+   */
+  letters?: string
   /** Fires once per tile carrying it, before any joker sees that tile. */
   onTile: (ctx: ModCtx, tile: Tile) => void
 }
 
 /** How often a glass letter shatters on a tile that shattering is allowed on. */
 const GLASS_BREAK = 0.25
+
+/** How often a lucky letter pays. */
+const LUCKY_CHANCE = 0.25
 
 export const MODIFIERS: readonly Modifier[] = [
   {
@@ -104,6 +134,69 @@ export const MODIFIERS: readonly Modifier[] = [
     onTile: (ctx, tile) => {
       const gap = MULT_FOR_COLOR.green - MULT_FOR_COLOR[tile.color]
       if (gap > 0) ctx.addMult(gap)
+    },
+  },
+  {
+    id: "lucky",
+    name: "Lucky",
+    text: "has a 1 in 4 chance of scoring +20 mult",
+    pip: "?",
+    rarity: "uncommon",
+    cost: 6,
+    // Expects +5 mult a tile against Mult's flat +4 for a gold less, so the
+    // premium is entirely for the variance — which is the trade Balatro's Lucky
+    // card offers too. It is the only modifier whose value you cannot read off
+    // the board before you submit, and the one guess in four that it lands on is
+    // worth waiting for.
+    onTile: (ctx) => {
+      if (ctx.roll() < LUCKY_CHANCE) ctx.addMult(20)
+    },
+  },
+  {
+    id: "echo",
+    name: "Echo",
+    text: "scores +60 chips when the word repeats it",
+    pip: "↺",
+    rarity: "uncommon",
+    cost: 5,
+    // Fires on every copy, so a doubled letter collects +120 across the word.
+    // Pays a player for the shape the Twinned category and Anagrammer already
+    // reward, which is the point: a modifier that only pays inside a build can
+    // afford a bigger number than a flat one.
+    //
+    // Sold only on the six letters an answer actually doubles in more than 2%
+    // of words. Below that the card is decoration: an answer repeats a W in one
+    // word out of two thousand and a J, Q or X in none at all. Restricted to
+    // AELOST, +60 is worth 0.97 chips a gold against Chip's flat 0.96 — the
+    // same money, taken in a lump on the words that earn it.
+    letters: "aelost",
+    onTile: (ctx, tile) => {
+      const copies = [...ctx.word].filter((letter) => letter === tile.letter).length
+      if (copies >= 2) ctx.addChips(60)
+    },
+  },
+  {
+    id: "anchor",
+    name: "Anchor",
+    text: "scores +250 chips when it lands green",
+    pip: "⚓",
+    rarity: "uncommon",
+    cost: 5,
+    // Wild's opposite number, deliberately: Wild pays most on the guess that
+    // went worst, this pays only on the letter you have already nailed. Both
+    // sides of the colour line are now purchasable.
+    //
+    // Back-loaded by nature, since greens accumulate through a blind, and it
+    // rewards re-typing a letter you have locked — which The Tyrant compels and
+    // The Miser forbids, so the same card swings hard either way.
+    //
+    // Priced the same way as Echo, off the same measurement: only 8.8% of tiles
+    // land green, which left +50 worth 0.17 chips a gold. +250 brings the
+    // average to 0.84 and makes Anchor on S the single best modifier buy in the
+    // game — which is the whole idea, since the letter it sits on is printed on
+    // the card and reading it is the decision the slot is there to ask for.
+    onTile: (ctx, tile) => {
+      if (tile.color === "green") ctx.addChips(250)
     },
   },
   {

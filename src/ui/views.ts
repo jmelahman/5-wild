@@ -5,9 +5,10 @@ import {
   BLIND_PAYOUT,
   BLINDS_PER_ANTE,
   CATEGORY_BY_ID,
+  categoryOf,
+  CHIPS_PER_LEVEL,
   CONSUMABLE_BY_ID,
   CONSUMABLE_SLOTS,
-  categoryOf,
   ETCHING_BY_ID,
   GOLD_PER_UNUSED_GUESS,
   getBoss,
@@ -21,6 +22,9 @@ import {
   MODIFIER_BY_ID,
   MODIFIERS,
   modifierOf,
+  RANGE_BY_ID,
+  rangeChips,
+  rangeLevelOf,
   rerollCost,
   sellValue,
   solveBonusFor,
@@ -217,7 +221,11 @@ function keyboard(state: RunState, on: Handlers): HTMLElement {
 
   const key = (letter: string) => {
     const destroyed = state.letters[letter]?.destroyed ?? false
-    const etch = state.letters[letter]?.etch ?? 0
+    // Both upgrade lines in one number, because the key is answering "what is
+    // this letter worth" and a player choosing a letter does not care which
+    // purchase paid for it. Etchings and range levels crosscut, so most upgraded
+    // keys are carrying some of each.
+    const etch = (state.letters[letter]?.etch ?? 0) + rangeChips(state, letter)
     const color = eliminated.has(letter) ? "gray" : colors.get(letter)
     // A modifier is bought once and paid off over the rest of the run, so the
     // key it lives on is the only place a player can be reminded it is there —
@@ -463,6 +471,12 @@ function shopItemCard(item: ShopItem, index: number, state: RunState, on: Handle
     if (current && current !== item.id) {
       text += `, replacing ${MODIFIER_BY_ID.get(current)?.name ?? current}`
     }
+  } else if (item.kind === "range") {
+    const range = RANGE_BY_ID.get(item.id)
+    // Named the same way a category level is — the level it buys, not the one
+    // you hold — because the gold buys the step.
+    title = range ? `${range.name} → Lv ${rangeLevelOf(state, item.id) + 1}` : "Range"
+    text = range ? `${range.name} letters are worth +${CHIPS_PER_LEVEL} chips per level` : ""
   } else if (item.kind === "level") {
     const category = CATEGORY_BY_ID.get(item.id)
     // Named as the level it buys rather than as the level you hold, because the
@@ -678,7 +692,12 @@ export function helpView(on: Handlers): HTMLElement {
       ),
       h("p", { class: "sheet-lead" }, "The difference is that every guess is scored."),
       rule("Chips × Mult", " Each guess is worth its chips multiplied by its mult."),
-      rule("Letters pay chips", " Rare letters pay more. Etchings from the shop add more."),
+      rule(
+        "Letters pay chips",
+        ` Rare letters pay more. The shop sells two ways to raise them: etchings, which
+         add to a kind of letter, and levels on a slice of the alphabet. Every letter
+         sits in exactly one slice, and the two stack.`,
+      ),
       rule(
         "Colours pay mult",
         ` Green is worth +3 mult, yellow +1, gray nothing. A guess full of gray is

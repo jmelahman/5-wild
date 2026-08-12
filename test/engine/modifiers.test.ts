@@ -30,8 +30,13 @@ function withMod(letter: string, mod: ModId, seed = 1): RunState {
 }
 
 /** Plays one guess with a modified letter and hands back the scored record. */
-function play(letter: string, mod: ModId, word: string): { last: GuessRecord; state: RunState } {
-  const state = apply(withMod(letter, mod), type(word))
+function play(
+  letter: string,
+  mod: ModId,
+  word: string,
+  seed = 1,
+): { last: GuessRecord; state: RunState } {
+  const state = apply(withMod(letter, mod, seed), type(word))
   const last = state.blind.guesses[state.blind.guesses.length - 1]
   if (!last) throw new Error("no guess was scored")
   return { last, state }
@@ -163,6 +168,37 @@ describe("buying a modifier", () => {
   it("leaves an etching alone — the two upgrades stack with each other", () => {
     const state = apply(shopping({ letter: "e", id: "chip", cost: 4 }), [{ type: "buy", index: 0 }])
     expect(state.letters.e).toMatchObject({ etch: 0, mod: "chip" })
+  })
+
+  it("Anchor pays only where the letter lands green", () => {
+    // Against BRAID, CRANE puts R and A in their right places and everything
+    // else wrong — so the same card is worth +250 on R and nothing on C. The
+    // gap between those two numbers is the card: what it is worth depends on
+    // the letter it was sold on, not on the price it was sold at.
+    expect(play("r", "anchor", "crane").last).toMatchObject({ chips: 257, mult: 7 })
+    expect(play("c", "anchor", "crane").last).toMatchObject({ chips: 7, mult: 7 })
+  })
+
+  it("Echo pays on every copy of a letter the word repeats", () => {
+    // AAHED carries two As, so Echo fires twice — the card is bought for the
+    // words that double it, and is worth nothing in the ones that do not.
+    const plain = apply(startRun(1, words).state, type("aahed")).blind.guesses[0]
+    if (!plain) throw new Error("no guess was scored")
+    expect(play("a", "echo", "aahed").last.chips - plain.chips).toBe(120)
+    // And nothing at all in a word that holds only one of it.
+    expect(play("a", "echo", "crane").last).toMatchObject({ chips: 7, mult: 7 })
+  })
+
+  it("Lucky fires on a quarter of tiles, and always the same ones", () => {
+    // Walked across seeds rather than pinned to one: what is under test is that
+    // the chance is real in both directions and that it replays, not which
+    // particular draw a magic seed happens to produce.
+    const mults = Array.from({ length: 40 }, (_, i) => play("c", "lucky", "crane", i + 1).last.mult)
+
+    expect(new Set(mults)).toEqual(new Set([7, 27]))
+    expect(mults.filter((mult) => mult === 27).length).toBeGreaterThan(2)
+    expect(mults.filter((mult) => mult === 7).length).toBeGreaterThan(2)
+    expect(play("c", "lucky", "crane", 1).last.mult).toBe(mults[0])
   })
 
   it("is something the shop actually offers", () => {

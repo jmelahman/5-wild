@@ -4,6 +4,7 @@ import { categoryOf, levelBonus } from "./categories"
 import { JOKER_BY_ID } from "./jokers"
 import type { ModCtx } from "./modifiers"
 import { modifierOf } from "./modifiers"
+import { rangeChips } from "./ranges"
 import type { Rng } from "./rng"
 import { derive } from "./rng"
 import type { GameEvent, RunState, Tile } from "./state"
@@ -89,8 +90,14 @@ export type ScoreResult = {
   jokerData: Array<{ slot: number; data: Record<string, number> }>
 }
 
+/**
+ * What a letter is worth before anything watches it: what it started as, plus
+ * every etching bought on a group containing it, plus its alphabet range's
+ * level. The two upgrade lines crosscut deliberately, so they add rather than
+ * compete — an etched E in a levelled A–E collects both.
+ */
 export function baseChips(state: RunState, letter: string): number {
-  return (LETTER_CHIPS[letter] ?? 0) + (state.letters[letter]?.etch ?? 0)
+  return (LETTER_CHIPS[letter] ?? 0) + (state.letters[letter]?.etch ?? 0) + rangeChips(state, letter)
 }
 
 /**

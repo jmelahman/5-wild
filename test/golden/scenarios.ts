@@ -12,7 +12,7 @@
  */
 
 import type { Action, RunState, WordSource } from "../../src/engine"
-import { categoryOf, levelBonus, reduce } from "../../src/engine"
+import { baseChips, categoryOf, levelBonus, reduce } from "../../src/engine"
 
 export type Scenario = {
   name: string
@@ -89,6 +89,11 @@ function modTiles(state: RunState, word: string): number {
 function levelValue(state: RunState, word: string): number {
   const bonus = levelBonus(state, categoryOf(word))
   return bonus.chips + bonus.mult
+}
+
+/** What a word's letters are worth right now, both letter upgrade lines included. */
+function wordChips(state: RunState, word: string): number {
+  return [...word].reduce((total, letter) => total + baseChips(state, letter), 0)
 }
 
 /** Bank the reward, then leave the shop without spending. */
@@ -272,6 +277,48 @@ export const SCENARIOS: readonly Scenario[] = [
         const joker = items.findIndex((item) => item?.kind === "joker" && item.cost <= state.gold)
         if (joker >= 0 && accepted(state, words, [{ type: "buy", index: joker }])) {
           return [{ type: "buy", index: joker }]
+        }
+        return [{ type: "next_blind" }]
+      }
+      return null
+    },
+  },
+  {
+    name: "etcher",
+    covers: "alphabet range levels and etchings stacking on the same letters",
+    seed: 21,
+    next: (state, words) => {
+      if (state.phase === "blind") {
+        // One probe picked for what its letters are worth right now, then the
+        // answer. The sort is what makes this vector worth recording: it reads
+        // `baseChips`, so if a range level ever stopped reaching a letter — or
+        // stopped adding to the etching already on it — the probe would score
+        // like an un-upgraded word and every number after it would move.
+        const probes =
+          state.blind.guesses.length === 0
+            ? [...decoys(state, words, 5)].sort((a, b) => wordChips(state, b) - wordChips(state, a))
+            : []
+        return firstPlayable(state, words, [...probes, state.blind.answer])
+      }
+      if (state.phase === "reward") return [{ type: "collect" }]
+      if (state.phase === "shop") {
+        const items = state.shop?.items ?? []
+        // Two jokers first, then both letter lines, ranges ahead of etchings.
+        // The joker floor is not a flourish: chips are only ever half of a
+        // score, and a bot that spent its whole run raising them stalled in ante
+        // two with nothing to multiply them by. Once it has some mult, buying in
+        // this order is what gets the two lines stacked on one letter — the
+        // ranges partition the alphabet, so whichever etching lands afterwards
+        // is guaranteed to overlap one that has already been levelled.
+        const order =
+          state.jokers.length < 2
+            ? (["joker", "range", "etch"] as const)
+            : (["range", "etch", "joker"] as const)
+        for (const kind of order) {
+          const index = items.findIndex((item) => item?.kind === kind && item.cost <= state.gold)
+          if (index >= 0 && accepted(state, words, [{ type: "buy", index }])) {
+            return [{ type: "buy", index }]
+          }
         }
         return [{ type: "next_blind" }]
       }

@@ -53,6 +53,8 @@ export type Vector = {
     mods: string[]
     /** "distinct:3" — word category and the level it was bought up to. */
     levels: string[]
+    /** "range_ae:2" — alphabet slice and the level it was bought up to. */
+    ranges: string[]
     /** "snowball:mult=310" — what each growing joker has banked. */
     grown: string[]
     destroyed: string[]
@@ -88,6 +90,13 @@ function summarise(
     // levelling bug that happens not to move a score is still a bug, and this
     // is what makes the diff say which levels a run actually bought.
     levels: Object.entries(state.levels ?? {})
+      .map(([id, level]) => `${id}:${level}`)
+      .sort(),
+    // The other levelled line, recorded beside its twin. Kept separate from
+    // `etched` even though both end up as chips on a letter, because the diff
+    // has to be able to say *which* upgrade a run bought — the two crosscut, so
+    // a total alone could not tell a levelled range from an etched group.
+    ranges: Object.entries(state.ranges ?? {})
       .map(([id, level]) => `${id}:${level}`)
       .sort(),
     // The fourth line that outlives a blind. Recorded for the same reason as

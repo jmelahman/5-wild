@@ -88,6 +88,8 @@ export type ShopItem =
   | { kind: "etch"; id: string; cost: number }
   /** One level for a named word category. */
   | { kind: "level"; id: string; cost: number }
+  /** One level for a slice of the alphabet. */
+  | { kind: "range"; id: string; cost: number }
   | { kind: "mod"; letter: string; id: ModId; cost: number }
 
 export type ShopState = {
@@ -120,6 +122,12 @@ export type RunState = {
    * nothing, and a save from before levelling existed loads unchanged.
    */
   levels?: Record<string, number>
+  /**
+   * Alphabet range levels, by range id, absent meaning level one. Same shape and
+   * same reasoning as `levels` — the letters themselves stay in `letters`, since
+   * a range level is a property of the slice rather than of any letter in it.
+   */
+  ranges?: Record<string, number>
   blind: BlindState
   shop: ShopState | null
   /** Set when a blind is cleared, so the reward screen can itemise it. */

@@ -6,6 +6,7 @@ import {
   ETCHING_BY_ID,
   ETCHINGS,
   JOKERS,
+  MODIFIER_BY_ID,
   reduce,
   startRun,
 } from "../../src/engine"
@@ -55,7 +56,7 @@ describe("the shop layout", () => {
   it("keeps the upgrade and letter slots to their own stock", () => {
     for (let seed = 1; seed <= 50; seed++) {
       const items = shopAt(seed).items
-      expect(["etch", "level", "consumable"]).toContain(items[2]?.kind)
+      expect(["etch", "range", "level", "consumable"]).toContain(items[2]?.kind)
       expect(["mod", "consumable"]).toContain(items[3]?.kind)
     }
   })
@@ -67,6 +68,22 @@ describe("the shop layout", () => {
     expect(items).toHaveLength(4)
     expect(items.map((item) => item?.kind)).not.toContain("joker")
     for (const item of items) expect(item).not.toBeNull()
+  })
+
+  it("never sells a modifier on a letter it is barred from", () => {
+    // Echo is the only restricted one today, and the restriction is the point:
+    // no five-letter answer repeats a J, Q or X, so Echo on one of those is a $5
+    // card that cannot ever fire. The shop sold exactly that twice before the
+    // pool existed, which is what this guards.
+    let offered = 0
+    for (let seed = 1; seed <= 200; seed++) {
+      const item = shopAt(seed).items[3]
+      if (item?.kind !== "mod") continue
+      offered++
+      const allowed = MODIFIER_BY_ID.get(item.id)?.letters
+      if (allowed) expect(allowed).toContain(item.letter)
+    }
+    expect(offered).toBeGreaterThan(0)
   })
 
   it("stops offering an etching whose group is entirely burnt out", () => {
