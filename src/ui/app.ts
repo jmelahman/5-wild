@@ -21,6 +21,7 @@ import {
   rewardView,
   shapesView,
   shopView,
+  statsView,
   titleView,
   wordInPlay,
 } from "./views"
@@ -67,7 +68,7 @@ export class App {
   /** True when there is no run to return to and the front door is showing. */
   private atTitle: boolean
   /** The modal on top of everything, if any. */
-  private overlay: "help" | "codex" | "shapes" | "menu" | "quit" | null = null
+  private overlay: "help" | "codex" | "shapes" | "stats" | "menu" | "quit" | null = null
   /** The joker whose tip is currently up, so re-entering it is not a change. */
   private hovered: HTMLElement | null = null
   private readonly sound = new Sound()
@@ -136,6 +137,7 @@ export class App {
   private dispatch(action: Action, typing?: "arriving" | "leaving"): void {
     if (this.busy) return
     const wasPhase = this.state.phase
+    const before = this.state
     const { state, events } = reduce(this.state, action, this.words)
 
     const refusal = events.find((event) => event.type === "rejected")
@@ -145,6 +147,7 @@ export class App {
     }
 
     this.state = state
+    this.tally(before)
     // Every arrival at a blind from elsewhere gets the intro card, which is the
     // only thing that makes the shop and the board feel like separate places.
     if (this.state.phase === "blind" && wasPhase !== "blind") this.intro = true
@@ -665,6 +668,10 @@ export class App {
       this.overlay = "shapes"
       this.render()
     },
+    openStats: () => {
+      this.overlay = "stats"
+      this.render()
+    },
     closeOverlay: () => {
       this.overlay = null
       this.render()
@@ -721,17 +728,48 @@ export class App {
           ? codexView(this.handlers)
           : this.overlay === "shapes"
             ? shapesView(this.state, this.handlers, phase === "blind" ? wordInPlay(this.state) : "")
-            : this.overlay === "menu"
-              ? menuView(this.handlers, this.chrome)
-              : this.overlay === "quit"
-                ? quitView(this.state, this.handlers)
-                : packView(this.state, this.handlers)
+            : this.overlay === "stats"
+              ? statsView(this.profile.stats, this.words.answers.length, this.handlers)
+              : this.overlay === "menu"
+                ? menuView(this.handlers, this.chrome)
+                : this.overlay === "quit"
+                  ? quitView(this.state, this.handlers)
+                  : packView(this.state, this.handlers)
 
     clear(this.root).append(view)
     if (sheet) this.root.append(sheet)
   }
 
   /* ----------------------------------------------------------------- save */
+
+  /**
+   * Everything the record learns from one action, read off the two states.
+   *
+   * Off the states rather than off the events, because none of these have an
+   * event of their own and inventing four would be putting the profile's
+   * questions into the engine's vocabulary. What the record wants to know —
+   * which guess found the word, whether a joker is new to the tray — is a
+   * difference between two runs, and both runs are right here.
+   */
+  private tally(before: RunState): void {
+    const blind = this.state.blind
+    // The blind survives into the reward screen, so "same blind, one more
+    // guess" is a real comparison right up to the moment `next_blind` swaps it.
+    const played = blind.guesses[before.blind.guesses.length]
+    if (played) this.profile.guessed(played.word)
+    if (blind.solved && !before.blind.solved) {
+      this.profile.solved(blind.answer, blind.guesses.length)
+    } else if (blind.done && !before.blind.done) {
+      this.profile.missed()
+    }
+    // A joker can arrive from the shop or out of a pack, and the tray is the one
+    // place both routes end. Held ids rather than an index, because selling one
+    // renumbers the rest.
+    const held = new Set(before.jokers.map((joker) => joker.id))
+    for (const joker of this.state.jokers) {
+      if (!held.has(joker.id)) this.profile.took(joker.id)
+    }
+  }
 
   private save(): void {
     try {

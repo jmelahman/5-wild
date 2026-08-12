@@ -47,7 +47,7 @@ import {
 import { h } from "./dom"
 import { money, formatNumber as num } from "./format"
 import type { MetaState } from "./meta"
-import { chosenAscension, unlocked } from "./meta"
+import { blindsPlayed, chosenAscension, favouriteJokers, favouriteWord, unlocked } from "./meta"
 
 export type Handlers = {
   key: (letter: string) => void
@@ -74,6 +74,8 @@ export type Handlers = {
   openCodex: () => void
   /** The shape panel, from the board or from the shop. */
   openShapes: () => void
+  /** The long record, from the title screen's one-line version of it. */
+  openStats: () => void
   closeOverlay: () => void
   askQuit: () => void
   quit: () => void
@@ -892,7 +894,7 @@ export function titleView(on: Handlers, chrome: Chrome, meta: MetaState): HTMLEl
     { class: "screen center title" },
     h("h1", { class: "title-name" }, "5 WILD"),
     h("p", { class: "title-tag" }, "A Wordle roguelike"),
-    record(meta),
+    record(meta, on),
     ladder(on, meta),
     h("button", { class: "primary", type: "button", onclick: () => on.newRun() }, "Play"),
     h(
@@ -918,14 +920,124 @@ export function titleView(on: Handlers, chrome: Chrome, meta: MetaState): HTMLEl
  * count rather than as a word: "beaten" next to two other numbers is a sentence
  * pretending to be a statistic, and it is ambiguous about who beat whom.
  */
-function record(meta: MetaState): HTMLElement | null {
+function record(meta: MetaState, on: Handlers): HTMLElement | null {
   if (meta.runs === 0) return null
   const parts = [
     `${meta.runs} run${meta.runs === 1 ? "" : "s"}`,
     ...(meta.wins > 0 ? [`${meta.wins} win${meta.wins === 1 ? "" : "s"}`] : []),
     `best ante ${meta.bestAnte}`,
   ]
-  return h("p", { class: "title-record" }, parts.join(" · "))
+  // A button rather than a line with a button beside it: the summary *is* the
+  // link to the long version, so there is nothing extra on the title screen and
+  // the thing a player would poke at anyway is the thing that opens.
+  return h(
+    "button",
+    { class: "title-record", type: "button", onclick: () => on.openStats() },
+    parts.join(" · "),
+  )
+}
+
+/**
+ * The long version of the record.
+ *
+ * Everything here is about the player rather than about a run, which is why it
+ * hangs off the title screen and not off the HUD: mid-run, "which word do you
+ * type most" is a distraction, and between runs it is the only thing to read.
+ *
+ * `pool` is the size of the answer list, passed in rather than counted here
+ * because the word lists are fetched and this module is built from content. It
+ * arrives as zero before they land, and the denominator is dropped rather than
+ * shown as "of 0".
+ */
+export function statsView(meta: MetaState, pool: number, on: Handlers): HTMLElement {
+  const played = blindsPlayed(meta)
+  const best = favouriteWord(meta)
+  const solved = meta.solves.reduce((sum, count) => sum + count, 0)
+
+  const figure = (label: string, value: string) =>
+    h("div", { class: "figure" }, h("strong", {}, value), h("span", {}, label))
+
+  const bar = (label: string, count: number, tone: string) => {
+    const share = played > 0 ? count / played : 0
+    return h(
+      "div",
+      { class: `breakdown-row ${tone}` },
+      h("span", { class: "breakdown-label" }, label),
+      h(
+        "span",
+        { class: "breakdown-track" },
+        h("span", { class: "breakdown-fill", style: `--fill:${(share * 100).toFixed(1)}%` }),
+      ),
+      h("span", { class: "breakdown-share" }, `${Math.round(share * 100)}%`),
+      h("span", { class: "breakdown-count" }, num(count)),
+    )
+  }
+
+  const jokers = favouriteJokers(meta).slice(0, 3)
+
+  return overlay(
+    on,
+    h("h2", { class: "sheet-title" }, "Record"),
+    h(
+      "div",
+      { class: "figures" },
+      figure("runs", num(meta.runs)),
+      figure(meta.wins === 1 ? "win" : "wins", num(meta.wins)),
+      figure("best ante", num(meta.bestAnte)),
+      figure("guesses", num(meta.guesses)),
+    ),
+    h(
+      "p",
+      { class: "stat-line" },
+      h("strong", {}, `${num(meta.cracked.length)} word${meta.cracked.length === 1 ? "" : "s"}`),
+      // The one collection the game has, so it is worth a denominator: "273 of
+      // 2,300" is a thing to finish, and "273 words cracked" is only a number.
+      pool > 0 ? ` cracked, of ${num(pool)}` : " cracked",
+    ),
+    best
+      ? h(
+          "p",
+          { class: "stat-line" },
+          "Most played: ",
+          h("strong", {}, best.word.toUpperCase()),
+          ` · ${num(best.count)} time${best.count === 1 ? "" : "s"}`,
+        )
+      : null,
+    played > 0
+      ? h(
+          "div",
+          { class: "breakdown" },
+          h("h3", { class: "stat-head" }, "How the answers go"),
+          ...meta.solves.flatMap((count, at) =>
+            count > 0 ? [bar(`Solved in ${at}`, count, "won")] : [],
+          ),
+          meta.missed > 0 ? bar("Never found", meta.missed, "lost") : null,
+          h(
+            "p",
+            { class: "stat-foot" },
+            solved > 0
+              ? `${Math.round((solved / played) * 100)}% of blinds gave up their word.`
+              : "No answer found yet.",
+          ),
+        )
+      : null,
+    jokers.length > 0
+      ? h(
+          "div",
+          { class: "breakdown" },
+          h("h3", { class: "stat-head" }, "Favourite jokers"),
+          ...jokers.map((entry) =>
+            h(
+              "p",
+              { class: "stat-line" },
+              h("strong", {}, JOKER_BY_ID.get(entry.id)?.name ?? entry.id),
+              ` · taken ${num(entry.count)}×`,
+            ),
+          ),
+        )
+      : null,
+    h("button", { class: "primary", type: "button", onclick: () => on.closeOverlay() }, "Close"),
+  )
 }
 
 /**

@@ -1,7 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { MAX_ASCENSION } from "../../src/engine"
 import type { MetaState } from "../../src/ui/meta"
-import { chosenAscension, loadMeta, Profile, unlocked } from "../../src/ui/meta"
+import {
+  blindsPlayed,
+  chosenAscension,
+  favouriteJokers,
+  favouriteWord,
+  loadMeta,
+  Profile,
+  unlocked,
+} from "../../src/ui/meta"
 
 const KEY = "5wild:meta:v1"
 
@@ -31,7 +39,19 @@ let store: FakeStorage
 
 const stored = (): unknown => JSON.parse(store.items.get(KEY) ?? "null")
 
-const FRESH: MetaState = { runs: 0, wins: 0, bestAnte: 0, cleared: -1, ascension: 0 }
+const FRESH: MetaState = {
+  runs: 0,
+  wins: 0,
+  bestAnte: 0,
+  cleared: -1,
+  ascension: 0,
+  guesses: 0,
+  solves: [],
+  missed: 0,
+  cracked: [],
+  words: {},
+  jokers: {},
+}
 
 beforeEach(() => {
   store = new FakeStorage()
@@ -48,7 +68,19 @@ describe("reading the record", () => {
   })
 
   it("reads back what was written", () => {
-    const record = { runs: 12, wins: 2, bestAnte: 14, cleared: 1, ascension: 2 }
+    const record: MetaState = {
+      runs: 12,
+      wins: 2,
+      bestAnte: 14,
+      cleared: 1,
+      ascension: 2,
+      guesses: 431,
+      solves: [0, 1, 4, 19, 22, 9],
+      missed: 7,
+      cracked: ["crane", "slate"],
+      words: { crane: 88, slate: 12 },
+      jokers: { snowball: 3 },
+    }
     store.items.set(KEY, JSON.stringify(record))
     expect(loadMeta()).toEqual(record)
   })
@@ -172,5 +204,138 @@ describe("what the ladder offers", () => {
     expect(chosenAscension(meta({ cleared: 0, ascension: 5 }))).toBe(1)
     expect(chosenAscension(meta({ cleared: -1, ascension: 3 }))).toBe(0)
     expect(chosenAscension(meta({ cleared: 99, ascension: 99 }))).toBe(MAX_ASCENSION)
+  })
+})
+
+describe("what the runs added up to", () => {
+  it("counts every guess and remembers which words they were", () => {
+    const profile = new Profile()
+    for (const word of ["crane", "slate", "crane"]) profile.guessed(word)
+    expect(profile.stats.guesses).toBe(3)
+    expect(profile.stats.words).toEqual({ crane: 2, slate: 1 })
+    expect(favouriteWord(profile.stats)).toEqual({ word: "crane", count: 2 })
+  })
+
+  it("has no favourite before anything has been played", () => {
+    expect(favouriteWord(loadMeta())).toBeNull()
+  })
+
+  it("never lets the word table outgrow its cap", () => {
+    const profile = new Profile()
+    // Far more distinct words than there are slots, each played once. A table
+    // that grew with play would now hold two hundred entries and a save that
+    // gets slower every session.
+    for (let n = 0; n < 200; n++) profile.guessed(`w${n.toString().padStart(4, "0")}`)
+    expect(Object.keys(profile.stats.words).length).toBeLessThanOrEqual(24)
+    expect(profile.stats.guesses).toBe(200)
+  })
+
+  it("finds the real favourite even when it started late", () => {
+    // The failure a naive top-N has: fill the table with one-offs first, so a
+    // newcomer's count of 1 can never beat an incumbent's, and the table freezes
+    // on the first words ever typed. Space-Saving lets the newcomer in.
+    const profile = new Profile()
+    for (let n = 0; n < 60; n++) profile.guessed(`w${n.toString().padStart(4, "0")}`)
+    for (let n = 0; n < 40; n++) profile.guessed("crane")
+    expect(favouriteWord(profile.stats)?.word).toBe("crane")
+  })
+
+  it("breaks a tie the same way twice", () => {
+    const profile = new Profile()
+    profile.guessed("slate")
+    profile.guessed("crane")
+    // Alphabetical, not whichever key `Object.entries` happens to hand back
+    // first — the screen should not change its mind between renders.
+    expect(favouriteWord(profile.stats)?.word).toBe("crane")
+  })
+
+  it("counts a solve under the guess that found it", () => {
+    const profile = new Profile()
+    profile.solved("crane", 4)
+    profile.solved("slate", 4)
+    profile.solved("mound", 2)
+    expect(profile.stats.solves).toEqual([0, 0, 1, 0, 2])
+    expect(blindsPlayed(profile.stats)).toBe(3)
+  })
+
+  it("collects each answer once, however often it comes up", () => {
+    const profile = new Profile()
+    profile.solved("crane", 3)
+    profile.solved("crane", 5)
+    profile.solved("adobe", 4)
+    // Sorted, so the array is a set with an order and the screen can show it.
+    expect(profile.stats.cracked).toEqual(["adobe", "crane"])
+  })
+
+  it("counts a blind that ran out of guesses", () => {
+    const profile = new Profile()
+    profile.solved("crane", 3)
+    profile.missed()
+    expect(blindsPlayed(profile.stats)).toBe(2)
+    expect(profile.stats.cracked).toEqual(["crane"])
+  })
+
+  it("keeps a wild guess count inside the row it has", () => {
+    const profile = new Profile()
+    profile.solved("crane", 0)
+    profile.solved("slate", 99)
+    // Nothing is solved on guess zero, and no blind runs to ninety-nine. Both
+    // are clamped rather than trusted, because this array is indexed with them.
+    expect(profile.stats.solves.length).toBeLessThanOrEqual(13)
+    expect(profile.stats.solves[1]).toBe(1)
+    expect(profile.stats.solves[12]).toBe(1)
+  })
+
+  it("ranks the jokers by how often they were taken", () => {
+    const profile = new Profile()
+    for (const id of ["snowball", "banker", "snowball", "banker", "snowball"]) profile.took(id)
+    expect(favouriteJokers(profile.stats)).toEqual([
+      { id: "snowball", count: 3 },
+      { id: "banker", count: 2 },
+    ])
+  })
+})
+
+describe("salvaging the longer record", () => {
+  it("reads a record written before the statistics existed", () => {
+    // Every record in the wild, to the build that adds them: a player mid-career
+    // whose history starts today.
+    store.items.set(KEY, JSON.stringify({ runs: 40, wins: 3, bestAnte: 9, cleared: 2 }))
+    expect(loadMeta()).toEqual({ ...FRESH, runs: 40, wins: 3, bestAnte: 9, cleared: 2 })
+  })
+
+  it("drops the cells it cannot read and keeps the row", () => {
+    store.items.set(
+      KEY,
+      JSON.stringify({ solves: [0, "two", 3.5, 4], cracked: ["crane", 7, "crane"], words: "no" }),
+    )
+    expect(loadMeta()).toMatchObject({
+      solves: [0, 0, 0, 4],
+      cracked: ["crane"],
+      words: {},
+    })
+  })
+
+  it("trims a word table that arrives too big for its slots", () => {
+    // A hand-edited record, or one from a build with a bigger cap. Trimmed to
+    // the largest, so the field cannot be talked back into growing forever.
+    const bloated = Object.fromEntries(
+      Array.from({ length: 90 }, (_, n) => [`w${n.toString().padStart(4, "0")}`, n + 1]),
+    )
+    store.items.set(KEY, JSON.stringify({ words: bloated, jokers: bloated }))
+    const meta = loadMeta()
+    expect(Object.keys(meta.words).length).toBe(24)
+    expect(favouriteWord(meta)).toEqual({ word: "w0089", count: 90 })
+    // The joker map is bounded by the catalogue, so it is left alone — a joker
+    // no longer in the game should still be able to have been a favourite.
+    expect(Object.keys(meta.jokers).length).toBe(90)
+  })
+
+  it("carries the statistics across sessions", () => {
+    const first = new Profile()
+    first.guessed("crane")
+    first.solved("crane", 1)
+    first.took("banker")
+    expect(new Profile().stats).toEqual(first.stats)
   })
 })

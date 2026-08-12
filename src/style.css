@@ -1498,6 +1498,121 @@ button {
   font-size: 0.75rem;
   letter-spacing: 0.06em;
   font-variant-numeric: tabular-nums;
+  /* It is a button now, and buttons come with a look this line does not want. */
+  border: 0;
+  background: none;
+  padding: 0.125rem 0.25rem;
+  font-family: inherit;
+  /* Dotted rather than solid: enough to read as pressable at this weight
+     without turning the quietest line on the screen into a link. */
+  border-bottom: 1px dotted color-mix(in srgb, var(--muted) 45%, transparent);
+  cursor: pointer;
+}
+
+.title-record:active {
+  color: var(--fg);
+}
+
+/* ------------------------------------------------------------- the record */
+
+.figures {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.25rem;
+}
+
+.figure {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.0625rem;
+  padding: 0.5rem 0.25rem;
+  border-radius: 0.375rem;
+  background: var(--panel-2);
+}
+
+.figure strong {
+  font-size: 1.125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.figure span {
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.stat-line {
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.stat-line strong {
+  color: var(--fg);
+}
+
+.stat-head {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.breakdown-row {
+  display: grid;
+  /* The bar is the only elastic column; the three text ones are sized so the
+     rows stack into columns that line up down the sheet. */
+  grid-template-columns: 5.5rem 1fr 2.25rem 2rem;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.breakdown-label {
+  color: var(--muted);
+}
+
+.breakdown-track {
+  height: 0.5rem;
+  border-radius: 0.25rem;
+  background: var(--panel-2);
+  overflow: hidden;
+}
+
+.breakdown-fill {
+  display: block;
+  width: var(--fill);
+  height: 100%;
+  border-radius: inherit;
+  background: var(--green);
+}
+
+.breakdown-row.lost .breakdown-fill {
+  background: var(--gray);
+}
+
+.breakdown-share {
+  text-align: right;
+  font-weight: 700;
+}
+
+.breakdown-count {
+  text-align: right;
+  color: var(--muted);
+}
+
+.stat-foot {
+  font-size: 0.6875rem;
+  color: var(--muted);
 }
 
 .title {
