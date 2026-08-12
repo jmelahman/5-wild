@@ -1145,6 +1145,52 @@ button {
   overflow-y: auto;
 }
 
+/*
+ * The letter picker, which borrows the pack's sheet for the same reason: it is a
+ * decision that has already been paid for, so there is no way out of it either.
+ *
+ * The keys are the blind's keys — same class, same colours, same modifier pips —
+ * because the player has spent the whole run learning to aim at that layout, and
+ * this is a question about which of those keys they actually press.
+ */
+.place-keys {
+  /* Shorter than the board's, where the keyboard is the thing under the thumb
+     for a whole blind. Here it is a single tap, and the sheet has a note under
+     it that should not be pushed off a short screen. */
+  --key-h: clamp(2.5rem, 6svh, 3rem);
+}
+
+/* What the letter is already worth, which is the number the choice turns on. */
+.place-chips {
+  position: absolute;
+  top: 1px;
+  right: 3px;
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: var(--chips);
+}
+
+/* Already carrying something, so choosing it is a trade. Dimmed rather than
+   disabled — trading up is a real move, and the pip says what is being given. */
+.place-key.taken {
+  opacity: 0.7;
+}
+
+.place-key:disabled {
+  background: #1b1c20;
+  color: #4a4b52;
+  box-shadow: none;
+}
+
+.place-key:disabled .place-chips {
+  color: #4a4b52;
+}
+
+.place-note {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
 /* What the card would have cost in the stock, struck out: the pack covered it. */
 .shop-item-cost.free {
   color: var(--muted);

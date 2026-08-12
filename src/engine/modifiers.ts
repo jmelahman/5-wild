@@ -58,10 +58,30 @@ export type Modifier = {
   /** What the key wears in the corner. One or two glyphs — keys are small. */
   pip: string
   rarity: Rarity
+  /**
+   * What it costs on a letter somebody else picked — the price a pack quotes,
+   * and the one the shop used to charge back when it rolled the pairing too.
+   */
   cost: number
   /**
-   * The letters the shop may sell this on, when it cannot go on just any of
-   * them. Absent means the whole alphabet, which is the ordinary case.
+   * What the shop charges to sell it unattached, for the player to point at a
+   * letter of their own choosing.
+   *
+   * Dearer than `cost`, and it has to be: a rolled Chip is worth 0.96 chips a
+   * gold averaged over the alphabet, and Chip on E is worth 2.65. Choice is most
+   * of this card's value, so the shop that hands it over has to charge for it.
+   * Not the full 2.8× though — a rolled pairing you did not like was never
+   * bought, so what the premium is really buying is the visits where the letter
+   * slot used to be dead, and those were already worth nothing.
+   *
+   * Set per card rather than derived, because the spread is not uniform: Echo
+   * only ever goes on six letters, so choosing among them is worth less than
+   * choosing among 26, and Anchor's whole value is which letter it lands on.
+   */
+  choiceCost: number
+  /**
+   * The letters this may be sold on, when it cannot go on just any of them.
+   * Absent means the whole alphabet, which is the ordinary case.
    *
    * This exists because a conditional modifier can be sold onto a letter that
    * can never satisfy the condition, and then it is not a weak card but a dead
@@ -95,6 +115,7 @@ export const MODIFIERS: readonly Modifier[] = [
     pip: "+20",
     rarity: "common",
     cost: 4,
+    choiceCost: 6,
     // Flat, and flat is the point: it is worth the same on Q as on E, so it is
     // the one modifier that makes a cheap probing letter worth typing.
     onTile: (ctx) => ctx.addChips(20),
@@ -106,6 +127,7 @@ export const MODIFIERS: readonly Modifier[] = [
     pip: "+4",
     rarity: "common",
     cost: 5,
+    choiceCost: 8,
     onTile: (ctx) => ctx.addMult(4),
   },
   {
@@ -115,6 +137,7 @@ export const MODIFIERS: readonly Modifier[] = [
     pip: "$2",
     rarity: "uncommon",
     cost: 6,
+    choiceCost: 9,
     // Income priced against Scavenger, which pays $1 a yellow from a joker slot.
     // This takes no slot and fires on any colour, but only on one letter, so
     // what it is really worth is decided by the letter the shop offered.
@@ -127,6 +150,7 @@ export const MODIFIERS: readonly Modifier[] = [
     pip: "★",
     rarity: "uncommon",
     cost: 6,
+    choiceCost: 9,
     // Colour is this game's suit, so the wild card changes colour rather than
     // suit. It pays most on the guesses that went worst, which makes a throwaway
     // probe cost less — the one thing that reliably softens the game's central
@@ -143,6 +167,7 @@ export const MODIFIERS: readonly Modifier[] = [
     pip: "?",
     rarity: "uncommon",
     cost: 6,
+    choiceCost: 9,
     // Expects +5 mult a tile against Mult's flat +4 for a gold less, so the
     // premium is entirely for the variance — which is the trade Balatro's Lucky
     // card offers too. It is the only modifier whose value you cannot read off
@@ -159,6 +184,7 @@ export const MODIFIERS: readonly Modifier[] = [
     pip: "↺",
     rarity: "uncommon",
     cost: 5,
+    choiceCost: 7,
     // Fires on every copy, so a doubled letter collects +120 across the word.
     // Pays a player for the shape the Twinned category and Anagrammer already
     // reward, which is the point: a modifier that only pays inside a build can
@@ -182,6 +208,7 @@ export const MODIFIERS: readonly Modifier[] = [
     pip: "⚓",
     rarity: "uncommon",
     cost: 5,
+    choiceCost: 9,
     // Wild's opposite number, deliberately: Wild pays most on the guess that
     // went worst, this pays only on the letter you have already nailed. Both
     // sides of the colour line are now purchasable.
@@ -206,6 +233,7 @@ export const MODIFIERS: readonly Modifier[] = [
     pip: "×1.5",
     rarity: "rare",
     cost: 8,
+    choiceCost: 12,
     // Multiplicative and per tile, so a doubled steel letter is ×2.25. That is
     // the whole build: steel a letter you can repeat, then find words that do.
     onTile: (ctx) => ctx.timesMult(1.5),
@@ -217,6 +245,7 @@ export const MODIFIERS: readonly Modifier[] = [
     pip: "×2",
     rarity: "rare",
     cost: 7,
+    choiceCost: 11,
     onTile: (ctx, tile) => {
       ctx.timesMult(2)
       // Only a gray tile can break it, and only when the letter is genuinely

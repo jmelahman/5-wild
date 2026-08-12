@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import type { Action, RunState } from "../../src/engine"
+import type { Action, ModId, RunState } from "../../src/engine"
 import {
   ALPHABET,
   derive,
@@ -70,20 +70,34 @@ describe("the shop layout", () => {
     for (const item of items) expect(item).not.toBeNull()
   })
 
-  it("never sells a modifier on a letter it is barred from", () => {
-    // Echo is the only restricted one today, and the restriction is the point:
-    // no five-letter answer repeats a J, Q or X, so Echo on one of those is a $5
-    // card that cannot ever fire. The shop sold exactly that twice before the
-    // pool existed, which is what this guards.
+  it("sells modifiers with no letter on them, at the choice price", () => {
+    // Which letter a modifier sits on is most of what it is worth, so the shop
+    // sells the card and lets the player aim it. The pack is the half that still
+    // deals pairings — see packs.test.ts.
     let offered = 0
     for (let seed = 1; seed <= 200; seed++) {
       const item = shopAt(seed).items[3]
       if (item?.kind !== "mod") continue
       offered++
-      const allowed = MODIFIER_BY_ID.get(item.id)?.letters
-      if (allowed) expect(allowed).toContain(item.letter)
+      expect(item.letter).toBeUndefined()
+      expect(item.cost).toBe(MODIFIER_BY_ID.get(item.id)?.choiceCost)
     }
     expect(offered).toBeGreaterThan(0)
+  })
+
+  it("stops offering a modifier with nowhere left to put it", () => {
+    // Echo is the only restricted one today, and the restriction is the point:
+    // no five-letter answer repeats a J, Q or X, so Echo on one of those is a
+    // card that cannot ever fire. It goes on AELOST only — burn all six out and
+    // the shop has to stop stocking it rather than sell a choice with no options.
+    const base = startRun(5, realWords).state
+    const letters = { ...base.letters }
+    for (const letter of "aelost") letters[letter] = { etch: 0, destroyed: true, mod: null }
+    const state: RunState = { ...base, letters }
+    for (let ante = 1; ante <= 60; ante++) {
+      const item = rollShop(state, derive(5, "shop", ante, 0, 0), 0).items[3]
+      if (item?.kind === "mod") expect(item.id).not.toBe("echo")
+    }
   })
 
   it("stops offering an etching whose group is entirely burnt out", () => {
@@ -158,5 +172,96 @@ describe("group etchings", () => {
       expect(etching.chips * etching.letters.length).toBeGreaterThanOrEqual(8)
       expect(etching.cost).toBeGreaterThan(4)
     }
+  })
+})
+
+/** Puts a specific unattached modifier in slot 0, as the shop now sells them. */
+function selling(state: RunState, id: ModId): RunState {
+  const modifier = MODIFIER_BY_ID.get(id)
+  if (!modifier) throw new Error(`no modifier ${id}`)
+  return {
+    ...state,
+    shop: { items: [{ kind: "mod", id, cost: modifier.choiceCost }], rerolls: 0 },
+  }
+}
+
+const act = (state: RunState, action: Action) => reduce(state, action, realWords)
+
+describe("placing a bought modifier", () => {
+  it("takes the gold and then holds the shop until a letter is chosen", () => {
+    const state = buy(selling({ ...inShop(1), gold: 20 }, "steel"), 0)
+    expect(state.placing).toBe("steel")
+    expect(state.gold).toBe(20 - 12)
+    // Nothing else in the shop may move while a card is in hand — the same rule
+    // an open pack lives under, and for the same reason.
+    for (const action of [
+      { type: "buy", index: 0 },
+      { type: "reroll" },
+      { type: "next_blind" },
+      { type: "sell_joker", index: 0 },
+    ] satisfies Action[]) {
+      expect(act(state, action).events).toContainEqual({
+        type: "rejected",
+        reason: "place the modifier first",
+      })
+    }
+  })
+
+  it("lands on the letter the player points at", () => {
+    const held = buy(selling(inShop(1), "steel"), 0)
+    const { state, events } = act(held, { type: "place_mod", letter: "e" })
+    expect(state.letters.e?.mod).toBe("steel")
+    expect(state.placing).toBeNull()
+    expect(events).toContainEqual({
+      type: "mod_placed",
+      id: "steel",
+      letter: "e",
+      label: "Steel E",
+    })
+  })
+
+  it("trades away whatever the letter was already carrying", () => {
+    const first = act(buy(selling(inShop(1), "chip"), 0), { type: "place_mod", letter: "e" }).state
+    const second = act(buy(selling({ ...first, shop: inShop(1).shop }, "steel"), 0), {
+      type: "place_mod",
+      letter: "e",
+    }).state
+    expect(second.letters.e?.mod).toBe("steel")
+  })
+
+  it("refuses a letter the modifier is barred from", () => {
+    // Echo goes on AELOST only. The picker greys the rest out, but the rule has
+    // to live in the engine: the picker is the one input that comes from outside.
+    const held = buy(selling(inShop(1), "echo"), 0)
+    const { state, events } = act(held, { type: "place_mod", letter: "j" })
+    expect(state.letters.j?.mod).toBeNull()
+    expect(events).toContainEqual({ type: "rejected", reason: "Echo cannot go on J" })
+  })
+
+  it("refuses a letter that has burnt out", () => {
+    const base = inShop(1)
+    const held = buy(
+      selling(
+        { ...base, letters: { ...base.letters, e: { etch: 0, destroyed: true, mod: null } } },
+        "steel",
+      ),
+      0,
+    )
+    expect(act(held, { type: "place_mod", letter: "e" }).state.letters.e?.mod).toBeNull()
+  })
+
+  it("will not sell one with nowhere left to put it", () => {
+    const base = inShop(1)
+    const letters = { ...base.letters }
+    for (const letter of "aelost") letters[letter] = { etch: 0, destroyed: true, mod: null }
+    const { state, events } = act(selling({ ...base, gold: 20, letters }, "echo"), {
+      type: "buy",
+      index: 0,
+    })
+    // Checked before the gold moves, or the player is left holding a card with
+    // nowhere to put it and a shop that will not let them leave.
+    expect(state.gold).toBe(20)
+    expect(state.placing).toBeUndefined()
+    expect(events).toContainEqual({ type: "rejected", reason: "no letter left for that" })
   })
 })

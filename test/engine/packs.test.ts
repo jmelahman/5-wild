@@ -139,7 +139,9 @@ describe("choosing from a pack", () => {
   it("applies the card without charging for it", () => {
     const state = opened(1, "alphabet")
     const chosen = state.pack?.options[0]
-    if (chosen?.kind !== "mod") throw new Error("expected a modifier")
+    // A pack deals pairings, letter and all — the shop is the half that sells the
+    // modifier loose and lets the player aim it.
+    if (chosen?.kind !== "mod" || !chosen.letter) throw new Error("expected a pairing")
     const after = act(state, { type: "pick_pack", index: 0 })
 
     expect(after.state.letters[chosen.letter]?.mod).toBe(chosen.id)

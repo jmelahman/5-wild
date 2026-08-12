@@ -17,6 +17,7 @@ import type {
 } from "../../src/engine"
 import { reduce, startRun } from "../../src/engine"
 import type { Scenario } from "./scenarios"
+import { placeMod } from "./scenarios"
 
 /** One scored guess, with the blind it belonged to so a failure can be placed. */
 export type GuessVector = {
@@ -187,7 +188,11 @@ export function record(scenario: Scenario, words: WordSource, contentVersion: nu
 
   for (let step = 0; step < 2000; step++) {
     if (state.phase === "game_over" || state.phase === "victory") break
-    const batch = scenario.next(state, words)
+    // A modifier in hand is not a decision a bot may defer: the shop refuses
+    // every other action until it is placed. Handled here rather than in each
+    // scenario because it is forced, and because a bot that bought one by
+    // accident would otherwise stall against a shop it cannot leave.
+    const batch = state.placing ? placeMod(state) : scenario.next(state, words)
     if (!batch || batch.length === 0) break
     for (const action of batch) {
       actions.push(action)

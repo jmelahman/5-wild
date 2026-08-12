@@ -90,7 +90,16 @@ export type ShopItem =
   | { kind: "level"; id: string; cost: number }
   /** One level for a slice of the alphabet. */
   | { kind: "range"; id: string; cost: number }
-  | { kind: "mod"; letter: string; id: ModId; cost: number }
+  /**
+   * A letter modifier. The shop sells it unattached and the player points it at
+   * a letter; a pack lays out a specific pairing, letter printed on the card.
+   *
+   * `letter` is what tells those apart, and it is optional rather than nullable
+   * so a save written before the shop stopped rolling the letter still loads as
+   * what it was — a card with a letter already on it, which is exactly how the
+   * pack version still works.
+   */
+  | { kind: "mod"; id: ModId; cost: number; letter?: string }
   /**
    * A booster pack. The only item that is not applied when it is bought — it
    * opens instead, and what comes out of it is chosen rather than dealt.
@@ -195,6 +204,19 @@ export type RunState = {
    * own cards stale.
    */
   pack?: OpenPack | null
+  /**
+   * A modifier bought and not yet pointed at a letter.
+   *
+   * The other half of the pack's shape: the gold is gone, the card is the
+   * player's, and the run is held until they say where it goes. Only the id is
+   * kept — which letters are still legal for it is a question about the alphabet
+   * right now, and the alphabet is already in the state.
+   *
+   * Optional rather than nullable for the same reason `pack` is: a save from
+   * before the shop sold choice has nothing to say here, and nothing to say is
+   * the right answer.
+   */
+  placing?: ModId | null
   /** Set when a blind is cleared, so the reward screen can itemise it. */
   reward: RewardBreakdown | null
 }
@@ -219,6 +241,8 @@ export type Action =
   | { type: "next_blind" }
   /** Play on past the win, into antes nobody authored. */
   | { type: "continue_run" }
+  /** Point the modifier bought a moment ago at a letter. */
+  | { type: "place_mod"; letter: string }
   /** Take one of the open pack's cards. */
   | { type: "pick_pack"; index: number }
   /** Walk away from the open pack, forfeiting whatever is left in it. */
@@ -261,6 +285,8 @@ export type GameEvent =
   | { type: "guess_scored"; score: number; total: number }
   | { type: "letter_destroyed"; letter: string }
   | { type: "consumable"; id: string; label: string }
+  /** A bought modifier landing on the letter the player chose for it. */
+  | { type: "mod_placed"; id: ModId; letter: string; label: string }
   | { type: "blind_won" }
   | { type: "blind_lost" }
   | { type: "gold"; delta: number; reason: string }

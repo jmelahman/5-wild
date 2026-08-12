@@ -64,6 +64,6 @@ export {
 export { reduce, startRun } from "./reduce"
 export { derive } from "./rng"
 export { baseChips, solveBonusFor } from "./scoring"
-export { rerollCost, sellValue } from "./shop"
+export { placeableLetters, rerollCost, sellValue } from "./shop"
 export type * from "./state"
 export { computeFeedback, keyboardColors } from "./words"

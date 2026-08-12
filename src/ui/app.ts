@@ -17,6 +17,7 @@ import {
   menuView,
   meterFill,
   packView,
+  placeView,
   quitView,
   rewardView,
   shapesView,
@@ -166,7 +167,12 @@ export class App {
     const paid = events.some((event) => event.type === "gold")
     if (paid) this.sound.coin()
 
-    const label = events.find((event) => event.type === "consumable")?.label
+    // Both are a card leaving the player's hands and landing somewhere, and in
+    // the shop there is no keyboard on screen to show where — so the toast is
+    // the only confirmation that the Steel went on the E and not the R.
+    const label =
+      events.find((event) => event.type === "consumable")?.label ??
+      events.find((event) => event.type === "mod_placed")?.label
 
     // A letter arriving or leaving is the one action that touches a single row
     // and nothing else on the screen, so it is the one action that patches
@@ -608,6 +614,10 @@ export class App {
     continueRun: () => this.dispatch({ type: "continue_run" }),
     pickPack: (index) => this.dispatch({ type: "pick_pack", index }),
     skipPack: () => this.dispatch({ type: "skip_pack" }),
+    placeMod: (letter) => {
+      this.sound.key()
+      this.dispatch({ type: "place_mod", letter })
+    },
     newRun: () => {
       this.state = startRun(rootSeed(), this.words, chosenAscension(this.profile.stats)).state
       this.atTitle = false
@@ -734,7 +744,10 @@ export class App {
                 ? menuView(this.handlers, this.chrome)
                 : this.overlay === "quit"
                   ? quitView(this.state, this.handlers)
-                  : packView(this.state, this.handlers)
+                  : // Both are held decisions the engine will not let the shop move
+                    // past, and the two cannot be open at once — buying is refused
+                    // while either is. Order is arbitrary; only exclusivity matters.
+                    (placeView(this.state, this.handlers) ?? packView(this.state, this.handlers))
 
     clear(this.root).append(view)
     if (sheet) this.root.append(sheet)
@@ -794,6 +807,13 @@ export class App {
         return
       }
       if (this.atTitle) return
+      // A modifier in hand asks a letter question, and this is where letters
+      // come from — the one thing outside a blind a keypress can answer.
+      if (this.state.placing && /^[a-zA-Z]$/.test(event.key)) {
+        this.handlers.placeMod(event.key.toLowerCase())
+        event.preventDefault()
+        return
+      }
       if (this.state.phase !== "blind") return
       if (this.intro) {
         this.handlers.play()

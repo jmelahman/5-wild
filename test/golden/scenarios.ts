@@ -17,6 +17,8 @@ import {
   categoryOf,
   levelBonus,
   MAX_ASCENSION,
+  MODIFIER_BY_ID,
+  placeableLetters,
   reduce,
   solveBonusFor,
 } from "../../src/engine"
@@ -92,6 +94,29 @@ function decoys(state: RunState, words: WordSource, offset: number): string[] {
 /** How many tiles of a word would carry a modifier — copies counted separately. */
 function modTiles(state: RunState, word: string): number {
   return [...word].filter((letter) => state.letters[letter]?.mod).length
+}
+
+/**
+ * English letter frequency, roughly. What a player aiming a modifier is actually
+ * reaching for — the letter they will type most — and a fixed order, which is
+ * what a recorded vector needs.
+ */
+const BY_USE = "etaoinsrhldcumfpgwybvkxjqz"
+
+/**
+ * Put the modifier in hand on the most-typed letter still open to it.
+ *
+ * Lives outside any one scenario because it is not really a strategy: the shop
+ * refuses every other action until a bought modifier has been placed, so any bot
+ * that buys one has to answer this before it can do anything else, and they
+ * would all answer it the same way. The recorder applies it for all of them.
+ */
+export function placeMod(state: RunState): Action[] | null {
+  const modifier = state.placing ? MODIFIER_BY_ID.get(state.placing) : undefined
+  if (!modifier) return null
+  const open = new Set(placeableLetters(state, modifier))
+  const letter = [...BY_USE].find((candidate) => open.has(candidate))
+  return letter ? [{ type: "place_mod", letter }] : null
 }
 
 /** What a word's category level is currently worth to it, chips and mult together. */

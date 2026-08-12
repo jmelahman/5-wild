@@ -24,7 +24,7 @@ import { RANGE_BY_ID, rangeLevelOf } from "./ranges"
 import type { Rng } from "./rng"
 import { derive, pick } from "./rng"
 import { scoreGuess } from "./scoring"
-import { packContents, rerollCost, rollShop, sellValue } from "./shop"
+import { packContents, placeableLetters, rerollCost, rollShop, sellValue } from "./shop"
 import type {
   Action,
   BlindIndex,
@@ -271,6 +271,11 @@ function applyItem(state: RunState, item: ShopItem): string | null {
       return null
     }
     case "mod": {
+      // An unattached one never reaches here: buying it opens the picker
+      // instead, and packs only ever deal pairings. Refused rather than
+      // asserted, because a save from a build where that stops being true would
+      // otherwise put a modifier on the letter `undefined`.
+      if (item.letter === undefined) return "that one needs a letter first"
       const entry = state.letters[item.letter]
       if (!entry) return "unknown letter"
       // A letter holds one modifier, so this replaces rather than stacks — the
@@ -299,8 +304,10 @@ function itemLabel(item: ShopItem): string {
       return CATEGORY_BY_ID.get(item.id)?.name ?? item.id
     case "range":
       return RANGE_BY_ID.get(item.id)?.name ?? item.id
-    case "mod":
-      return `${MODIFIER_BY_ID.get(item.id)?.name ?? item.id} ${item.letter.toUpperCase()}`
+    case "mod": {
+      const name = MODIFIER_BY_ID.get(item.id)?.name ?? item.id
+      return item.letter ? `${name} ${item.letter.toUpperCase()}` : name
+    }
     case "pack":
       return PACK_BY_ID.get(item.id)?.name ?? item.id
   }
@@ -539,6 +546,7 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
     case "buy": {
       if (next.phase !== "shop" || !next.shop) return reject("not in the shop")
       if (next.pack) return reject("finish the open pack first")
+      if (next.placing) return reject("place the modifier first")
       const item = next.shop.items[action.index]
       if (!item) return reject("already bought")
       if (next.gold < item.cost) return reject("not enough gold")
@@ -564,6 +572,18 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
           name: pack.name,
           options: options.length,
         })
+      } else if (item.kind === "mod" && item.letter === undefined) {
+        // The other item that is paid for before it is decided. Held rather than
+        // applied, on the same terms as a pack: the gold buys the card, and where
+        // it goes is the next question. Checked before the gold moves, because a
+        // modifier with nowhere left to sit would otherwise take the money and
+        // leave the player holding a card they cannot put down.
+        const modifier = MODIFIER_BY_ID.get(item.id)
+        if (!modifier) return reject("unknown modifier")
+        if (placeableLetters(next, modifier).length === 0) {
+          return reject("no letter left for that")
+        }
+        next.placing = modifier.id
       } else {
         const reason = applyItem(next, item)
         if (reason) return reject(reason)
@@ -572,6 +592,36 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
       next.gold -= item.cost
       next.shop.items[action.index] = null
       events.push({ type: "gold", delta: -item.cost, reason: "purchase" })
+      return { state: next, events }
+    }
+
+    case "place_mod": {
+      const held = next.placing
+      if (!held) return reject("nothing to place")
+      const modifier = MODIFIER_BY_ID.get(held)
+      if (!modifier) return reject("unknown modifier")
+      const letter = action.letter.toLowerCase()
+      // The same question the shop asked before it stocked the card and before
+      // it took the gold, asked once more against the alphabet as it is now.
+      // Nothing can have changed it in between — the shop is held while a
+      // modifier is in hand — but the picker is the only one of the three whose
+      // input comes from outside.
+      if (!placeableLetters(next, modifier).includes(letter)) {
+        return reject(`${modifier.name} cannot go on ${letter.toUpperCase()}`)
+      }
+      const entry = next.letters[letter]
+      if (!entry) return reject("unknown letter")
+      // Replaces whatever was there, exactly as buying a pairing does. The
+      // picker says which letters are already carrying something, so a trade is
+      // a trade the player could see coming.
+      entry.mod = modifier.id
+      next.placing = null
+      events.push({
+        type: "mod_placed",
+        id: modifier.id,
+        letter,
+        label: `${modifier.name} ${letter.toUpperCase()}`,
+      })
       return { state: next, events }
     }
 
@@ -602,6 +652,7 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
     case "sell_joker": {
       if (next.phase !== "shop") return reject("you can only sell in the shop")
       if (next.pack) return reject("finish the open pack first")
+      if (next.placing) return reject("place the modifier first")
       const instance = next.jokers[action.index]
       if (!instance) return reject("no such joker")
       const value = sellValue(JOKER_BY_ID.get(instance.id)?.cost ?? 4)
@@ -614,6 +665,7 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
     case "reroll": {
       if (next.phase !== "shop" || !next.shop) return reject("not in the shop")
       if (next.pack) return reject("finish the open pack first")
+      if (next.placing) return reject("place the modifier first")
       const cost = rerollCost(next.shop)
       if (next.gold < cost) return reject("not enough gold")
       next.gold -= cost
@@ -631,6 +683,7 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
     case "next_blind": {
       if (next.phase !== "shop") return reject("not in the shop")
       if (next.pack) return reject("finish the open pack first")
+      if (next.placing) return reject("place the modifier first")
       if (next.blindIndex === 2) {
         next.ante += 1
         next.blindIndex = 0

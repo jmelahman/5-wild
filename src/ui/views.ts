@@ -8,6 +8,7 @@ import {
   BLINDS_PER_ANTE,
   BOSS_TIERS,
   BOSSES,
+  baseChips,
   bossesIn,
   CATEGORIES,
   CATEGORY_BY_ID,
@@ -34,6 +35,7 @@ import {
   modifierOf,
   PACK_BY_ID,
   PACKS,
+  placeableLetters,
   RANGE_BY_ID,
   RANGES,
   rangeChips,
@@ -62,6 +64,8 @@ export type Handlers = {
   continueRun: () => void
   pickPack: (index: number) => void
   skipPack: () => void
+  /** Where the modifier just bought is going. */
+  placeMod: (letter: string) => void
   newRun: () => void
   /** The difficulty the *next* run starts at. Nothing in flight can hear this. */
   setAscension: (level: number) => void
@@ -569,15 +573,27 @@ function describeItem(
     text = card?.text ?? ""
   } else if (item.kind === "mod") {
     const mod = MODIFIER_BY_ID.get(item.id)
-    const letter = item.letter.toUpperCase()
-    title = `${mod?.name ?? item.id} ${letter}`
-    text = `${letter} ${mod?.text ?? ""}`
     rarity = mod?.rarity ?? "common"
-    // A letter holds one modifier, so this is sometimes a trade rather than an
-    // addition — and that has to be legible before the gold is gone.
-    const current = state.letters[item.letter]?.mod
-    if (current && current !== item.id) {
-      text += `, replacing ${MODIFIER_BY_ID.get(current)?.name ?? current}`
+    if (item.letter === undefined) {
+      // The shop's version: a card with no letter on it yet. Named for what it
+      // is being bought as — a choice — because the price is the price of the
+      // choice, and the letter it ends up on is the next screen. The qualifier
+      // sits after the name rather than reading as a verb ("Gold a letter"),
+      // and it is what tells this card apart from the pack's aimed one at a
+      // glance: "Gold E" is a letter, "Gold · any letter" is a decision.
+      title = `${mod?.name ?? item.id} · any letter`
+      text = `Choose any letter. It ${mod?.text ?? ""}`
+      if (mod?.letters) text += `, from ${[...mod.letters].join(" ").toUpperCase()}`
+    } else {
+      const letter = item.letter.toUpperCase()
+      title = `${mod?.name ?? item.id} ${letter}`
+      text = `${letter} ${mod?.text ?? ""}`
+      // A letter holds one modifier, so this is sometimes a trade rather than an
+      // addition — and that has to be legible before the gold is gone.
+      const current = state.letters[item.letter]?.mod
+      if (current && current !== item.id) {
+        text += `, replacing ${MODIFIER_BY_ID.get(current)?.name ?? current}`
+      }
     }
   } else if (item.kind === "range") {
     const range = RANGE_BY_ID.get(item.id)
@@ -682,6 +698,71 @@ export function packView(state: RunState, on: Handlers): HTMLElement | null {
           { class: "secondary", type: "button", onclick: () => on.skipPack() },
           open.picks > 1 ? "Take no more" : "Skip",
         ),
+      ),
+    ),
+  )
+}
+
+/**
+ * The letter picker: a modifier in hand, waiting to be put somewhere.
+ *
+ * Shaped like the keyboard rather than like a list, because the question it
+ * asks — "which letter do you actually type?" — is one the player has already
+ * been answering on that exact layout all run. Each key carries what the letter
+ * is worth in chips and what it is already holding, so the trade a replacement
+ * would make is visible before it is made.
+ *
+ * No skip and no backdrop dismissal, for the reason `packView` has none: the
+ * gold is spent, and every legal letter was checked before it was taken.
+ */
+export function placeView(state: RunState, on: Handlers): HTMLElement | null {
+  const held = state.placing
+  const modifier = held ? MODIFIER_BY_ID.get(held) : undefined
+  if (!modifier) return null
+  const allowed = new Set(placeableLetters(state, modifier))
+
+  const key = (letter: string) => {
+    const entry = state.letters[letter]
+    const current = entry?.mod ? MODIFIER_BY_ID.get(entry.mod) : undefined
+    return h(
+      "button",
+      {
+        class: ["key", "place-key", entry?.destroyed ? "burnt" : "", current ? "taken" : ""]
+          .filter(Boolean)
+          .join(" "),
+        "data-mod": current?.id,
+        type: "button",
+        disabled: !allowed.has(letter),
+        onclick: () => on.placeMod(letter),
+      },
+      letter.toUpperCase(),
+      // What the letter pays before any of this lands. It is the number the
+      // choice actually turns on: Chip on a 1-chip vowel you type every guess
+      // beats Chip on a 10-chip Z you type twice a run.
+      h("span", { class: "place-chips" }, num(baseChips(state, letter))),
+      current ? h("span", { class: "mod-pip" }, current.pip) : null,
+    )
+  }
+
+  return h(
+    "div",
+    { class: "overlay pack-overlay" },
+    h(
+      "div",
+      { class: "sheet pack-sheet" },
+      h("h2", { class: "sheet-title" }, modifier.name),
+      h("p", { class: "pack-hint" }, `Choose a letter. It ${modifier.text}.`),
+      h(
+        "div",
+        { class: "keyboard place-keys" },
+        ...KEY_ROWS.map((row) => h("div", { class: "key-row" }, ...[...row].map(key))),
+      ),
+      h(
+        "p",
+        { class: "place-note" },
+        modifier.letters
+          ? `${modifier.name} only goes on ${[...modifier.letters].join(" ").toUpperCase()}.`
+          : "A letter holds one modifier — choosing one that has one trades it away.",
       ),
     ),
   )
@@ -1226,10 +1307,11 @@ export function helpView(on: Handlers): HTMLElement {
       ),
       rule(
         "Letter mods",
-        ` The shop sells modifiers that stick to a single letter for the rest of the
-         run — every time you play that letter, it does this. A ×mult letter
-         multiplies what the word has scored up to where it sits, so it is worth
-         more late in a word than early.`,
+        ` The shop sells modifiers and you choose which letter each one sticks to for
+         the rest of the run — every time you play that letter, it does this. A
+         ×mult letter multiplies what the word has scored up to where it sits, so it
+         is worth more late in a word than early. Packs deal them cheaper, with the
+         letter already chosen for you.`,
       ),
       // The list of what each one does lives in the codex rather than here. Two
       // screens restating the same table is how the two of them drift apart, and
@@ -1455,9 +1537,17 @@ export function codexView(on: Handlers): HTMLElement {
         MODIFIERS.length,
         `Stuck to a single letter for the rest of the run. One at a time per letter,
          and the keyboard wears the mark. A ×mult letter multiplies what the word has
-         scored up to where it sits, so it is worth more late in a word than early.`,
+         scored up to where it sits, so it is worth more late in a word than early.
+         The shop price buys the card and lets you pick the letter; a pack deals it
+         for the price beside it, letter already chosen.`,
         ...MODIFIERS.map((mod) =>
-          entry(`${mod.name} ${mod.pip}`, `The letter ${mod.text}.`, money(mod.cost)),
+          entry(
+            `${mod.name} ${mod.pip}`,
+            `The letter ${mod.text}.${
+              mod.letters ? ` Only on ${[...mod.letters].join(" ").toUpperCase()}.` : ""
+            }`,
+            `${money(mod.choiceCost)} / ${money(mod.cost)}`,
+          ),
         ),
       ),
 

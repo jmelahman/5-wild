@@ -5,7 +5,7 @@ import { CONSUMABLES } from "./consumables"
 import { ETCHINGS } from "./etchings"
 import type { Joker } from "./jokers"
 import { JOKERS } from "./jokers"
-import type { ModId } from "./modifiers"
+import type { ModId, Modifier } from "./modifiers"
 import { MODIFIER_BY_ID } from "./modifiers"
 import type { Pack } from "./packs"
 import { PACKS } from "./packs"
@@ -88,17 +88,53 @@ const rollConsumable = (rng: Rng): ShopItem => {
 }
 
 /**
- * A modifier on a letter that can still be typed, does not already carry it, and
- * that the modifier is willing to be sold on at all. Null when there is no such
- * pairing left, which hands the slot back to the ordinary roll rather than
- * selling a card that would do nothing.
+ * The letters a modifier could still be put on: ones that can be typed, that do
+ * not already carry it, and that the modifier is willing to sit on at all.
+ *
+ * Exported because it is the same question in three places — whether the shop
+ * may stock the card, whether the purchase can be honoured, and which keys the
+ * picker lights up — and those three must not be allowed to disagree.
+ */
+export function placeableLetters(state: RunState, modifier: Modifier): string[] {
+  return [...(modifier.letters ?? ALPHABET)].filter(
+    (letter) => !state.letters[letter]?.destroyed && state.letters[letter]?.mod !== modifier.id,
+  )
+}
+
+/**
+ * A modifier with no letter on it, for the player to place. Null when there is
+ * nowhere left to put it, which hands the slot back to the ordinary roll rather
+ * than selling a card that would do nothing.
+ *
+ * Which letter it lands on is most of what a modifier is worth, and the shop
+ * used to roll that too — so the letter slot was a coin flip between "Steel E,
+ * buy it immediately" and "Steel Q, walk past". Selling the card and letting the
+ * player aim it turns the slot into a decision about their own vocabulary, which
+ * is the decision this layer was always supposed to be asking for. It costs more
+ * because it is worth more; see `Modifier.choiceCost`.
  */
 function rollMod(state: RunState, rng: Rng): ShopItem | null {
   const modifier = MODIFIER_BY_ID.get(pick(rng, MOD_TABLE))
   if (!modifier) return null
-  const candidates = [...(modifier.letters ?? ALPHABET)].filter(
-    (letter) => !state.letters[letter]?.destroyed && state.letters[letter]?.mod !== modifier.id,
-  )
+  if (placeableLetters(state, modifier).length === 0) return null
+  return { kind: "mod", id: modifier.id, cost: modifier.choiceCost }
+}
+
+/**
+ * A modifier already paired with a letter, for a pack to lay out.
+ *
+ * The pack keeps rolling the pairing on purpose, now that the shop has stopped.
+ * Two routes to the same layer that differ in what they ask of the player — the
+ * shop sells the card and makes you aim it, the pack deals three aimed cards and
+ * makes you choose between them — and it is the only thing that still gives
+ * `Modifier.letters` a job, since a pack is where a Steel Q would otherwise turn
+ * up. It is also why the pack is the cheap way in: three shots at a good pairing
+ * for one price, at the cost of not picking the letter yourself.
+ */
+function rollPairing(state: RunState, rng: Rng): ShopItem | null {
+  const modifier = MODIFIER_BY_ID.get(pick(rng, MOD_TABLE))
+  if (!modifier) return null
+  const candidates = placeableLetters(state, modifier)
   if (candidates.length === 0) return null
   return { kind: "mod", letter: pick(rng, candidates), id: modifier.id, cost: modifier.cost }
 }
@@ -208,11 +244,12 @@ export function packContents(state: RunState, pack: Pack, rng: Rng): ShopItem[] 
   if (pack.id === "joker" && !canTakeJoker(state)) return []
   const out: ShopItem[] = []
   const seen = new Set<string>()
-  const key = (item: ShopItem) => (item.kind === "mod" ? `${item.id}:${item.letter}` : item.id)
+  const key = (item: ShopItem) =>
+    item.kind === "mod" ? `${item.id}:${item.letter ?? ""}` : item.id
 
   for (let tries = 0; tries < pack.options * 6 && out.length < pack.options; tries++) {
     let item: ShopItem | null = null
-    if (pack.id === "alphabet") item = rollMod(state, rng)
+    if (pack.id === "alphabet") item = rollPairing(state, rng)
     else if (pack.id === "joker") {
       const pool = JOKERS.filter((joker) => !seen.has(joker.id)).filter(
         (joker) => !state.jokers.some((held) => held.id === joker.id),
