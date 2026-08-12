@@ -11,7 +11,7 @@ import {
   STARTING_GOLD,
 } from "../content/blinds"
 import { ALPHABET } from "../content/letters"
-import type { Boss } from "./bosses"
+import { clampAscension, guessRestricted, mustSolve, validateGuess } from "./ascensions"
 import { bossForAnte, getBoss } from "./bosses"
 import { CATEGORY_BY_ID, levelOf } from "./categories"
 import { CONSUMABLE_BY_ID } from "./consumables"
@@ -86,31 +86,38 @@ function freshLetters(): Record<string, LetterState> {
  * heals rather than dead-ends the run — unreachable in practice, since
  * Pyromaniac refuses to burn below fifteen live letters.
  *
- * The answer must also be a legal guess under the boss's own rule. The Glutton
- * demands two vowels of every guess, and roughly a fifth of the answer list has
- * only one — drawing such a word would make the blind literally unsolvable.
+ * The answer must also be a legal guess under every rule in force — the boss's
+ * and the run's ascension both. The Glutton demands two vowels of every guess,
+ * and roughly a fifth of the answer list has only one; ascension 3 forbids
+ * repeating a word the run has already used, which would strand a blind on an
+ * answer nobody is allowed to type. Either way the blind would be literally
+ * unsolvable, so the filter is the same filter.
+ *
+ * It runs against the empty blind installed a moment ago, which is exactly right
+ * for the rules that read the round's history: on a board with no guesses on it,
+ * "keep the greens you found" is a rule about nothing and every word passes.
  */
-function answerPool(state: RunState, words: WordSource, boss: Boss | undefined): readonly string[] {
+function answerPool(state: RunState, words: WordSource): readonly string[] {
   const dead = [...ALPHABET].filter((letter) => state.letters[letter]?.destroyed)
-  const validate = boss?.validate
-  if (dead.length === 0 && !validate) return words.answers
+  const restricted = guessRestricted(state)
+  if (dead.length === 0 && !restricted) return words.answers
 
   const legal = (word: string) =>
     ![...word].some((letter) => dead.includes(letter)) &&
-    (!validate || validate(word, state.blind) === null)
+    (!restricted || validateGuess(word, state) === null)
 
   const pool = words.answers.filter(legal)
   if (pool.length > 0) return pool
 
   // Nothing survives both filters, so the keyboard heals rather than dead-ends
-  // the run. The boss rule does not heal with it: an answer that cannot legally
+  // the run. The guess rules do not heal with it: an answer that cannot legally
   // be guessed is an unwinnable blind, which is worse than an easy one.
   for (const letter of ALPHABET) {
     const entry = state.letters[letter]
     if (entry) entry.destroyed = false
   }
-  if (!validate) return words.answers
-  const healed = words.answers.filter((word) => validate(word, state.blind) === null)
+  if (!restricted) return words.answers
+  const healed = words.answers.filter((word) => validateGuess(word, state) === null)
   return healed.length > 0 ? healed : words.answers
 }
 
@@ -124,9 +131,10 @@ function beginBlind(state: RunState, words: WordSource, events: GameEvent[]): vo
 
   const boss = getBoss(bossId)
 
-  // The empty blind is installed before the answer is drawn, so boss rules that
-  // read the round's history — The Tyrant reads its greens — judge candidate
-  // answers against this round rather than the one just finished.
+  // The empty blind is installed before the answer is drawn, so guess rules that
+  // read the round's history — The Tyrant reads its greens, and so does
+  // ascension 5 — judge candidate answers against this round rather than the one
+  // just finished.
   state.blind = {
     answer: "",
     target: blindTargets(state.ante)[state.blindIndex],
@@ -144,7 +152,7 @@ function beginBlind(state: RunState, words: WordSource, events: GameEvent[]): vo
 
   const answer = pick(
     derive(state.seed, "word", state.ante, state.blindIndex),
-    answerPool(state, words, boss),
+    answerPool(state, words),
   )
   state.blind.answer = answer
   state.blind.revealed = Array.from(answer, () => null)
@@ -171,7 +179,10 @@ function enterShop(state: RunState, events: GameEvent[]): void {
   events.push({ type: "shop_entered" })
 }
 
-/** The single fail state: score below target when the blind ends. */
+/**
+ * The fail state: score below target when the blind ends — and, at ascension 6,
+ * a word left unsolved however big the pile is.
+ */
 function resolveBlind(state: RunState, events: GameEvent[]): void {
   const blind = state.blind
 
@@ -182,7 +193,11 @@ function resolveBlind(state: RunState, events: GameEvent[]): void {
   const rng = derive(state.seed, "blind_end", state.ante, state.blindIndex)
   for (const [joker, ctx] of jokerHooks(state, rng, events)) joker.onBlindEnd?.(ctx, blind)
 
-  if (blind.score < blind.target) {
+  // Farming five wrong guesses to the target and never finding the word is a
+  // real line in the ordinary game, and the whole of what ascension 6 takes
+  // away. It is checked here rather than as a guess rule because it is not about
+  // any one guess: it is about what the round had to have been.
+  if (blind.score < blind.target || (!blind.solved && mustSolve(state))) {
     state.phase = "game_over"
     events.push({ type: "blind_lost" })
     return
@@ -306,7 +321,14 @@ const PLACEHOLDER_BLIND: BlindState = {
   promote: false,
 }
 
-export function startRun(seed: number, words: WordSource): Reduced {
+/**
+ * A new run, at the difficulty it was asked for.
+ *
+ * The ascension arrives as an argument rather than being read from anywhere: the
+ * engine has no idea what the player has unlocked, and should not — which level
+ * is on offer is a question about a profile, and profiles live where browsers do.
+ */
+export function startRun(seed: number, words: WordSource, ascension = 0): Reduced {
   const state: RunState = {
     seed,
     ante: 1,
@@ -320,6 +342,10 @@ export function startRun(seed: number, words: WordSource): Reduced {
     shop: null,
     reward: null,
   }
+  // Left off the state entirely at zero, so the ordinary run's save is the same
+  // file it was before ascensions existed.
+  const level = clampAscension(ascension)
+  if (level > 0) state.ascension = level
   const events: GameEvent[] = []
   beginBlind(state, words, events)
   return { state, events }
@@ -334,7 +360,7 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
 
   switch (action.type) {
     case "start_run":
-      return startRun(action.seed, words)
+      return startRun(action.seed, words, action.ascension ?? 0)
 
     case "type_letter": {
       const blind = next.blind
@@ -362,9 +388,11 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
       if (word.length !== blind.answer.length) return reject(`${blind.answer.length} letters`)
       if (!words.allowed.has(word)) return reject("not in word list")
 
-      const boss = getBoss(blind.bossId)
-      const refusal = boss?.validate?.(word, blind)
+      // Every rule in force, boss and ascension alike, in one stable order.
+      const refusal = validateGuess(word, next)
       if (refusal) return reject(refusal)
+
+      const boss = getBoss(blind.bossId)
 
       const tiles = toTiles(word, computeFeedback(word, blind.answer))
       boss?.transform?.(tiles)
@@ -403,6 +431,11 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
       })
       blind.score += result.score
       blind.draft = ""
+      // The run's own record of what it has said. Kept whatever the ascension,
+      // because the rule that reads it cannot be the thing that decides whether
+      // it was written — a run that started recording halfway would enforce
+      // "no word twice" against half a run.
+      next.history = [...(next.history ?? []), word]
 
       // A glass letter that shattered goes out of the alphabet here rather than
       // mid-pipeline: scoring prices the guess, this owns the run. It lands

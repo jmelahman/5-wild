@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
-import { loadMeta, Profile } from "../../src/ui/meta"
+import { MAX_ASCENSION } from "../../src/engine"
+import type { MetaState } from "../../src/ui/meta"
+import { chosenAscension, loadMeta, Profile, unlocked } from "../../src/ui/meta"
 
 const KEY = "5wild:meta:v1"
 
@@ -29,6 +31,8 @@ let store: FakeStorage
 
 const stored = (): unknown => JSON.parse(store.items.get(KEY) ?? "null")
 
+const FRESH: MetaState = { runs: 0, wins: 0, bestAnte: 0, cleared: -1, ascension: 0 }
+
 beforeEach(() => {
   store = new FakeStorage()
   Object.defineProperty(globalThis, "localStorage", { value: store, configurable: true })
@@ -40,31 +44,34 @@ afterEach(() => {
 
 describe("reading the record", () => {
   it("starts everyone at nothing, with no win to their name", () => {
-    expect(loadMeta()).toEqual({ runs: 0, wins: 0, bestAnte: 0, cleared: -1 })
+    expect(loadMeta()).toEqual(FRESH)
   })
 
   it("reads back what was written", () => {
-    store.items.set(KEY, JSON.stringify({ runs: 12, wins: 2, bestAnte: 14, cleared: 1 }))
-    expect(loadMeta()).toEqual({ runs: 12, wins: 2, bestAnte: 14, cleared: 1 })
+    const record = { runs: 12, wins: 2, bestAnte: 14, cleared: 1, ascension: 2 }
+    store.items.set(KEY, JSON.stringify(record))
+    expect(loadMeta()).toEqual(record)
   })
 
   it("keeps the fields it can read when one of them is garbage", () => {
-    // The opposite of `loadSave`, which throws a bad run away whole. Four
-    // independent counters: a broken one is no reason to forget the rest.
+    // The opposite of `loadSave`, which throws a bad run away whole. Independent
+    // counters: a broken one is no reason to forget the rest.
     store.items.set(KEY, JSON.stringify({ runs: 9, wins: "lots", bestAnte: 6.5, cleared: null }))
-    expect(loadMeta()).toEqual({ runs: 9, wins: 0, bestAnte: 0, cleared: -1 })
+    expect(loadMeta()).toEqual({ ...FRESH, runs: 9 })
   })
 
   it("survives anything at all under its key", () => {
     for (const raw of ["", "not json", "null", "7", '"a string"', "[]"]) {
       store.items.set(KEY, raw)
-      expect(loadMeta(), raw).toEqual({ runs: 0, wins: 0, bestAnte: 0, cleared: -1 })
+      expect(loadMeta(), raw).toEqual(FRESH)
     }
   })
 
   it("reads a record written before a field existed as zero on it", () => {
-    store.items.set(KEY, JSON.stringify({ runs: 3 }))
-    expect(loadMeta()).toEqual({ runs: 3, wins: 0, bestAnte: 0, cleared: -1 })
+    // Which is what every record in the wild looks like to the build that added
+    // the ascension to it: a player mid-career, at the bottom of a new ladder.
+    store.items.set(KEY, JSON.stringify({ runs: 3, wins: 1, bestAnte: 8, cleared: 0 }))
+    expect(loadMeta()).toEqual({ ...FRESH, runs: 3, wins: 1, bestAnte: 8, cleared: 0 })
   })
 })
 
@@ -115,6 +122,15 @@ describe("keeping the record", () => {
     expect(new Profile().stats).toEqual(first.stats)
   })
 
+  it("remembers the level that was chosen, and writes nothing when it has not moved", () => {
+    const profile = new Profile()
+    profile.chose(3)
+    expect(profile.stats.ascension).toBe(3)
+    store.items.delete(KEY)
+    profile.chose(3)
+    expect(store.items.has(KEY)).toBe(false)
+  })
+
   it("keeps counting for the session when the store stops taking writes", () => {
     const profile = new Profile()
     profile.started()
@@ -123,5 +139,38 @@ describe("keeping the record", () => {
     // The number on screen stays true even though nothing will remember it.
     expect(profile.stats.runs).toBe(2)
     expect(stored()).toMatchObject({ runs: 1 })
+  })
+})
+
+describe("what the ladder offers", () => {
+  const meta = (change: Partial<MetaState>): MetaState => ({ ...FRESH, ...change })
+
+  it("offers nothing until the game has been won once", () => {
+    // Which is what keeps the dial off the title screen: there is no choice to
+    // make, and a stepper with one position is furniture.
+    expect(unlocked(FRESH)).toBe(0)
+    expect(chosenAscension(FRESH)).toBe(0)
+  })
+
+  it("opens exactly one rung above the hardest ever won", () => {
+    expect(unlocked(meta({ cleared: 0 }))).toBe(1)
+    expect(unlocked(meta({ cleared: 3 }))).toBe(4)
+  })
+
+  it("stops at the top of the ladder", () => {
+    expect(unlocked(meta({ cleared: MAX_ASCENSION }))).toBe(MAX_ASCENSION)
+  })
+
+  it("starts a run where the dial was left", () => {
+    expect(chosenAscension(meta({ cleared: 4, ascension: 2 }))).toBe(2)
+  })
+
+  it("hands back a level that is no longer on offer", () => {
+    // A record can outlive the ladder it was written against — a shorter ladder,
+    // or a wiped win. Reading it as the nearest legal level is what stops that
+    // record from being a run that cannot be started.
+    expect(chosenAscension(meta({ cleared: 0, ascension: 5 }))).toBe(1)
+    expect(chosenAscension(meta({ cleared: -1, ascension: 3 }))).toBe(0)
+    expect(chosenAscension(meta({ cleared: 99, ascension: 99 }))).toBe(MAX_ASCENSION)
   })
 })

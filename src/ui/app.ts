@@ -3,7 +3,7 @@ import { reduce, startRun } from "../engine"
 import { Sound } from "./audio"
 import { clear, wait } from "./dom"
 import { formatNumber as num } from "./format"
-import { Profile } from "./meta"
+import { chosenAscension, Profile } from "./meta"
 import type { Mood } from "./music"
 import { Music } from "./music"
 import type { Chrome, Handlers } from "./views"
@@ -151,8 +151,11 @@ export class App {
     // because those are no longer the same moment: a run can take the win and
     // then go looking for ante 20. The engine fires this once per run.
     //
-    // Zero until P7 gives a run an ascension of its own to report.
-    if (events.some((event) => event.type === "run_won")) this.profile.won(0)
+    // The level comes off the run rather than off the record, so a win is banked
+    // at the difficulty it was actually played at whatever has been chosen since.
+    if (events.some((event) => event.type === "run_won")) {
+      this.profile.won(this.state.ascension ?? 0)
+    }
 
     const paid = events.some((event) => event.type === "gold")
     if (paid) this.sound.coin()
@@ -595,7 +598,7 @@ export class App {
     pickPack: (index) => this.dispatch({ type: "pick_pack", index }),
     skipPack: () => this.dispatch({ type: "skip_pack" }),
     newRun: () => {
-      this.state = startRun(rootSeed(), this.words).state
+      this.state = startRun(rootSeed(), this.words, chosenAscension(this.profile.stats)).state
       this.atTitle = false
       this.overlay = null
       this.intro = true
@@ -606,6 +609,14 @@ export class App {
       // Persisted before the first keypress: a fresh run is already a run, and
       // closing the app on the intro card should not silently reroll the word.
       this.save()
+      this.render()
+    },
+    // Kept on the record rather than in a field of this class, because it
+    // outlives the session: the dial is where the player last left it, not where
+    // this launch found it. `newRun` reads the same place, so there is one
+    // answer to what level the next run starts at.
+    setAscension: (level) => {
+      this.profile.chose(level)
       this.render()
     },
     inspect: (text) => this.toast(text),

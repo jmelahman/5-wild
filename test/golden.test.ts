@@ -49,19 +49,18 @@ describe("golden vectors", () => {
   })
 
   for (const vector of vectors) {
+    const rerun = () => replay(vector.seed, vector.actions, realWords, vector.ascension)
     describe(`${vector.name} — ${vector.covers}`, () => {
       it("replays to the same scores", () => {
-        expect(replay(vector.seed, vector.actions, realWords).guesses).toEqual(
-          vector.expected.guesses,
-        )
+        expect(rerun().guesses).toEqual(vector.expected.guesses)
       })
 
       it("replays to the same gold timeline", () => {
-        expect(replay(vector.seed, vector.actions, realWords).gold).toEqual(vector.expected.gold)
+        expect(rerun().gold).toEqual(vector.expected.gold)
       })
 
       it("replays to the same outcome and holdings", () => {
-        const { guesses: _g, gold: _gold, ...rest } = replay(vector.seed, vector.actions, realWords)
+        const { guesses: _g, gold: _gold, ...rest } = rerun()
         const { guesses: _eg, gold: _egold, ...expected } = vector.expected
         expect(rest).toEqual(expected)
       })

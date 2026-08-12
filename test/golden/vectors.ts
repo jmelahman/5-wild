@@ -35,6 +35,13 @@ export type Vector = {
   name: string
   covers: string
   seed: number
+  /**
+   * The difficulty the run was recorded at, omitted for the ordinary game. Part
+   * of the input rather than of the expectation: an ascension changes which
+   * words the engine will accept and which answers it will deal, so a replay
+   * that started at the wrong level would not be replaying the same run.
+   */
+  ascension?: number
   contentVersion: number
   actions: Action[]
   expected: {
@@ -124,8 +131,9 @@ export function replay(
   seed: number,
   actions: readonly Action[],
   words: WordSource,
+  ascension = 0,
 ): Vector["expected"] {
-  let state = startRun(seed, words).state
+  let state = startRun(seed, words, ascension).state
   const guesses: GuessVector[] = []
   const gold: GoldVector[] = []
   const rewards: RewardBreakdown[] = []
@@ -173,7 +181,8 @@ function collectGold(events: readonly GameEvent[], into: GoldVector[]): void {
  * one that never stops would otherwise write a vector the size of the repo.
  */
 export function record(scenario: Scenario, words: WordSource, contentVersion: number): Vector {
-  let state = startRun(scenario.seed, words).state
+  const ascension = scenario.ascension ?? 0
+  let state = startRun(scenario.seed, words, ascension).state
   const actions: Action[] = []
 
   for (let step = 0; step < 2000; step++) {
@@ -190,8 +199,11 @@ export function record(scenario: Scenario, words: WordSource, contentVersion: nu
     name: scenario.name,
     covers: scenario.covers,
     seed: scenario.seed,
+    // Written only when there is one, so every vector recorded before ascensions
+    // existed re-records byte for byte.
+    ...(ascension > 0 ? { ascension } : {}),
     contentVersion,
     actions,
-    expected: replay(scenario.seed, actions, words),
+    expected: replay(scenario.seed, actions, words, ascension),
   }
 }

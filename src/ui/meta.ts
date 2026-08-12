@@ -1,3 +1,5 @@
+import { clampAscension, MAX_ASCENSION } from "../engine"
+
 /** Its own key, so a run save that goes bad cannot take the record with it. */
 const META_KEY = "5wild:meta:v1"
 
@@ -7,8 +9,9 @@ const META_KEY = "5wild:meta:v1"
  * A run is a closed world: it starts at ante 1 with four gold and ends when it
  * ends, and `RunState` is complete on its own. This is the other thing — the
  * player, across all of them. It lives in the UI layer for the same reason the
- * save does: `src/engine` must not know a browser exists. Ascensions will be an
- * *input* to `startRun`, and this is what remembers which one has been earned.
+ * save does: `src/engine` must not know a browser exists. An ascension is an
+ * *input* to `startRun`, and this is what remembers which one has been earned
+ * and which one was last asked for.
  */
 export type MetaState = {
   /** Runs started. Every "Play" is one, whether or not it went anywhere. */
@@ -24,9 +27,34 @@ export type MetaState = {
    * has to be tellable from "never has" — that difference is the whole unlock.
    */
   cleared: number
+  /**
+   * The level last chosen on the title screen, which is where the next run
+   * starts. Remembered rather than defaulted to the hardest unlocked one: a
+   * player who has climbed to 4 and wants an easy evening should not have to
+   * step down four times every launch to get one.
+   */
+  ascension: number
 }
 
-const FRESH: MetaState = { runs: 0, wins: 0, bestAnte: 0, cleared: -1 }
+const FRESH: MetaState = { runs: 0, wins: 0, bestAnte: 0, cleared: -1, ascension: 0 }
+
+/**
+ * The hardest level on offer: one past the hardest ever won.
+ *
+ * Zero for a player who has never won, which is not a level at all — it is the
+ * ordinary game, and the reason the selector stays off the title screen until
+ * there is a second option to select.
+ */
+export const unlocked = (meta: MetaState): number => Math.min(MAX_ASCENSION, meta.cleared + 1)
+
+/**
+ * The level a new run would start at. Clamped on the way out rather than on the
+ * way in, so a record carrying a level this build no longer offers — a shorter
+ * ladder, a reset win — reads as the nearest legal one instead of refusing to
+ * start a run at all.
+ */
+export const chosenAscension = (meta: MetaState): number =>
+  Math.min(clampAscension(meta.ascension), unlocked(meta))
 
 /**
  * The record, kept in memory and written through on every change.
@@ -53,6 +81,11 @@ export class Profile {
     if (ante > this.state.bestAnte) this.write({ bestAnte: ante })
   }
 
+  /** The level picked for the next run. Written straight through: it is a choice. */
+  chose(ascension: number): void {
+    if (ascension !== this.state.ascension) this.write({ ascension })
+  }
+
   /** Banked at the offer, not at the ending: playing on cannot lose the win. */
   won(ascension: number): void {
     this.write({
@@ -75,10 +108,11 @@ export class Profile {
  * Read the record, field by field rather than all or nothing.
  *
  * `loadSave` throws a malformed run away whole, because half a run is not a run
- * anybody can play. This is the opposite kind of object: four independent
- * counters, where one field arriving as garbage is no reason to forget the other
- * three. So each is taken if it is sane and defaulted if it is not, and a build
- * that adds a field later reads old records as zero on it rather than as absent.
+ * anybody can play. This is the opposite kind of object: a handful of
+ * independent counters, where one field arriving as garbage is no reason to
+ * forget the rest. So each is taken if it is sane and defaulted if it is not,
+ * and a build that adds a field later — as the ascension one was — reads older
+ * records as zero on it rather than as absent.
  */
 export function loadMeta(): MetaState {
   try {
@@ -92,6 +126,7 @@ export function loadMeta(): MetaState {
       wins: count(meta.wins),
       bestAnte: count(meta.bestAnte),
       cleared: count(meta.cleared, -1),
+      ascension: count(meta.ascension),
     }
   } catch {
     return { ...FRESH }

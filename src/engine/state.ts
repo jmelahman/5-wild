@@ -164,6 +164,23 @@ export type RunState = {
    * loads as a run that has not won — which is what it is.
    */
   won?: boolean
+  /**
+   * The difficulty this run was started at, absent meaning zero — the ordinary
+   * game. Chosen once and never changed: an ascension is the terms the whole run
+   * is played under, and a run that could be turned down halfway is not one.
+   */
+  ascension?: number
+  /**
+   * Every word this run has submitted, in order, across all its blinds.
+   *
+   * Ascension 3 forbids repeating one, and there is nowhere else that fact could
+   * live — a blind only knows its own guesses. Written on every submit whatever
+   * the ascension, because a rule that only records when it is switched on is a
+   * rule that cannot be switched on. Optional, so older saves load as a run that
+   * has not guessed anything yet, which costs those runs nothing: the rule that
+   * reads it is not in play on a run started before it existed.
+   */
+  history?: string[]
   blind: BlindState
   shop: ShopState | null
   /**
@@ -190,7 +207,7 @@ export type RewardBreakdown = {
 }
 
 export type Action =
-  | { type: "start_run"; seed: number }
+  | { type: "start_run"; seed: number; ascension?: number }
   | { type: "type_letter"; letter: string }
   | { type: "backspace" }
   | { type: "submit" }

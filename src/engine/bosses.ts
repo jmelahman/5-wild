@@ -1,6 +1,7 @@
 import { ANTES } from "../content/blinds"
 import { isVowel, LETTER_CHIPS } from "../content/letters"
 import { derive, shuffled } from "./rng"
+import { keepGreens } from "./rules"
 import type { BlindState, RunState, Tile } from "./state"
 
 /**
@@ -50,17 +51,6 @@ export type Boss = {
   solveBonus?: (base: number, blind: BlindState) => number
 }
 
-/** Positions the player has already locked in green. */
-function knownGreens(blind: BlindState): Map<number, string> {
-  const found = new Map<number, string>()
-  for (const guess of blind.guesses) {
-    guess.tiles.forEach((tile, i) => {
-      if (tile.color === "green") found.set(i, tile.letter)
-    })
-  }
-  return found
-}
-
 export const BOSSES: readonly Boss[] = [
   {
     id: "silence",
@@ -94,12 +84,9 @@ export const BOSSES: readonly Boss[] = [
     tier: "mid",
     name: "The Tyrant",
     text: "Every guess must reuse the green letters you have found.",
-    validate: (word, blind) => {
-      for (const [i, letter] of knownGreens(blind)) {
-        if (word[i] !== letter) return `must keep ${letter.toUpperCase()} in position ${i + 1}`
-      }
-      return null
-    },
+    // The same sentence ascension 5 imposes, and literally the same function, so
+    // the two can never come to mean slightly different things.
+    validate: keepGreens,
   },
   {
     id: "miser",

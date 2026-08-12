@@ -1,6 +1,8 @@
 import type { BossTier, Rarity, RunState, ShopItem } from "../engine"
 import {
   ANTES,
+  ASCENSIONS,
+  ascensionAt,
   BLIND_NAMES,
   BLIND_PAYOUT,
   BLINDS_PER_ANTE,
@@ -26,6 +28,7 @@ import {
   keyboardColors,
   levelBonus,
   levelOf,
+  MAX_ASCENSION,
   MODIFIER_BY_ID,
   MODIFIERS,
   modifierOf,
@@ -36,6 +39,7 @@ import {
   rangeChips,
   rangeLevelOf,
   rerollCost,
+  rulesFor,
   sellValue,
   solveBonusFor,
   TIER_ANTES,
@@ -43,6 +47,7 @@ import {
 import { h } from "./dom"
 import { money, formatNumber as num } from "./format"
 import type { MetaState } from "./meta"
+import { chosenAscension, unlocked } from "./meta"
 
 export type Handlers = {
   key: (letter: string) => void
@@ -58,6 +63,8 @@ export type Handlers = {
   pickPack: (index: number) => void
   skipPack: () => void
   newRun: () => void
+  /** The difficulty the *next* run starts at. Nothing in flight can hear this. */
+  setAscension: (level: number) => void
   inspect: (text: string) => void
   play: () => void
   mute: () => void
@@ -105,6 +112,11 @@ function hud(state: RunState, on: Handlers): HTMLElement {
         "div",
         { class: "ante" },
         state.won ? `Ante ${state.ante} ∞` : `Ante ${state.ante}/${ANTES}`,
+        // The terms the whole run is being played under, in the space of two
+        // characters. It shares its colour with the boss banner because it is
+        // the same kind of fact — something bending what a guess may be — and
+        // the rules it stands for are named in full on every intro card.
+        state.ascension ? h("span", { class: "ante-asc" }, `A${state.ascension}`) : null,
       ),
     ),
     h(
@@ -412,9 +424,31 @@ export function introView(state: RunState, on: Handlers, chrome: Chrome): HTMLEl
         { class: "intro-meta" },
         `${state.blind.maxGuesses} guesses · reward ${money(BLIND_PAYOUT[state.blindIndex] ?? 0)}`,
       ),
+      standing(state),
     ),
     h("button", { class: "primary", type: "button", onclick: () => on.play() }, "Play"),
     muteButton(on, chrome),
+  )
+}
+
+/**
+ * The run's own rules, named on the card that announces the blind.
+ *
+ * Named rather than spelled out: at the top of the ladder that would be six
+ * sentences competing with the target for a card meant to be read in a second,
+ * and every one of them was read in full on the title screen before the run
+ * started. The names are the reminder; the codex has the wording; and the toast
+ * that refuses a guess says exactly what was broken, which is the moment the
+ * detail is actually wanted.
+ */
+function standing(state: RunState): HTMLElement | null {
+  const rules = rulesFor(state)
+  if (rules.length === 0) return null
+  return h(
+    "div",
+    { class: "intro-asc" },
+    h("strong", {}, `Ascension ${state.ascension}`),
+    ` · ${rules.map((rule) => rule.name).join(" · ")}`,
   )
 }
 
@@ -736,6 +770,7 @@ export function endView(state: RunState, on: Handlers): HTMLElement {
         { class: "score-note" },
         `Reached ante ${state.ante}, ${BLIND_NAMES[state.blindIndex]}`,
       ),
+      cleared(state, offering),
       offering &&
         h(
           "p",
@@ -755,6 +790,31 @@ export function endView(state: RunState, on: Handlers): HTMLElement {
   )
 }
 
+/**
+ * What the level meant, said at the end rather than only at the start.
+ *
+ * A win at ascension N is a different thing from a win, and the next rung is the
+ * only reward for it — so the screen that offers the win is also the screen that
+ * hands the next one over. That includes the first win of all, which is where
+ * the ladder appears at all: without a line here the whole feature arrives as a
+ * box that was not on the title screen last time, and the player is left to
+ * notice it. A loss gets the level stated flatly — it is the terms the run was
+ * played under, not a consolation.
+ */
+function cleared(state: RunState, won: boolean): HTMLElement | null {
+  const level = state.ascension ?? 0
+  if (!won) return level > 0 ? h("div", { class: "score-note" }, `Ascension ${level}`) : null
+  return h(
+    "div",
+    { class: "score-note asc-note" },
+    level === 0
+      ? "Ascension 1 is open — the run can be made harder"
+      : level < MAX_ASCENSION
+        ? `Ascension ${level} cleared — ${level + 1} is open`
+        : `Ascension ${level} cleared. There is nothing above it.`,
+  )
+}
+
 /* ----------------------------------------------------------------- title */
 
 /**
@@ -770,6 +830,7 @@ export function titleView(on: Handlers, chrome: Chrome, meta: MetaState): HTMLEl
     h("h1", { class: "title-name" }, "5 WILD"),
     h("p", { class: "title-tag" }, "A Wordle roguelike"),
     record(meta),
+    ladder(on, meta),
     h("button", { class: "primary", type: "button", onclick: () => on.newRun() }, "Play"),
     h(
       "button",
@@ -802,6 +863,69 @@ function record(meta: MetaState): HTMLElement | null {
     `best ante ${meta.bestAnte}`,
   ]
   return h("p", { class: "title-record" }, parts.join(" · "))
+}
+
+/**
+ * The difficulty dial, and the only thing on the title screen that is a decision.
+ *
+ * Absent until the game has been won once, which is the whole of the unlock: a
+ * player who has not finished a run has nothing to choose between, and a greyed
+ * stepper reading "Ascension 0 of 6" would only advertise six things they cannot
+ * have yet. It appears the moment it means something.
+ *
+ * A stepper rather than a list of six buttons, because the ladder is ordered and
+ * cumulative — the question is "how far up", not "which one" — and because at
+ * most one step of it is ever new. The level's own rule is spelled out under it;
+ * the ones below are named on the intro card of every blind, and written out in
+ * full in the codex.
+ */
+function ladder(on: Handlers, meta: MetaState): HTMLElement | null {
+  const top = unlocked(meta)
+  if (top === 0) return null
+  const level = chosenAscension(meta)
+  const rule = ascensionAt(level)
+
+  const step = (label: string, to: number, live: boolean) =>
+    h(
+      "button",
+      {
+        class: "ladder-step",
+        type: "button",
+        disabled: !live,
+        "aria-label": label === "−" ? "Lower the ascension" : "Raise the ascension",
+        onclick: () => on.setAscension(to),
+      },
+      label,
+    )
+
+  return h(
+    "div",
+    { class: `ladder ${level > 0 ? "lit" : ""}` },
+    h(
+      "div",
+      { class: "ladder-row" },
+      step("−", level - 1, level > 0),
+      h(
+        "div",
+        { class: "ladder-level" },
+        h("span", { class: "ladder-name" }, `Ascension ${level}`),
+        rule && h("span", { class: "ladder-rule" }, rule.name),
+      ),
+      step("+", level + 1, level < top),
+    ),
+    h(
+      "p",
+      { class: "ladder-text" },
+      rule
+        ? // Every level plays the rules below it as well, and saying so once here
+          // is what stops the stepper reading as a menu of six separate modes.
+          `${rule.text}${level > 1 ? " Every rule below it, too." : ""}`
+        : "The game as it is written, with nothing extra asked of you.",
+    ),
+    level === top &&
+      top < MAX_ASCENSION &&
+      h("p", { class: "ladder-note" }, `Win this to unlock ascension ${top + 1}`),
+  )
 }
 
 /**
@@ -902,6 +1026,12 @@ export function helpView(on: Handlers): HTMLElement {
          there does not take the win back.`,
       ),
       rule("Bosses", " Every third blind bends a rule. Read it before you play."),
+      rule(
+        "Ascensions",
+        ` Win once and the title screen grows a difficulty dial. Each level adds a standing
+         rule to every guess of the run, and winning at one unlocks the next — ${MAX_ASCENSION}
+         in all.`,
+      ),
       rule(
         "Money",
         ` Blinds pay $${BLIND_PAYOUT.join(" / $")}, plus $${GOLD_PER_UNUSED_GUESS} per
@@ -1058,6 +1188,14 @@ export function codexView(on: Handlers): HTMLElement {
             ...bossesIn(tier).map((boss) => entry(boss.name, boss.text)),
           ),
         ),
+      ),
+
+      section(
+        "Ascensions",
+        ASCENSIONS.length,
+        `The run's own difficulty, chosen before it starts and fixed for the whole of it.
+         A run at a level plays every rule up to it, and winning at one unlocks the next.`,
+        ...ASCENSIONS.map((rule) => entry(rule.name, rule.text, `Ascension ${rule.level}`)),
       ),
 
       section(

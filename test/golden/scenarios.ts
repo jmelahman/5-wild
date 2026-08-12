@@ -12,13 +12,22 @@
  */
 
 import type { Action, RunState, WordSource } from "../../src/engine"
-import { baseChips, categoryOf, levelBonus, reduce } from "../../src/engine"
+import {
+  baseChips,
+  categoryOf,
+  levelBonus,
+  MAX_ASCENSION,
+  reduce,
+  solveBonusFor,
+} from "../../src/engine"
 
 export type Scenario = {
   name: string
   /** What this run is meant to pin down, for whoever reads a failure. */
   covers: string
   seed: number
+  /** The difficulty to start at. Absent is the ordinary game, as it is in a run. */
+  ascension?: number
   /** The next batch of actions, or null to stop. */
   next: (state: RunState, words: WordSource) => Action[] | null
 }
@@ -372,6 +381,56 @@ export const SCENARIOS: readonly Scenario[] = [
           state.jokers.length < 2 ? (["joker", "pack"] as const) : (["pack", "joker"] as const)
         for (const kind of order) {
           const index = items.findIndex((item) => item?.kind === kind && item.cost <= state.gold)
+          if (index >= 0 && accepted(state, words, [{ type: "buy", index }])) {
+            return [{ type: "buy", index }]
+          }
+        }
+        return [{ type: "next_blind" }]
+      }
+      return null
+    },
+  },
+  {
+    name: "ascendant",
+    covers: "the whole ascension ladder: guesses filtered by the run's rules, every blind solved",
+    seed: 13,
+    ascension: MAX_ASCENSION,
+    next: (state, words) => {
+      if (state.phase === "blind") {
+        const blind = state.blind
+        const left = blind.maxGuesses - blind.guesses.length - 1
+        // Cash in the moment solving would clear the target, and on the last
+        // guess whatever the pile is worth: at the top of the ladder a blind
+        // that is never solved is a blind that is lost, target met or not.
+        //
+        // The probes are where the rules bite. `firstPlayable` walks past every
+        // decoy the engine refuses, so what lands in this vector is the first
+        // word the ladder actually allowed — a port that filtered guesses
+        // differently would record a different word and every score after it.
+        const cashOut = left <= 0 || blind.score * solveBonusFor(state, left) >= blind.target
+        const candidates = cashOut
+          ? [blind.answer]
+          : [...decoys(state, words, blind.guesses.length * 17), blind.answer]
+        return firstPlayable(state, words, candidates)
+      }
+      if (state.phase === "reward") return [{ type: "collect" }]
+      if (state.phase === "shop") {
+        // A pack holds the shop until it is resolved, so it comes first however
+        // it was bought.
+        if (state.pack) {
+          const picked = state.pack.options.findIndex(
+            (item, slot) => item && accepted(state, words, [{ type: "pick_pack", index: slot }]),
+          )
+          return picked >= 0 ? [{ type: "pick_pack", index: picked }] : [{ type: "skip_pack" }]
+        }
+        const items = state.shop?.items ?? []
+        // Jokers before anything else, then whatever is affordable. A bot that
+        // spent nothing would die in ante one and this vector would cover three
+        // blinds of a ladder meant to be climbed for eight antes.
+        for (const kind of ["joker", null] as const) {
+          const index = items.findIndex(
+            (item) => item && (kind === null || item.kind === kind) && item.cost <= state.gold,
+          )
           if (index >= 0 && accepted(state, words, [{ type: "buy", index }])) {
             return [{ type: "buy", index }]
           }
