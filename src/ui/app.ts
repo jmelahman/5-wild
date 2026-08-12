@@ -11,6 +11,7 @@ import {
   blindView,
   codexView,
   endView,
+  fillCategory,
   helpView,
   introView,
   menuView,
@@ -225,6 +226,11 @@ export class App {
           : "tile"
       tile.textContent = (typed ?? revealed ?? "").toUpperCase()
     }
+    // The one thing outside the row that a keystroke changes: the fifth letter
+    // is what gives the word a shape, and naming it only after the guess was
+    // submitted would be naming it one guess too late to be worth reading.
+    const slot = this.root.querySelector(".category-slot")
+    if (slot) fillCategory(slot, this.state, this.handlers)
     return true
   }
 

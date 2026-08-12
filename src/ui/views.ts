@@ -351,23 +351,46 @@ export function wordInPlay(state: RunState): string {
   return word.length === blind.answer.length ? word : ""
 }
 
-function categoryLine(state: RunState, on: Handlers): HTMLElement | false {
+/**
+ * Where the shape of the word in play is named.
+ *
+ * The slot is always in the document, empty or not, because the draft row is
+ * patched in place rather than re-rendered — see `patchDraft` — and this line
+ * has to keep up with it. A line that appeared and vanished with the word would
+ * mean the patch had to know where to reinsert it; an empty div costs nothing
+ * and gives it somewhere to write.
+ */
+function categorySlot(state: RunState, on: Handlers): HTMLElement {
+  const slot = h("div", { class: "category-slot" })
+  fillCategory(slot, state, on)
+  return slot
+}
+
+/**
+ * Refill the slot from the word now in play. Called on every keystroke, so it
+ * does the least it can: nothing at all until the draft is a whole word, which
+ * is the first moment there is a shape to name.
+ */
+export function fillCategory(slot: Element, state: RunState, on: Handlers): void {
+  slot.replaceChildren()
   const word = wordInPlay(state)
-  if (!word) return false
+  if (!word) return
 
   const category = categoryOf(word)
   const bonus = levelBonus(state, category)
   // A button rather than a div, because this line is the only place the shape
   // system announces itself during a blind, and a player who wants to know what
   // the other four shapes are has nowhere else to press.
-  return h(
-    "button",
-    { class: "category", type: "button", onclick: () => on.openShapes() },
-    h("span", { class: "category-name" }, category.name),
-    h("span", { class: "category-level" }, `Lv ${bonus.level}`),
-    bonus.chips > 0 &&
-      h("span", { class: "category-bonus" }, `+${bonus.chips} +${bonus.mult} mult`),
-    h("span", { class: "category-more" }, "shapes ›"),
+  slot.append(
+    h(
+      "button",
+      { class: "category", type: "button", onclick: () => on.openShapes() },
+      h("span", { class: "category-name" }, category.name),
+      h("span", { class: "category-level" }, `Lv ${bonus.level}`),
+      bonus.chips > 0 &&
+        h("span", { class: "category-bonus" }, `+${bonus.chips} +${bonus.mult} mult`),
+      h("span", { class: "category-more" }, "shapes ›"),
+    ),
   )
 }
 
@@ -384,7 +407,7 @@ export function blindView(state: RunState, on: Handlers): HTMLElement {
     jokerRow(state, on),
     consumableRow(state, on),
     grid(state),
-    categoryLine(state, on),
+    categorySlot(state, on),
     h(
       "div",
       { class: "readout" },
