@@ -177,14 +177,14 @@ describe("keeping the record", () => {
 describe("what the ladder offers", () => {
   const meta = (change: Partial<MetaState>): MetaState => ({ ...FRESH, ...change })
 
-  it("offers nothing until the game has been won once", () => {
-    // Which is what keeps the dial off the title screen: there is no choice to
-    // make, and a stepper with one position is furniture.
+  it("has earned nothing until the game has been won once", () => {
+    // The dial is still on the title screen — every rung is reachable — but
+    // nothing above the ordinary game has been climbed to yet.
     expect(unlocked(FRESH)).toBe(0)
     expect(chosenAscension(FRESH)).toBe(0)
   })
 
-  it("opens exactly one rung above the hardest ever won", () => {
+  it("earns exactly one rung above the hardest ever won", () => {
     expect(unlocked(meta({ cleared: 0 }))).toBe(1)
     expect(unlocked(meta({ cleared: 3 }))).toBe(4)
   })
@@ -197,13 +197,18 @@ describe("what the ladder offers", () => {
     expect(chosenAscension(meta({ cleared: 4, ascension: 2 }))).toBe(2)
   })
 
-  it("hands back a level that is no longer on offer", () => {
-    // A record can outlive the ladder it was written against — a shorter ladder,
-    // or a wiped win. Reading it as the nearest legal level is what stops that
-    // record from being a run that cannot be started.
-    expect(chosenAscension(meta({ cleared: 0, ascension: 5 }))).toBe(1)
-    expect(chosenAscension(meta({ cleared: -1, ascension: 3 }))).toBe(0)
+  it("lets a run start above anything ever won", () => {
+    // The warning under the dial is the whole of the gate. A player who dialled
+    // past their record gets the run they asked for, not the one they earned.
+    expect(chosenAscension(meta({ cleared: 0, ascension: 5 }))).toBe(5)
+    expect(chosenAscension(meta({ cleared: -1, ascension: 3 }))).toBe(3)
+  })
+
+  it("hands back a level the ladder does not have", () => {
+    // A record can outlive the ladder it was written against. Reading it as the
+    // nearest legal level is what stops that record from being an unstartable run.
     expect(chosenAscension(meta({ cleared: 99, ascension: 99 }))).toBe(MAX_ASCENSION)
+    expect(chosenAscension(meta({ ascension: -4 }))).toBe(0)
   })
 })
 

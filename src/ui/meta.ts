@@ -91,22 +91,25 @@ const WORD_SLOTS = 24
 const GUESS_CAP = 12
 
 /**
- * The hardest level on offer: one past the hardest ever won.
+ * The hardest level actually *earned*: one past the hardest ever won.
  *
- * Zero for a player who has never won, which is not a level at all — it is the
- * ordinary game, and the reason the selector stays off the title screen until
- * there is a second option to select.
+ * Zero for a player who has never won. It is no longer a gate — every rung of
+ * the ladder can be dialled in from the first launch — but it is still the line
+ * between the climb as it was designed and a leap past it, which is what the
+ * title screen warns about.
  */
 export const unlocked = (meta: MetaState): number => Math.min(MAX_ASCENSION, meta.cleared + 1)
 
 /**
- * The level a new run would start at. Clamped on the way out rather than on the
+ * The level a new run would start at.
+ *
+ * Clamped to the ladder but not to what has been won: a player who wants to open
+ * with ascension 6 is allowed to, and gets told on the way that the rungs below
+ * it are there for a reason. Clamping happens on the way out rather than on the
  * way in, so a record carrying a level this build no longer offers — a shorter
- * ladder, a reset win — reads as the nearest legal one instead of refusing to
- * start a run at all.
+ * ladder — reads as the nearest legal one instead of refusing to start a run.
  */
-export const chosenAscension = (meta: MetaState): number =>
-  Math.min(clampAscension(meta.ascension), unlocked(meta))
+export const chosenAscension = (meta: MetaState): number => clampAscension(meta.ascension)
 
 /** Blinds that reached an ending, which is what the breakdown is a breakdown of. */
 export const blindsPlayed = (meta: MetaState): number =>

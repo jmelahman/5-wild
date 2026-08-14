@@ -1744,6 +1744,15 @@ button {
 }
 
 /*
+ * The same line, saying the opposite thing: this rung has not been earned. Red
+ * rather than gold, and no louder than that — it is a caution about the shape of
+ * the climb, not a refusal, and the button above it still works.
+ */
+.ladder-note.warn {
+  color: color-mix(in srgb, var(--mult) 80%, var(--muted));
+}
+
+/*
  * Pulled out of the centred stack and pinned to the foot of the screen: it is a
  * fact about the binary, not part of the composition, and it should be findable
  * without ever competing with the Play button for attention.

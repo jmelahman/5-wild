@@ -941,11 +941,10 @@ export function endView(state: RunState, on: Handlers): HTMLElement {
  *
  * A win at ascension N is a different thing from a win, and the next rung is the
  * only reward for it — so the screen that offers the win is also the screen that
- * hands the next one over. That includes the first win of all, which is where
- * the ladder appears at all: without a line here the whole feature arrives as a
- * box that was not on the title screen last time, and the player is left to
- * notice it. A loss gets the level stated flatly — it is the terms the run was
- * played under, not a consolation.
+ * hands the next one over. The dial has always been there and every rung of it
+ * is reachable, so what this line marks is earning one rather than taking it: the
+ * next level is now the climb rather than a leap. A loss gets the level stated
+ * flatly — it is the terms the run was played under, not a consolation.
  */
 function cleared(state: RunState, won: boolean): HTMLElement | null {
   const level = state.ascension ?? 0
@@ -954,9 +953,9 @@ function cleared(state: RunState, won: boolean): HTMLElement | null {
     "div",
     { class: "score-note asc-note" },
     level === 0
-      ? "Ascension 1 is open — the run can be made harder"
+      ? "Ascension 1 is earned — the run can be made harder"
       : level < MAX_ASCENSION
-        ? `Ascension ${level} cleared — ${level + 1} is open`
+        ? `Ascension ${level} cleared — ${level + 1} is earned`
         : `Ascension ${level} cleared. There is nothing above it.`,
   )
 }
@@ -1124,22 +1123,27 @@ export function statsView(meta: MetaState, pool: number, on: Handlers): HTMLElem
 /**
  * The difficulty dial, and the only thing on the title screen that is a decision.
  *
- * Absent until the game has been won once, which is the whole of the unlock: a
- * player who has not finished a run has nothing to choose between, and a greyed
- * stepper reading "Ascension 0 of 6" would only advertise six things they cannot
- * have yet. It appears the moment it means something.
+ * Present from the first launch, and open all the way to the top. Hiding the
+ * ladder until a win taught the game's best idea to exactly the players who had
+ * already finished it; showing it makes six named rules part of what the game
+ * looks like, not a reward for having seen the ending.
+ *
+ * Nothing above what has been won is locked, only warned about. The climb is
+ * still the intended shape — each rung is one new rule to learn, and the note
+ * under an unearned level says so — but a player who wants to open on Tyranny is
+ * making a choice about their own evening, and a disabled button is the wrong
+ * answer to that.
  *
  * A stepper rather than a list of six buttons, because the ladder is ordered and
- * cumulative — the question is "how far up", not "which one" — and because at
- * most one step of it is ever new. The level's own rule is spelled out under it;
- * the ones below are named on the intro card of every blind, and written out in
- * full in the codex.
+ * cumulative — the question is "how far up", not "which one". The level's own
+ * rule is spelled out under it; the ones below are named on the intro card of
+ * every blind, and written out in full in the codex.
  */
 function ladder(on: Handlers, meta: MetaState): HTMLElement | null {
   const top = unlocked(meta)
-  if (top === 0) return null
   const level = chosenAscension(meta)
   const rule = ascensionAt(level)
+  const ahead = level > top
 
   const step = (label: string, to: number, live: boolean) =>
     h(
@@ -1167,7 +1171,7 @@ function ladder(on: Handlers, meta: MetaState): HTMLElement | null {
         h("span", { class: "ladder-name" }, `Ascension ${level}`),
         rule && h("span", { class: "ladder-rule" }, rule.name),
       ),
-      step("+", level + 1, level < top),
+      step("+", level + 1, level < MAX_ASCENSION),
     ),
     h(
       "p",
@@ -1178,9 +1182,19 @@ function ladder(on: Handlers, meta: MetaState): HTMLElement | null {
           `${rule.text}${level > 1 ? " Every rule below it, too." : ""}`
         : "The game as it is written, with nothing extra asked of you.",
     ),
-    level === top &&
-      top < MAX_ASCENSION &&
-      h("p", { class: "ladder-note" }, `Win this to unlock ascension ${top + 1}`),
+    // One line under the dial, and which one it is says where the player stands
+    // on the ladder: past the climb, at its edge, or partway up it.
+    ahead
+      ? h(
+          "p",
+          { class: "ladder-note warn" },
+          top === 0
+            ? "Meant to be met after a win. You can start here anyway."
+            : `Ascension ${top} hasn't been won yet — these are meant to be climbed one at a time.`,
+        )
+      : level === top && top < MAX_ASCENSION
+        ? h("p", { class: "ladder-note" }, `Win this to earn ascension ${top + 1}`)
+        : null,
   )
 }
 
@@ -1284,9 +1298,10 @@ export function helpView(on: Handlers): HTMLElement {
       rule("Bosses", " Every third blind bends a rule. Read it before you play."),
       rule(
         "Ascensions",
-        ` Win once and the title screen grows a difficulty dial. Each level adds a standing
-         rule to every guess of the run, and winning at one unlocks the next — ${MAX_ASCENSION}
-         in all.`,
+        ` The difficulty dial on the title screen. Each level adds a standing rule to every
+         guess of the run — ${MAX_ASCENSION} in all, every one of them reachable from the
+         start. Winning at one earns the next; climbing a rung at a time is the intended
+         way up, not a lock.`,
       ),
       rule(
         "Money",
