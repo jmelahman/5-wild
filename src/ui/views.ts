@@ -705,14 +705,31 @@ export function rewardView(state: RunState, on: Handlers): HTMLElement {
  * What a card says about itself. Split out from the card because a pack lays out
  * the same items the shop sells, and a Steel E ought to read identically whether
  * it is being bought or being chosen.
+ *
+ * The tag is the answer to a question the shelf was not answering. Seven kinds of
+ * thing are sold here and every one of them was the same rectangle — a name, a
+ * sentence, a price — so "The Mint" and "Etch Heavy" were distinguishable only by
+ * reading both sentences and knowing the game well enough to classify them. The
+ * tag says the kind in one word before the name is read, and for the two kinds
+ * that need somewhere to live it says when there is nowhere: a joker bought into
+ * a full tray is refused at the till, and that refusal belongs on the card rather
+ * than in a toast after the tap.
+ *
+ * Rarity stays a colour and does not become a second tag, except on jokers. That
+ * is the one line where rarity is an economy — the shelf weights them, the tray
+ * is where a run's identity ends up — and "Rare Joker" is worth more than a shade
+ * of border a player has to have learnt.
  */
-function describeItem(
+export function describeItem(
   item: ShopItem,
   state: RunState,
-): { title: string; text: string; rarity: string } {
+): { title: string; text: string; rarity: string; tag: string; blocked: boolean } {
   let title = ""
   let text = ""
   let rarity = "common"
+  let tag = ""
+  /** The tag is a warning rather than a label: this one has nowhere to go. */
+  let blocked = false
 
   if (item.kind === "pack") {
     const pack = PACK_BY_ID.get(item.id)
@@ -721,15 +738,20 @@ function describeItem(
     // Packs read as the rare thing on the shelf because they are the dearest and
     // the only one that asks a question back.
     rarity = "rare"
+    tag = "Pack"
   } else if (item.kind === "joker") {
     const joker = JOKER_BY_ID.get(item.id)
     title = joker?.name ?? item.id
     text = joker?.text ?? ""
     rarity = joker?.rarity ?? "common"
+    blocked = state.jokers.length >= difficultyOf(state).jokerSlots
+    tag = blocked ? "Joker · tray full" : `${RARITY_WORD[rarity] ?? ""} Joker`.trim()
   } else if (item.kind === "consumable") {
     const card = CONSUMABLE_BY_ID.get(item.id)
     title = card?.name ?? item.id
     text = card?.text ?? ""
+    blocked = state.consumables.length >= CONSUMABLE_SLOTS
+    tag = blocked ? "Card · slots full" : "Card"
   } else if (item.kind === "mod") {
     const mod = MODIFIER_BY_ID.get(item.id)
     rarity = mod?.rarity ?? "common"
@@ -743,6 +765,7 @@ function describeItem(
       title = `${mod?.name ?? item.id} · any letter`
       text = `Choose any letter. It ${mod?.text ?? ""}`
       if (mod?.letters) text += `, from ${[...mod.letters].join(" ").toUpperCase()}`
+      tag = "Letter"
     } else {
       const letter = item.letter.toUpperCase()
       title = `${mod?.name ?? item.id} ${letter}`
@@ -753,6 +776,10 @@ function describeItem(
       if (current && current !== item.id) {
         text += `, replacing ${MODIFIER_BY_ID.get(current)?.name ?? current}`
       }
+      // The pack's aimed version. Still a letter card, and the tag says so for
+      // the same reason it does in the shop: the name reads "Gold E", which is
+      // the letter, not the kind of thing being handed over.
+      tag = "Letter"
     }
   } else if (item.kind === "range") {
     const range = RANGE_BY_ID.get(item.id)
@@ -760,6 +787,7 @@ function describeItem(
     // you hold — because the gold buys the step.
     title = range ? `${range.name} → Lv ${rangeLevelOf(state, item.id) + 1}` : "Range"
     text = range ? `${range.name} letters are worth +${CHIPS_PER_LEVEL} chips per level` : ""
+    tag = "Alphabet"
   } else if (item.kind === "level") {
     const category = CATEGORY_BY_ID.get(item.id)
     // Named as the level it buys rather than as the level you hold, because the
@@ -768,25 +796,41 @@ function describeItem(
     text = category
       ? `${category.name} words score +${category.chips} chips and +${category.mult} mult per level`
       : ""
+    // "Shape" rather than "Category", because that is the word the board, the
+    // shop's own levels line and the panel behind it all use for this.
+    tag = "Word shape"
   } else {
     // Falls back to something readable rather than to `undefined`, so a save
     // written before etchings were sold by the group degrades quietly.
     const etching = ETCHING_BY_ID.get(item.id)
     title = etching?.name ?? "Etching"
     text = etching?.text ?? ""
+    tag = "Etching"
   }
 
-  return { title, text, rarity }
+  return { title, text, rarity, tag, blocked }
+}
+
+/**
+ * Rarity as a word, for the joker tag. Common is left blank rather than said: a
+ * shelf where three of five cards announce themselves as common is a shelf that
+ * has taught the player to stop reading the tag.
+ */
+const RARITY_WORD: Record<string, string> = {
+  common: "",
+  uncommon: "Uncommon",
+  rare: "Rare",
+  legendary: "Legendary",
 }
 
 function shopItemCard(item: ShopItem, index: number, state: RunState, on: Handlers): HTMLElement {
   const affordable = state.gold >= item.cost
-  const { title, text, rarity } = describeItem(item, state)
+  const { title, text, rarity, tag, blocked } = describeItem(item, state)
 
   return h(
     "button",
     {
-      class: `shop-item rarity-${rarity} ${item.kind === "pack" ? "pack" : ""} ${
+      class: `shop-item kind-${item.kind} rarity-${rarity} ${item.kind === "pack" ? "pack" : ""} ${
         affordable ? "" : "broke"
       }`,
       // The stock deals in one card at a time rather than appearing all at once,
@@ -795,6 +839,7 @@ function shopItemCard(item: ShopItem, index: number, state: RunState, on: Handle
       type: "button",
       onclick: () => on.buy(index),
     },
+    h("div", { class: `shop-item-kind${blocked ? " blocked" : ""}` }, tag),
     h("div", { class: "shop-item-name" }, title),
     h("div", { class: "shop-item-text" }, text),
     h("div", { class: "shop-item-cost" }, money(item.cost)),
@@ -831,15 +876,24 @@ export function packView(state: RunState, on: Handlers): HTMLElement | null {
         { class: "pack-options" },
         ...open.options.map((item, index) => {
           if (!item) return h("div", { class: "shop-item sold", style: `--deal:${index}` }, "taken")
-          const { title, text, rarity } = describeItem(item, state)
+          const { title, text, rarity, tag, blocked } = describeItem(item, state)
           return h(
             "button",
             {
-              class: `shop-item rarity-${rarity}`,
+              class: `shop-item kind-${item.kind} rarity-${rarity}`,
               style: `--deal:${index}`,
               type: "button",
               onclick: () => on.pickPack(index),
             },
+            // A pack deals one kind of card, so on the shelf's terms the tag
+            // would say "Letter" three times down a sheet whose title already
+            // said Alphabet Pack. It is kept for the two cases where it is not
+            // repeating the title: a joker, where the tag is carrying the rarity
+            // and every option carries a different one, and anything blocked,
+            // where the pick would be taken and then refused with the pack
+            // already paid for.
+            (blocked || item.kind === "joker") &&
+              h("div", { class: `shop-item-kind${blocked ? " blocked" : ""}` }, tag),
             h("div", { class: "shop-item-name" }, title),
             h("div", { class: "shop-item-text" }, text),
             // The price it would have carried in the stock, struck through: the
@@ -959,8 +1013,15 @@ export function shopView(state: RunState, on: Handlers): HTMLElement {
   const shop = state.shop
   const reroll = shop ? rerollCost(shop) : 0
 
-  const owned = state.jokers.map((instance, index) => {
-    const joker = JOKER_BY_ID.get(instance.id)
+  // Drawn as seats rather than as a list, the way the board draws it, because
+  // the shop is the one screen where the empty ones are the point: a shelf
+  // offering a $8 joker to a player who cannot see whether they have room for it
+  // is asking a question with the answer off screen. Full length, so the tray
+  // that has no space left looks like a tray with no space left.
+  const owned = Array.from({ length: difficultyOf(state).jokerSlots }, (_, slot) => {
+    const instance = state.jokers[slot]
+    const joker = instance ? JOKER_BY_ID.get(instance.id) : undefined
+    if (!instance) return h("div", { class: "joker empty" })
     return h(
       "button",
       {
@@ -968,7 +1029,7 @@ export function shopView(state: RunState, on: Handlers): HTMLElement {
         "data-tip": joker?.text ?? instance.id,
         "data-rarity": joker?.rarity ?? "common",
         type: "button",
-        onclick: () => on.sell(index),
+        onclick: () => on.sell(slot),
       },
       h("span", { class: "joker-name" }, joker?.name ?? instance.id),
       h("span", { class: "sell" }, `sell ${money(sellValue(joker?.cost ?? 4))}`),
@@ -1020,7 +1081,12 @@ export function shopView(state: RunState, on: Handlers): HTMLElement {
       h(
         "div",
         { class: "owned-label" },
-        `Jokers ${state.jokers.length}/${difficultyOf(state).jokerSlots} · Cards ${state.consumables.length}/${CONSUMABLE_SLOTS} — tap a joker to sell`,
+        // The instruction only when there is something to obey it with: an empty
+        // tray under "tap a joker to sell" reads as a control that is broken
+        // rather than as one that has nothing to act on yet.
+        `Jokers ${state.jokers.length}/${difficultyOf(state).jokerSlots} · Cards ${state.consumables.length}/${CONSUMABLE_SLOTS}${
+          state.jokers.length > 0 ? " — tap a joker to sell" : ""
+        }`,
       ),
       h("div", { class: "jokers" }, ...owned),
     ),

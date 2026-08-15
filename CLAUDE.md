@@ -65,9 +65,9 @@ style but not its prose is half-finished.
 
 ## Storage
 
-`5wild:run:v1` (the run save), `5wild:meta:v1` (the record), `5wild:seen-help`.
-Adding an optional field needs no key bump; changing what an existing field means
-does.
+`5wild:run:v1` (the run save), `5wild:meta:v2` (the record), and four flags:
+`5wild:seen-help`, `5wild:plain`, `5wild:muted`, `5wild:music`. Adding an
+optional field needs no key bump; changing what an existing field means does.
 
 ## Backlog
 

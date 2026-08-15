@@ -1171,6 +1171,37 @@ button {
   font-size: 0.75rem;
 }
 
+/*
+ * The kind tag. Small, letterspaced and muted, above the name — a label on the
+ * shelf rather than a second title, and the thing an eye scanning five cards for
+ * "is there a joker" lands on first.
+ *
+ * Uppercased in CSS rather than in the string, so the tag that has to say
+ * something in prose — "Joker · tray full" — is still written as prose in the
+ * one place a reader of the view code will look for it.
+ */
+.shop-item-kind {
+  font-size: 0.5625rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* The collectible lines take the card's own rarity colour, which is the one
+   place the tag is worth more than a label: "Rare Joker" written in the rare
+   colour teaches the border a player has otherwise had to learn by rote. */
+.shop-item.kind-joker .shop-item-kind {
+  color: color-mix(in srgb, var(--rare, var(--rare-common)) 65%, var(--fg));
+}
+
+/* No seat for it. Mult red, because that is this game's colour for a number
+   that is against you, and because the tag is now a warning rather than a
+   label — the purchase will be refused at the till. */
+.shop-item-kind.blocked {
+  color: var(--mult);
+}
+
 .shop-item-name {
   font-size: 0.8125rem;
   font-weight: 700;
