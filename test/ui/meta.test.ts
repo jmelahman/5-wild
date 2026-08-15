@@ -12,7 +12,7 @@ import {
   unlocked,
 } from "../../src/ui/meta"
 
-const KEY = "5wild:meta:v1"
+const KEY = "5wild:meta:v2"
 
 /**
  * A store, standing in for the browser's.
@@ -208,7 +208,7 @@ describe("what the ladder offers", () => {
   it("hands back a level the ladder does not have", () => {
     // A record can outlive the ladder it was written against. Reading it as the
     // nearest legal level is what stops that record from being an unstartable run.
-    expect(chosenAscension(meta({ cleared: 99, ascension: 99 }))).toBe(MAX_ASCENSION)
+    expect(chosenAscension(meta({ cleared: 999, ascension: 999 }))).toBe(MAX_ASCENSION)
     expect(chosenAscension(meta({ ascension: -4 }))).toBe(0)
   })
 

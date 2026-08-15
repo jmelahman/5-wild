@@ -1,7 +1,17 @@
 import { clampAscension, MAX_ASCENSION } from "../engine"
 
-/** Its own key, so a run save that goes bad cannot take the record with it. */
-const META_KEY = "5wild:meta:v1"
+/**
+ * Its own key, so a run save that goes bad cannot take the record with it.
+ *
+ * v2 because the ascension ladder was renumbered under it. `cleared` is a level
+ * and a level is a name — a stored 6 used to mean "won under Finish It" and now
+ * means "won under Lean Years", which is four rungs easier. Nothing in the file
+ * says which build wrote it, so the only honest reading of the old one is none:
+ * the bump resets every record rather than silently promoting players past four
+ * rules they have never played. Everything else in here is a counter and would
+ * have survived, which is the trade — a v2 key costs the tallies too.
+ */
+const META_KEY = "5wild:meta:v2"
 
 /**
  * What outlives a run.

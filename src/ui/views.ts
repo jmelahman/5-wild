@@ -2,6 +2,7 @@ import type { BossTier, Rarity, RunState, ShopItem } from "../engine"
 import {
   ANTES,
   ASCENSIONS,
+  AUTHORED_ASCENSIONS,
   ascensionAt,
   BLIND_NAMES,
   BLIND_PAYOUT,
@@ -17,6 +18,7 @@ import {
   CONSUMABLE_SLOTS,
   CONSUMABLES,
   categoryOf,
+  difficultyOf,
   draftChips,
   ETCHING_BY_ID,
   ETCHINGS,
@@ -163,7 +165,9 @@ export const meterFill = (score: number, target: number): number =>
   target > 0 ? Math.min(1, score / target) : 1
 
 function jokerRow(state: RunState, on: Handlers): HTMLElement {
-  const slots = Array.from({ length: JOKER_SLOTS }, (_, slot) => {
+  // The tray draws as many seats as the run actually has, so ascension 8 reads
+  // as four slots rather than as a fifth that silently refuses every purchase.
+  const slots = Array.from({ length: difficultyOf(state).jokerSlots }, (_, slot) => {
     const instance = state.jokers[slot]
     if (!instance) return h("div", { class: "joker empty" })
     const joker = JOKER_BY_ID.get(instance.id)
@@ -581,7 +585,12 @@ export function introView(state: RunState, on: Handlers, chrome: Chrome): HTMLEl
       h(
         "div",
         { class: "intro-meta" },
-        `${state.blind.maxGuesses} guesses · reward ${money(BLIND_PAYOUT[state.blindIndex] ?? 0)}`,
+        // The payout the run will actually be handed, not the one the table
+        // lists: ascension 6 takes a dollar off it, and a card that promises $3
+        // before a blind and pays $2 after it is the worst kind of wrong.
+        `${state.blind.maxGuesses} guesses · reward ${money(
+          Math.max(0, (BLIND_PAYOUT[state.blindIndex] ?? 0) - difficultyOf(state).payoutCut),
+        )}`,
       ),
       standing(state),
     ),
@@ -603,11 +612,17 @@ export function introView(state: RunState, on: Handlers, chrome: Chrome): HTMLEl
 function standing(state: RunState): HTMLElement | null {
   const rules = rulesFor(state)
   if (rules.length === 0) return null
+  const { targets } = difficultyOf(state)
   return h(
     "div",
     { class: "intro-asc" },
     h("strong", {}, `Ascension ${state.ascension}`),
     ` · ${rules.map((rule) => rule.name).join(" · ")}`,
+    // The endless half of the ladder, said as the number it is. `rulesFor`
+    // deliberately does not return those rungs, and this is why: a run at
+    // ascension 30 would otherwise put twenty copies of "Steeper" on this card,
+    // when the one thing the player needs off it is how much the targets moved.
+    targets > 1 ? ` · targets ×${targets.toFixed(2)}` : null,
   )
 }
 
@@ -980,7 +995,7 @@ export function shopView(state: RunState, on: Handlers): HTMLElement {
       h(
         "div",
         { class: "owned-label" },
-        `Jokers ${state.jokers.length}/${JOKER_SLOTS} · Cards ${state.consumables.length}/${CONSUMABLE_SLOTS} — tap a joker to sell`,
+        `Jokers ${state.jokers.length}/${difficultyOf(state).jokerSlots} · Cards ${state.consumables.length}/${CONSUMABLE_SLOTS} — tap a joker to sell`,
       ),
       h("div", { class: "jokers" }, ...owned),
     ),
@@ -1064,6 +1079,10 @@ export function endView(state: RunState, on: Handlers): HTMLElement {
  * is reachable, so what this line marks is earning one rather than taking it: the
  * next level is now the climb rather than a leap. A loss gets the level stated
  * flatly — it is the terms the run was played under, not a consolation.
+ *
+ * There is always a next one now, which is the point of the endless half: the
+ * last branch is the dial's ceiling rather than the ladder's top, and nobody is
+ * going to see it.
  */
 function cleared(state: RunState, won: boolean): HTMLElement | null {
   const level = state.ascension ?? 0
@@ -1244,7 +1263,7 @@ export function statsView(meta: MetaState, pool: number, on: Handlers): HTMLElem
  *
  * Present from the first launch, and open all the way to the top. Hiding the
  * ladder until a win taught the game's best idea to exactly the players who had
- * already finished it; showing it makes six named rules part of what the game
+ * already finished it; showing it makes ten named rules part of what the game
  * looks like, not a reward for having seen the ending.
  *
  * Above what has been won the rung wears a lock, and the lock yields. The climb
@@ -1254,10 +1273,11 @@ export function statsView(meta: MetaState, pool: number, on: Handlers): HTMLElem
  * answer to that. A lock that states its reason and then lets you past is worth
  * more than a `+` that stops responding and explains nothing.
  *
- * A stepper rather than a list of six buttons, because the ladder is ordered and
- * cumulative — the question is "how far up", not "which one". The level's own
- * rule is spelled out under it; the ones below are named on the intro card of
- * every blind, and written out in full in the codex.
+ * A stepper rather than a list of buttons, because the ladder is ordered and
+ * cumulative — the question is "how far up", not "which one" — and because the
+ * ladder no longer has a length a list could have. The level's own rule is
+ * spelled out under it; the ones below are named on the intro card of every
+ * blind, and written out in full in the codex.
  */
 function ladder(on: Handlers, meta: MetaState): HTMLElement {
   const top = unlocked(meta)
@@ -1305,7 +1325,7 @@ function ladder(on: Handlers, meta: MetaState): HTMLElement {
       { class: "ladder-text" },
       rule
         ? // Every level plays the rules below it as well, and saying so once here
-          // is what stops the stepper reading as a menu of six separate modes.
+          // is what stops the stepper reading as a menu of separate modes.
           `${rule.text}${level > 1 ? " Every rule below it, too." : ""}`
         : "The game as it is written, with nothing extra asked of you.",
     ),
@@ -1440,10 +1460,12 @@ export function helpView(on: Handlers): HTMLElement {
       rule("Bosses", " Every third blind bends a rule. Read it before you play."),
       rule(
         "Ascensions",
-        ` The difficulty dial on the title screen. Each level adds a standing rule to every
-         guess of the run — ${MAX_ASCENSION} in all, every one of them reachable from the
-         start. Winning at one earns the next; climbing a rung at a time is the intended
-         way up, not a lock.`,
+        ` The difficulty dial on the title screen, and the number worth comparing. The
+         first ${AUTHORED_ASCENSIONS} levels each add one standing rule — to what you may
+         guess, what a blind pays, how high the targets are, how many jokers you may keep,
+         how many guesses you get. Above that the ladder does not end: every further level raises
+         every target again. Winning at one earns the next, and climbing a rung at a time
+         is the intended way up, not a lock.`,
       ),
       rule(
         "Money",
@@ -1675,7 +1697,9 @@ export function codexView(on: Handlers): HTMLElement {
         "Ascensions",
         ASCENSIONS.length,
         `The run's own difficulty, chosen before it starts and fixed for the whole of it.
-         A run at a level plays every rule up to it, and winning at one unlocks the next.`,
+         A run at a level plays every rule up to it, and winning at one unlocks the next.
+         These are the written ones; past the last of them each level simply raises every
+         target by another 8%, and there is no last level.`,
         ...ASCENSIONS.map((rule) => entry(rule.name, rule.text, `Ascension ${rule.level}`)),
       ),
 

@@ -13,10 +13,10 @@
 
 import type { Action, RunState, WordSource } from "../../src/engine"
 import {
+  AUTHORED_ASCENSIONS,
   baseChips,
   categoryOf,
   levelBonus,
-  MAX_ASCENSION,
   MODIFIER_BY_ID,
   placeableLetters,
   reduce,
@@ -417,52 +417,82 @@ export const SCENARIOS: readonly Scenario[] = [
   },
   {
     name: "ascendant",
-    covers: "the whole ascension ladder: guesses filtered by the run's rules, every blind solved",
+    covers:
+      "the whole written ascension ladder: guesses filtered by the run's rules, targets and " +
+      "payouts bent by them, every blind solved",
     seed: 13,
-    ascension: MAX_ASCENSION,
-    next: (state, words) => {
-      if (state.phase === "blind") {
-        const blind = state.blind
-        const left = blind.maxGuesses - blind.guesses.length - 1
-        // Cash in the moment solving would clear the target, and on the last
-        // guess whatever the pile is worth: at the top of the ladder a blind
-        // that is never solved is a blind that is lost, target met or not.
-        //
-        // The probes are where the rules bite. `firstPlayable` walks past every
-        // decoy the engine refuses, so what lands in this vector is the first
-        // word the ladder actually allowed — a port that filtered guesses
-        // differently would record a different word and every score after it.
-        const cashOut = left <= 0 || blind.score * solveBonusFor(state, left) >= blind.target
-        const candidates = cashOut
-          ? [blind.answer]
-          : [...decoys(state, words, blind.guesses.length * 17), blind.answer]
-        return firstPlayable(state, words, candidates)
-      }
-      if (state.phase === "reward") return [{ type: "collect" }]
-      if (state.phase === "shop") {
-        // A pack holds the shop until it is resolved, so it comes first however
-        // it was bought.
-        if (state.pack) {
-          const picked = state.pack.options.findIndex(
-            (item, slot) => item && accepted(state, words, [{ type: "pick_pack", index: slot }]),
-          )
-          return picked >= 0 ? [{ type: "pick_pack", index: picked }] : [{ type: "skip_pack" }]
-        }
-        const items = state.shop?.items ?? []
-        // Jokers before anything else, then whatever is affordable. A bot that
-        // spent nothing would die in ante one and this vector would cover three
-        // blinds of a ladder meant to be climbed for eight antes.
-        for (const kind of ["joker", null] as const) {
-          const index = items.findIndex(
-            (item) => item && (kind === null || item.kind === kind) && item.cost <= state.gold,
-          )
-          if (index >= 0 && accepted(state, words, [{ type: "buy", index }])) {
-            return [{ type: "buy", index }]
-          }
-        }
-        return [{ type: "next_blind" }]
-      }
-      return null
-    },
+    ascension: AUTHORED_ASCENSIONS,
+    next: climb,
+  },
+  /*
+   * The half of the ladder that has no rules left to add. Its targets are the
+   * only thing this pins that the rung below does not — the endless step is a
+   * pure multiplication, and a port that compounded it wrongly, or rounded it
+   * to the hundred `blindTargets` rounds to, would clear a different first
+   * blind and diverge on the very first score.
+   *
+   * It records a short run and that is the honest outcome, not a shortfall: at
+   * ×2 targets on a five-guess board with a thinned shelf, the climber's line
+   * does not last, and a vector that pretended otherwise would be a vector of a
+   * bot rather than of the rules.
+   */
+  {
+    name: "endless",
+    covers: "a rung above the written ladder: targets compounded by the endless step",
+    seed: 21,
+    ascension: AUTHORED_ASCENSIONS + 4,
+    next: climb,
   },
 ]
+
+/**
+ * The climber's line, shared by both ascension vectors.
+ *
+ * Named rather than inlined because the two differ only in where on the ladder
+ * they stand: the same play against the written rules and against the endless
+ * ones is what makes the pair of vectors a comparison rather than two runs.
+ */
+function climb(state: RunState, words: WordSource): Action[] | null {
+  if (state.phase === "blind") {
+    const blind = state.blind
+    const left = blind.maxGuesses - blind.guesses.length - 1
+    // Cash in the moment solving would clear the target, and on the last
+    // guess whatever the pile is worth: at the top of the ladder a blind
+    // that is never solved is a blind that is lost, target met or not.
+    //
+    // The probes are where the rules bite. `firstPlayable` walks past every
+    // decoy the engine refuses, so what lands in this vector is the first
+    // word the ladder actually allowed — a port that filtered guesses
+    // differently would record a different word and every score after it.
+    const cashOut = left <= 0 || blind.score * solveBonusFor(state, left) >= blind.target
+    const candidates = cashOut
+      ? [blind.answer]
+      : [...decoys(state, words, blind.guesses.length * 17), blind.answer]
+    return firstPlayable(state, words, candidates)
+  }
+  if (state.phase === "reward") return [{ type: "collect" }]
+  if (state.phase === "shop") {
+    // A pack holds the shop until it is resolved, so it comes first however
+    // it was bought.
+    if (state.pack) {
+      const picked = state.pack.options.findIndex(
+        (item, slot) => item && accepted(state, words, [{ type: "pick_pack", index: slot }]),
+      )
+      return picked >= 0 ? [{ type: "pick_pack", index: picked }] : [{ type: "skip_pack" }]
+    }
+    const items = state.shop?.items ?? []
+    // Jokers before anything else, then whatever is affordable. A bot that
+    // spent nothing would die in ante one and this vector would cover three
+    // blinds of a ladder meant to be climbed for eight antes.
+    for (const kind of ["joker", null] as const) {
+      const index = items.findIndex(
+        (item) => item && (kind === null || item.kind === kind) && item.cost <= state.gold,
+      )
+      if (index >= 0 && accepted(state, words, [{ type: "buy", index }])) {
+        return [{ type: "buy", index }]
+      }
+    }
+    return [{ type: "next_blind" }]
+  }
+  return null
+}

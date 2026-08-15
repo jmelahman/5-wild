@@ -2,7 +2,15 @@ import { describe, expect, it } from "vitest"
 import type { Action, RunState, WordSource } from "../../src/engine"
 import {
   ASCENSIONS,
+  AUTHORED_ASCENSIONS,
+  ascensionAt,
+  BLIND_PAYOUT,
+  blindTargets,
   clampAscension,
+  difficultyAt,
+  getBoss,
+  JOKER_SLOTS,
+  JOKERS,
   MAX_ASCENSION,
   mustSolve,
   reduce,
@@ -44,9 +52,9 @@ function why(state: RunState, word: string): string | undefined {
 }
 
 describe("the ladder", () => {
-  it("is six linear steps, each arriving at its own level", () => {
-    expect(ASCENSIONS.map((rule) => rule.level)).toEqual([1, 2, 3, 4, 5, 6])
-    expect(MAX_ASCENSION).toBe(6)
+  it("is ten written steps, each arriving at its own level", () => {
+    expect(ASCENSIONS.map((rule) => rule.level)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    expect(AUTHORED_ASCENSIONS).toBe(10)
     for (const rule of ASCENSIONS) {
       expect(rule.name.length, rule.name).toBeGreaterThan(0)
       expect(rule.text.length, rule.name).toBeGreaterThan(0)
@@ -57,16 +65,50 @@ describe("the ladder", () => {
     expect(rulesFor(at(0))).toHaveLength(0)
     expect(rulesFor(at(1)).map((rule) => rule.level)).toEqual([1])
     expect(rulesFor(at(4)).map((rule) => rule.level)).toEqual([1, 2, 3, 4])
-    expect(rulesFor(at(MAX_ASCENSION))).toHaveLength(MAX_ASCENSION)
+    expect(rulesFor(at(AUTHORED_ASCENSIONS))).toHaveLength(AUTHORED_ASCENSIONS)
+    // And the endless half adds no rules at all — it is a number, and `standing`
+    // renders the number rather than twenty repetitions of one entry.
+    expect(rulesFor(at(30))).toHaveLength(AUTHORED_ASCENSIONS)
   })
 
   it("keeps a level anyone could actually be at", () => {
     expect(clampAscension(-3)).toBe(0)
     expect(clampAscension(2.7)).toBe(2)
-    expect(clampAscension(99)).toBe(MAX_ASCENSION)
+    expect(clampAscension(9999)).toBe(MAX_ASCENSION)
     expect(clampAscension(Number.NaN)).toBe(0)
-    // And the run itself refuses a level off the ladder rather than storing it.
-    expect(startRun(1, words, 99).state.ascension).toBe(MAX_ASCENSION)
+    // And the run itself refuses a level off the dial rather than storing it.
+    expect(startRun(1, words, 9999).state.ascension).toBe(MAX_ASCENSION)
+  })
+
+  /*
+   * The half of the ladder nobody wrote. It exists so the dial keeps being a
+   * thing to optimise against after the tenth rung has been beaten — the run's
+   * own scoreboard, which "how many antes" and "final score" both fail at
+   * because a won run can be farmed for either.
+   */
+  it("keeps going past the written rungs, one notch of target at a time", () => {
+    const step = difficultyAt(11).targets / difficultyAt(10).targets
+    // Gentler than Steeper's own 15%, because this one compounds ninety times:
+    // at 15% the measured climb was spent within five rungs, and a scoreboard
+    // with five marks on it is not a scoreboard.
+    expect(step).toBeCloseTo(1.08, 10)
+    // Compounding, not accumulating: rung 20 is the notch ten times over.
+    expect(difficultyAt(20).targets).toBeCloseTo(difficultyAt(10).targets * step ** 10, 10)
+    // And nothing but the targets moves up there.
+    const thirtieth = difficultyAt(30)
+    expect(thirtieth).toEqual({ ...difficultyAt(10), targets: thirtieth.targets })
+    expect(thirtieth.targets).toBeGreaterThan(difficultyAt(10).targets)
+  })
+
+  it("names a rung above the written ones, so the dial always has something to say", () => {
+    expect(ascensionAt(10)?.name).toBe("Finish It")
+    const synthesised = ascensionAt(14)
+    expect(synthesised?.name).toBe("Steeper")
+    // The running total, because "another 8%" stops being useful by the third
+    // time the dial says it.
+    expect(synthesised?.text).toContain(`×${difficultyAt(14).targets.toFixed(2)}`)
+    expect(ascensionAt(0)).toBeUndefined()
+    expect(ascensionAt(MAX_ASCENSION + 1)).toBeUndefined()
   })
 
   it("costs an ordinary run nothing at all, not even a field", () => {
@@ -120,10 +162,69 @@ describe("the rules themselves", () => {
     expect(why(played, "braid")).toBeUndefined()
   })
 
-  it("6 — is not a guess rule but a verdict on the round", () => {
-    expect(mustSolve(at(6))).toBe(true)
-    expect(mustSolve(at(5))).toBe(false)
-    expect(ASCENSIONS[5]?.validate).toBeUndefined()
+  it("6 — takes a dollar off every blind, and leaves the unused guesses alone", () => {
+    const lean = apply(at(6), type("braid")).reward
+    const plain = apply(at(5), type("braid")).reward
+    expect(lean?.base).toBe((plain?.base ?? 0) - 1)
+    expect(lean?.base).toBe(BLIND_PAYOUT[0] - 1)
+    // The whole reason the cut lands on the base: the unused-guess dollars are
+    // the one reward that pays for solving early rather than farming, so the
+    // rung that squeezes the economy has to leave them untouched — and by
+    // shrinking everything around them, make them matter more.
+    expect(lean?.unusedGuesses).toBe(plain?.unusedGuesses)
+  })
+
+  it("7 — raises every target, and rounds the result to something readable", () => {
+    const [small] = blindTargets(1)
+    expect(at(6).blind.target).toBe(small)
+    expect(at(7).blind.target).toBe(Math.round((small * 1.15) / 10) * 10)
+    // Ten, not a hundred: 15% of the first target is 45, and rounding that to
+    // the nearest hundred would make the first Steeper either free or double.
+    expect(at(7).blind.target % 10).toBe(0)
+  })
+
+  it("8 — holds four jokers instead of five, and says so when the fifth is offered", () => {
+    expect(difficultyAt(7).jokerSlots).toBe(JOKER_SLOTS)
+    expect(difficultyAt(8).jokerSlots).toBe(JOKER_SLOTS - 1)
+
+    // The shelf is untouched — it still lays out its five cards, jokers included.
+    // What the rung takes is the room to keep them, so the offer still arrives
+    // and now has to displace something: the decision a shelf-cut never asks for.
+    const shelf = apply(apply(at(8), type("braid")), [{ type: "collect" }])
+    expect(shelf.shop?.items).toHaveLength(5)
+
+    // Four bought jokers is a full tray here and a tray with a seat left one rung
+    // down, which is the whole of the rule as the player meets it.
+    const offered: RunState = {
+      ...shelf,
+      gold: 99,
+      jokers: JOKERS.slice(0, 4).map((joker) => ({ id: joker.id })),
+      shop: {
+        rerolls: 0,
+        items: [{ kind: "joker", id: JOKERS[4]?.id ?? "", cost: 4 }],
+      },
+    }
+    const refused = (state: RunState) =>
+      reduce(state, { type: "buy", index: 0 }, words).events.some(
+        (event) => event.type === "rejected",
+      )
+    expect(refused(offered)).toBe(true)
+    expect(refused({ ...offered, ascension: 7 })).toBe(false)
+  })
+
+  it("9 — deals five guesses, unless the boss deals fewer", () => {
+    expect(at(8).blind.maxGuesses).toBe(6)
+    expect(at(9).blind.maxGuesses).toBe(5)
+    // The Clock's four is tighter and stays tighter — a rung that made a boss
+    // blind *easier* would be a rung nobody could reason about.
+    const clock = getBoss("clock")?.maxGuesses ?? 0
+    expect(Math.min(clock, difficultyAt(9).guesses)).toBe(clock)
+  })
+
+  it("10 — is not a guess rule but a verdict on the round", () => {
+    expect(mustSolve(at(10))).toBe(true)
+    expect(mustSolve(at(9))).toBe(false)
+    expect(ASCENSIONS[9]?.validate).toBeUndefined()
   })
 })
 
@@ -139,17 +240,17 @@ describe("finishing the word", () => {
   }
 
   it("pays out a farmed blind at every level below the last", () => {
-    expect(apply(farmed(5), type("ghost")).phase).toBe("reward")
+    expect(apply(farmed(AUTHORED_ASCENSIONS - 1), type("ghost")).phase).toBe("reward")
   })
 
   it("takes the run at the last, however big the pile is", () => {
-    const dead = apply(farmed(6), type("ghost"))
+    const dead = apply(farmed(AUTHORED_ASCENSIONS), type("ghost"))
     expect(dead.phase).toBe("game_over")
     expect(dead.blind.score).toBeGreaterThan(dead.blind.target)
   })
 
   it("still pays out when the word was actually solved", () => {
-    expect(apply(farmed(6), type("braid")).phase).toBe("reward")
+    expect(apply(farmed(AUTHORED_ASCENSIONS), type("braid")).phase).toBe("reward")
   })
 })
 
@@ -195,9 +296,9 @@ describe("the answer is always reachable", () => {
 
   it("never deals a word the run is forbidden to type", () => {
     // Ascension 3 forbids repeating a word, so a blind whose answer has already
-    // been guessed is a blind that cannot be solved — and at ascension 6 that is
+    // been guessed is a blind that cannot be solved — and at ascension 10 that is
     // a blind that cannot be won at all. The pool has to know that.
-    const base = startRun(4, many, MAX_ASCENSION).state
+    const base = startRun(4, many, AUTHORED_ASCENSIONS).state
     const used = many.answers.filter((word) => word !== "guild")
     const state: RunState = { ...base, history: used, ante: 1, blindIndex: 1 }
     // Dealt through the real path — the shop left behind and the next blind
@@ -211,7 +312,7 @@ describe("the answer is always reachable", () => {
     // The property the whole design rests on: rules read real feedback, so the
     // answer always passes them. Played out over a full blind at the top of the
     // ladder rather than argued about.
-    let state = startRun(9, many, MAX_ASCENSION).state
+    let state = startRun(9, many, AUTHORED_ASCENSIONS).state
     const answer = state.blind.answer
     for (const guess of ["crane", "ghost", "arose"]) {
       if (guess === answer) continue
@@ -231,7 +332,7 @@ describe("what a run carries", () => {
   })
 
   it("stays plain JSON with the ladder on it", () => {
-    const played = apply(at(MAX_ASCENSION), type("crane"))
+    const played = apply(at(AUTHORED_ASCENSIONS), type("crane"))
     expect(JSON.parse(JSON.stringify(played))).toEqual(played)
   })
 

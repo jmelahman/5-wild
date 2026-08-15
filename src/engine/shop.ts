@@ -1,5 +1,6 @@
-import { ANTES, JOKER_SLOTS } from "../content/blinds"
+import { ANTES } from "../content/blinds"
 import { ALPHABET } from "../content/letters"
+import { difficultyOf } from "./ascensions"
 import { CATEGORIES } from "./categories"
 import { CONSUMABLES } from "./consumables"
 import { ETCHINGS } from "./etchings"
@@ -287,7 +288,7 @@ function rollJoker(state: RunState, pool: readonly Joker[], rng: Rng): Joker | n
  * opens and the refusal comes three cards later.
  */
 const canTakeJoker = (state: RunState): boolean =>
-  state.jokers.length < JOKER_SLOTS && unowned(state).length > 0
+  state.jokers.length < difficultyOf(state).jokerSlots && unowned(state).length > 0
 
 /**
  * Which pack the pack slot offers. Uniform across the three, since each one
@@ -376,15 +377,17 @@ const jokerItem = (joker: Joker): ShopItem => ({
  *
  * The two joker slots keep their fallback for the late run where every joker is
  * already owned; they fall through to what the slot beside them would have sold.
+ *
+ * Slot 1 is also the only one the ascension ladder is allowed to take away, and
+ * it is the only one it *could*: the other four are each the sole route to a
+ * layer of the run, while this one is a second look at a shelf that already has
+ * one. See `Thin Shelves`.
  */
 export function rollShop(state: RunState, rng: Rng, rerolls: number): ShopState {
   const pool = unowned(state)
   const first = rollJoker(state, pool, rng)
-  // The one dedupe that survives, because it is the one the layout cannot make
-  // impossible: two joker slots drawing from one pool.
   const rest = first ? pool.filter((joker) => joker.id !== first.id) : pool
   const second = rollJoker(state, rest, rng)
-
   return {
     items: [
       first ? jokerItem(first) : rollUpgrade(state, rng),

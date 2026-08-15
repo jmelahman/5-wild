@@ -20,11 +20,14 @@ export {
 } from "../content/blinds"
 export { ALPHABET, LETTER_CHIPS, MULT_FOR_COLOR } from "../content/letters"
 export { CONTENT_VERSION } from "../content/version"
-export type { Ascension } from "./ascensions"
+export type { Ascension, Difficulty } from "./ascensions"
 export {
   ASCENSIONS,
+  AUTHORED_ASCENSIONS,
   ascensionAt,
   clampAscension,
+  difficultyAt,
+  difficultyOf,
   MAX_ASCENSION,
   mustSolve,
   rulesFor,

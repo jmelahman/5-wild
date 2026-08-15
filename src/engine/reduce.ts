@@ -7,11 +7,16 @@ import {
   GOLD_PER_UNUSED_GUESS,
   INTEREST_CAP,
   INTEREST_PER,
-  JOKER_SLOTS,
   STARTING_GOLD,
 } from "../content/blinds"
 import { ALPHABET } from "../content/letters"
-import { clampAscension, guessRestricted, mustSolve, validateGuess } from "./ascensions"
+import {
+  clampAscension,
+  difficultyOf,
+  guessRestricted,
+  scaleTarget,
+  validateGuess,
+} from "./ascensions"
 import { bossForAnte, getBoss } from "./bosses"
 import { CATEGORY_BY_ID, levelOf } from "./categories"
 import { CONSUMABLE_BY_ID } from "./consumables"
@@ -130,6 +135,7 @@ function beginBlind(state: RunState, words: WordSource, events: GameEvent[]): vo
   for (const [joker, ctx] of jokerHooks(state, rng, events)) joker.onBlindStart?.(ctx)
 
   const boss = getBoss(bossId)
+  const difficulty = difficultyOf(state)
 
   // The empty blind is installed before the answer is drawn, so guess rules that
   // read the round's history — The Tyrant reads its greens, and so does
@@ -137,8 +143,11 @@ function beginBlind(state: RunState, words: WordSource, events: GameEvent[]): vo
   // just finished.
   state.blind = {
     answer: "",
-    target: blindTargets(state.ante)[state.blindIndex],
-    maxGuesses: boss?.maxGuesses ?? BASE_GUESSES,
+    target: scaleTarget(blindTargets(state.ante)[state.blindIndex], difficulty.targets),
+    // The tighter of the two wins rather than the boss's number simply winning,
+    // which is what keeps ascension 9 from *loosening* a blind: The Clock deals
+    // four guesses, and a run that asked for five must not be handed a fifth.
+    maxGuesses: Math.min(boss?.maxGuesses ?? difficulty.guesses, difficulty.guesses),
     bossId,
     draft: "",
     guesses: [],
@@ -194,18 +203,20 @@ function resolveBlind(state: RunState, events: GameEvent[]): void {
   for (const [joker, ctx] of jokerHooks(state, rng, events)) joker.onBlindEnd?.(ctx, blind)
 
   // Farming five wrong guesses to the target and never finding the word is a
-  // real line in the ordinary game, and the whole of what ascension 6 takes
+  // real line in the ordinary game, and the whole of what ascension 10 takes
   // away. It is checked here rather than as a guess rule because it is not about
   // any one guess: it is about what the round had to have been.
-  if (blind.score < blind.target || (!blind.solved && mustSolve(state))) {
+  const difficulty = difficultyOf(state)
+  if (blind.score < blind.target || (!blind.solved && difficulty.mustSolve)) {
     state.phase = "game_over"
     events.push({ type: "blind_lost" })
     return
   }
 
   // Paying for unused guesses is the counterweight to chip-farming: the economy
-  // rewards exactly the restraint the scoring punishes.
-  const base = BLIND_PAYOUT[state.blindIndex]
+  // rewards exactly the restraint the scoring punishes. Which is why ascension 6
+  // cuts the base and leaves this alone — see `Lean Years`.
+  const base = Math.max(0, BLIND_PAYOUT[state.blindIndex] - difficulty.payoutCut)
   const unusedGuesses = (blind.maxGuesses - blind.guesses.length) * GOLD_PER_UNUSED_GUESS
   // Jokers get to bend this the way they bend the solve multiplier, in slot
   // order and after the cap — so a card that zeroes it really zeroes it.
@@ -231,7 +242,7 @@ function resolveBlind(state: RunState, events: GameEvent[]): void {
 function applyItem(state: RunState, item: ShopItem): string | null {
   switch (item.kind) {
     case "joker": {
-      if (state.jokers.length >= JOKER_SLOTS) return "no joker slots free"
+      if (state.jokers.length >= difficultyOf(state).jokerSlots) return "no joker slots free"
       state.jokers.push({ id: item.id })
       return null
     }
