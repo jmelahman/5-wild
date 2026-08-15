@@ -256,7 +256,22 @@ function grid(state: RunState): HTMLElement {
       return h("div", { class: "tile" })
     })
 
-    return h("div", { class: "row", "data-row": row }, ...tiles)
+    // The boss's line about this row, laid over it rather than beside it. There
+    // is no "beside": the board is `min(100%, …)` of the wrap, so on a portrait
+    // phone it is as often width-bound as height-bound and a gutter that exists
+    // on one device is clipped on the next. Over the tiles' bottom edge always
+    // has room, and under The Silence the row it covers is grays and greens.
+    const note = played?.note
+      ? [
+          h(
+            "span",
+            { class: "row-note", "data-tip": getBoss(state.blind.bossId)?.text },
+            played.note,
+          ),
+        ]
+      : []
+
+    return h("div", { class: "row", "data-row": row }, ...tiles, ...note)
   })
 
   // The board's shape varies — The Clock takes two rows away — so its

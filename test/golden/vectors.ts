@@ -28,6 +28,13 @@ export type GuessVector = {
   mult: number
   solveBonus: number
   score: number
+  /**
+   * What the boss told the player instead of showing it. Recorded because it is
+   * a rule's output that a player can act on, so a reimplementation that counted
+   * it wrong would be wrong in a way no score here would catch. Omitted when
+   * there is none, which is every guess under eleven of the twelve bosses.
+   */
+  note?: string
 }
 
 export type GoldVector = { delta: number; reason: string }
@@ -163,6 +170,7 @@ export function replay(
         mult: scored.mult,
         solveBonus: scored.solveBonus,
         score: scored.score,
+        ...(scored.note ? { note: scored.note } : {}),
       })
     }
   }

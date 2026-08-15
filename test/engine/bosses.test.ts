@@ -50,6 +50,35 @@ describe("boss blinds", () => {
     expect(state.blind.guesses[0]?.tiles.every((tile) => tile.shown === "gray")).toBe(true)
   })
 
+  /*
+   * The counterweight, and the reason the boss is playable: the row says
+   * nothing, so the count has to. It is the only thing standing between the
+   * player and a gray that means two different things at once.
+   */
+  it("The Silence counts what it hid", () => {
+    // DAIRY against BRAID: four of its letters are in the word, misplaced.
+    expect(apply(underBoss("silence"), type("dairy")).blind.guesses[0]?.note).toBe("4 misplaced")
+    // GHOST shares nothing with BRAID, and being told so is worth more than any
+    // of the five grays that carry the same claim ambiguously.
+    expect(apply(underBoss("silence"), type("ghost")).blind.guesses[0]?.note).toBe("none misplaced")
+  })
+
+  it("counts misplaced letters only, never the ones it left green", () => {
+    // CRANE against BRAID: R and A land green, only the leading C is a miss —
+    // so the count must not quietly include the two the board already shows.
+    const guess = apply(underBoss("silence"), type("crane")).blind.guesses[0]
+    expect(guess?.tiles.filter((tile) => tile.shown === "green")).toHaveLength(2)
+    expect(guess?.note).toBe("none misplaced")
+  })
+
+  it("leaves no note on a guess no boss had anything to say about", () => {
+    // Absent rather than empty, so a save and a vector written before notes
+    // existed read back byte for byte.
+    expect(apply(underBoss("fog"), type("dairy")).blind.guesses[0]).not.toHaveProperty("note")
+    const plain = apply(startRun(1, words).state, type("dairy"))
+    expect(plain.blind.guesses[0]).not.toHaveProperty("note")
+  })
+
   it("The Fog hides yellows without disarming them", () => {
     const state = apply(underBoss("fog"), type("dairy"))
     const guess = state.blind.guesses[0]

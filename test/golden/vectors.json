@@ -3,7 +3,7 @@
     "name": "greedy-solver",
     "covers": "the solve bonus at its largest, and a shop purchase every time one is affordable",
     "seed": 1,
-    "contentVersion": 13,
+    "contentVersion": 14,
     "actions": [
       {
         "type": "type_letter",
@@ -862,7 +862,8 @@
           "chips": 337,
           "mult": 84,
           "solveBonus": 6,
-          "score": 28308
+          "score": 28308,
+          "note": "none misplaced"
         },
         {
           "ante": 6,
@@ -1244,7 +1245,7 @@
     "name": "chip-farmer",
     "covers": "grays scoring, the guess budget spent down to one, and the solve bonus at its smallest",
     "seed": 7,
-    "contentVersion": 13,
+    "contentVersion": 14,
     "actions": [
       {
         "type": "type_letter",
@@ -1461,7 +1462,7 @@
     "name": "banker",
     "covers": "a pile banked and then multiplied — the line the scoring rule exists for",
     "seed": 2024,
-    "contentVersion": 13,
+    "contentVersion": 14,
     "actions": [
       {
         "type": "type_letter",
@@ -1920,7 +1921,7 @@
     "name": "never-solves",
     "covers": "running a blind out of guesses, and the run ending in defeat",
     "seed": 42,
-    "contentVersion": 13,
+    "contentVersion": 14,
     "actions": [
       {
         "type": "type_letter",
@@ -2137,7 +2138,7 @@
     "name": "shopkeeper",
     "covers": "reroll, sell, consumables used rather than hoarded, and a corrected draft",
     "seed": 1234,
-    "contentVersion": 13,
+    "contentVersion": 14,
     "actions": [
       {
         "type": "type_letter",
@@ -2381,7 +2382,7 @@
     "name": "letter-smith",
     "covers": "letter modifiers bought, and then landed on tiles often enough to score",
     "seed": 9,
-    "contentVersion": 13,
+    "contentVersion": 14,
     "actions": [
       {
         "type": "type_letter",
@@ -3671,7 +3672,8 @@
           "chips": 120,
           "mult": 53,
           "solveBonus": 1,
-          "score": 6360
+          "score": 6360,
+          "note": "2 misplaced"
         },
         {
           "ante": 5,
@@ -3680,7 +3682,8 @@
           "chips": 28,
           "mult": 37,
           "solveBonus": 5,
-          "score": 1036
+          "score": 1036,
+          "note": "none misplaced"
         },
         {
           "ante": 6,
@@ -4042,7 +4045,7 @@
     "name": "leveller",
     "covers": "category levels bought, stacked, and paid out on the guesses that match them",
     "seed": 77,
-    "contentVersion": 13,
+    "contentVersion": 14,
     "actions": [
       {
         "type": "type_letter",
@@ -5174,7 +5177,8 @@
           "chips": 91,
           "mult": 79,
           "solveBonus": 1,
-          "score": 7189
+          "score": 7189,
+          "note": "none misplaced"
         },
         {
           "ante": 4,
@@ -5183,7 +5187,8 @@
           "chips": 25,
           "mult": 70,
           "solveBonus": 5,
-          "score": 1750
+          "score": 1750,
+          "note": "none misplaced"
         },
         {
           "ante": 5,
@@ -5523,7 +5528,7 @@
     "name": "etcher",
     "covers": "alphabet range levels and etchings stacking on the same letters",
     "seed": 21,
-    "contentVersion": 13,
+    "contentVersion": 14,
     "actions": [
       {
         "type": "type_letter",
@@ -6521,7 +6526,7 @@
     "name": "pack-opener",
     "covers": "packs bought, held open across the shop, and chosen from",
     "seed": 5,
-    "contentVersion": 13,
+    "contentVersion": 14,
     "actions": [
       {
         "type": "type_letter",
@@ -7972,7 +7977,8 @@
           "chips": 7,
           "mult": 95,
           "solveBonus": 1,
-          "score": 665
+          "score": 665,
+          "note": "2 misplaced"
         },
         {
           "ante": 4,
@@ -7981,7 +7987,8 @@
           "chips": 7,
           "mult": 303,
           "solveBonus": 6,
-          "score": 2121
+          "score": 2121,
+          "note": "none misplaced"
         },
         {
           "ante": 5,
@@ -8528,7 +8535,7 @@
     "covers": "the whole ascension ladder: guesses filtered by the run's rules, every blind solved",
     "seed": 13,
     "ascension": 6,
-    "contentVersion": 13,
+    "contentVersion": 14,
     "actions": [
       {
         "type": "type_letter",

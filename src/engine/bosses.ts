@@ -43,6 +43,16 @@ export type Boss = {
   maxGuesses?: number
   /** Rewrites feedback before it is scored and shown. */
   transform?: (tiles: Tile[]) => void
+  /**
+   * A line about the guess, recorded on it and shown beside the row. Asked
+   * *before* `transform`, so it reads the feedback as it actually fell — which
+   * is the only reason it can exist at all for a boss whose whole trick is to
+   * overwrite that.
+   *
+   * Takes the tiles read-only for the same reason: a hook that both reported
+   * the truth and edited it would make the order of the two hooks load-bearing.
+   */
+  note?: (tiles: readonly Tile[]) => string | null
   /** A rejection reason, or null to allow the guess. */
   validate?: (word: string, blind: BlindState) => string | null
   /** Bends a tile's base chip value. */
@@ -56,7 +66,36 @@ export const BOSSES: readonly Boss[] = [
     id: "silence",
     tier: "mid",
     name: "The Silence",
-    text: "No yellow feedback. Misplaced letters read as absent — and score as absent.",
+    text: "Misplaced letters score as absent, and read as absent. You are told only how many.",
+    /**
+     * This used to say nothing at all, and it was the worst-behaved card in the
+     * game — a mid-tier boss doing something harsher than anything in the late
+     * band.
+     *
+     * Two probes (AROSE, UNLIT) across 300 fresh blinds: yellow is the dominant
+     * signal at 1.17 tiles a guess against 0.38 green, so silencing it costs 35%
+     * of what those probes banked — the mult base is only 1 + 1.17 + 3×0.38, and
+     * a flat −1.17 is a third of it. That part is a fair price and stays.
+     *
+     * The part that did not was the lie. On 95% of those blinds at least one
+     * letter that *is* in the word read gray, so the ordinary Wordle inference —
+     * gray means gone, never type it again — produced a wrong elimination. The
+     * Fog and The Mirror lie too, but invertibly: under the Fog you know a gray
+     * might be a yellow, under the Mirror you know the row is backwards and can
+     * turn it round. There was no undoing this one, because a gray had become
+     * two different facts wearing the same colour.
+     *
+     * The count separates them again. You learn how many of your letters are in
+     * the word and not which, which is Bulls and Cows rather than Wordle — a
+     * harder deduction instead of a broken one. The scoring stays as it was, and
+     * that is what keeps this from collapsing into The Fog with a badge.
+     */
+    note: (tiles) => {
+      const misplaced = tiles.filter((tile) => tile.color === "yellow").length
+      // Zero is the loudest reading this ever gives — every letter not already
+      // green is absent — so it gets said in words rather than shown as a 0.
+      return misplaced === 0 ? "none misplaced" : `${misplaced} misplaced`
+    },
     transform: (tiles) => {
       for (const tile of tiles) {
         if (tile.color === "yellow") {

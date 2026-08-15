@@ -30,6 +30,17 @@ export type GuessRecord = {
   solveBonus: number
   /** chips × mult for this guess alone. */
   score: number
+  /**
+   * What the boss will say about this guess instead of showing it — The
+   * Silence's count of misplaced letters, and nothing else so far.
+   *
+   * Written at submit rather than derived on demand, because the thing it
+   * describes no longer exists: the boss's `transform` overwrites `tile.color`,
+   * so by the time a view could ask, the truth it would have to count is gone.
+   * Optional, so every save and every vector written before it existed reads
+   * back unchanged.
+   */
+  note?: string
 }
 
 export type Rarity = "common" | "uncommon" | "rare" | "legendary"

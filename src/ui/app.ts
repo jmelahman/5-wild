@@ -311,6 +311,12 @@ export class App {
     const row = screen.querySelector(`.row[data-row="${this.state.blind.guesses.length - 1}"]`)
     const tiles = [...(row?.querySelectorAll(".tile") ?? [])]
     for (const tile of tiles) tile.classList.add("pending")
+    // Held back the same way the colours are, and released with the last of
+    // them: the boss's summary of a row is only meaningful after the row it
+    // summarises has been seen, and it would otherwise be legible for the whole
+    // length of the cascade it is the answer to.
+    const note = row?.querySelector(".row-note")
+    note?.classList.add("pending")
 
     const chipsEl = screen.querySelector(".readout .chips")
     const multEl = screen.querySelector(".readout .mult")
@@ -367,6 +373,7 @@ export class App {
           // Saying what the tile paid before showing what colour it came up
           // would answer the question in the wrong order.
           this.tileGain(tile, event.gained)
+          if (event.index === tiles.length - 1) this.revealNote(note)
           readout(event.chips, event.mult)
           await this.pace(PACE.tile)
           break
@@ -453,7 +460,25 @@ export class App {
     }
 
     for (const tile of tiles) tile.classList.remove("pending")
+    // Belt and braces: a guess that produced no tile events at all — or a skip
+    // taken before the cascade reached the end — must not leave the note hidden
+    // until the next full rebuild happens to drop it.
+    note?.classList.remove("pending")
     screen.removeEventListener("pointerdown", onSkip)
+  }
+
+  /**
+   * Lets the row's note in at the trough of the last tile's turn, which is the
+   * moment that tile's colour appears. Same timing as `tileGain`, for the same
+   * reason: the answer and the thing it is an answer to arrive together.
+   */
+  private revealNote(note: Element | null | undefined): void {
+    if (!note) return
+    if (this.skipping || reducedMotion()) {
+      note.classList.remove("pending")
+      return
+    }
+    setTimeout(() => note.classList.remove("pending"), FLIP.half)
   }
 
   /**

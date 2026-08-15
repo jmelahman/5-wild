@@ -402,6 +402,16 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
       const boss = getBoss(blind.bossId)
 
       const tiles = toTiles(word, computeFeedback(word, blind.answer))
+      // Before the transform, which is the whole point: the boss that wants to
+      // say something about the feedback is the same boss about to destroy it.
+      //
+      // It is deliberately *not* re-asked after The Magician promotes a tile
+      // below. The note is a fact about the guess — how many of these letters
+      // are in the word — and stays true whether or not one of them was
+      // afterwards handed back its colour. A player who reads "2 misplaced" and
+      // can see one of them knows where the other is not, which is the counter
+      // doing its job rather than a contradiction.
+      const note = boss?.note?.(tiles) ?? null
       boss?.transform?.(tiles)
 
       // After the boss, so The Magician is a genuine counter to The Silence
@@ -435,6 +445,10 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
         mult: result.mult,
         solveBonus: result.solveBonus,
         score: result.score,
+        // Spread rather than assigned, so a guess under any other boss carries
+        // no key at all — the same discipline `ascension` follows in a vector
+        // and `data` follows on a joker.
+        ...(note ? { note } : {}),
       })
       blind.score += result.score
       blind.draft = ""
