@@ -211,19 +211,19 @@ describe("the jokers that close a build", () => {
 
   it("Snowball pays what it banked, then counts the guess that grew it", () => {
     // CRANE lands two greens against BRAID. The first guess pays nothing and
-    // banks +4; the second pays that 4 and banks another.
+    // banks +2; the second pays that 2 and banks another.
     const { state } = withJoker("snowball", "crane")
     expect(state.blind.guesses[0]).toMatchObject({ mult: 7 })
-    expect(state.jokers[0]?.data).toEqual({ mult: 4 })
+    expect(state.jokers[0]?.data).toEqual({ mult: 2 })
 
     const second = apply(state, type("crane")).blind.guesses[1]
-    expect(second).toMatchObject({ mult: 11 })
+    expect(second).toMatchObject({ mult: 9 })
   })
 
   it("Snowball survives the save round trip with its growth intact", () => {
     const { state } = withJoker("snowball", "crane")
     const revived = JSON.parse(JSON.stringify(state)) as RunState
-    expect(apply(revived, type("crane")).blind.guesses[1]?.mult).toBe(11)
+    expect(apply(revived, type("crane")).blind.guesses[1]?.mult).toBe(9)
   })
 
   it("Hot Streak grows on a fast clear and not on a slow one", () => {
@@ -272,7 +272,7 @@ describe("the jokers that close a build", () => {
       type: "joker_grew",
       slot: 0,
       id: "snowball",
-      label: "+4 mult",
+      label: "+2 mult",
     })
   })
 

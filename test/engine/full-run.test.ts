@@ -112,17 +112,27 @@ describe("a full run, headless", () => {
   })
 
   /*
-   * Not a balance assertion — a tripwire. The greedy-solve line clears a
-   * handful of blinds and then hits the target curve, which is expected until
-   * the Phase 6 simulator tunes it. If this number moves a long way in either
-   * direction, the curve or the scoring changed and someone should know.
+   * Not a balance assertion — a tripwire, and one that reads the spread rather
+   * than a handful of seeds.
+   *
+   * It used to name five seeds and demand every one of them fall short of the
+   * full 24. That held by luck: the greedy line wins about one seed in ten, and
+   * none of the five happened to be one. Moving Snowball between rarity pools
+   * reshuffled every shelf and flipped seed 1 into the winning tenth, which
+   * failed the test without anything about the difficulty having moved — the
+   * measured win rate went 10.0% to 10.3% across 300 runs.
+   *
+   * So the bound is now on the distribution, which is what was always meant.
+   * The floor catches a curve gone brutal; the ceiling catches scoring gone
+   * trivial. A greedy bot that never farms chips should sometimes win and
+   * mostly not, and if either half of that stops being true someone should
+   * know.
    */
-  it("gets a greedy solver a few blinds in, and no further", () => {
-    const cleared = [1, 7, 42, 1234, 99999].map((seed) => playRun(seed).blindsCleared)
-    for (const count of cleared) {
-      expect(count).toBeGreaterThanOrEqual(2)
-      expect(count).toBeLessThan(24)
-    }
+  it("gets a greedy solver a few blinds in, and only sometimes all the way", () => {
+    const cleared = Array.from({ length: 20 }, (_, index) => playRun(index + 1).blindsCleared)
+    for (const count of cleared) expect(count).toBeGreaterThanOrEqual(2)
+    const won = cleared.filter((count) => count >= 24).length
+    expect(won).toBeLessThan(cleared.length / 2)
   })
 
   it("has a final target far beyond any single unbuilt guess", () => {

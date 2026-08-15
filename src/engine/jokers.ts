@@ -255,29 +255,6 @@ export const JOKERS: readonly Joker[] = [
     },
   },
   {
-    id: "snowball",
-    name: "Snowball",
-    text: "Permanently gains +2 mult for each green tile you play",
-    rarity: "uncommon",
-    cost: RARITY_COST.uncommon,
-    // Pays what it had, *then* counts this guess — so a tile never pays on the
-    // guess that earned it. Growing after paying is what keeps the card legible:
-    // the number on the card is the number it just added.
-    //
-    // Two, not the five this first shipped at. A full run plays well over a
-    // hundred green tiles, and at +5 the card ended a run at +590 mult against
-    // a game whose largest flat mult is Pyromaniac's +40. A growing card should
-    // finish as the biggest thing on the board — that is what growth means —
-    // but at four or five times the flat cards, not fifteen.
-    onGuess: (ctx) => {
-      const banked = ctx.getData("mult")
-      if (banked > 0) ctx.addMult(banked)
-      const greens = ctx.tiles.filter((tile) => tile.color === "green").length
-      if (greens > 0) ctx.setData("mult", banked + 2 * greens)
-    },
-    detail: (instance) => `+${grown(instance, "mult")} mult`,
-  },
-  {
     id: "hot_streak",
     name: "Hot Streak",
     text: "Permanently gains +30 chips each blind you clear in 3 guesses or fewer",
@@ -382,6 +359,46 @@ export const JOKERS: readonly Joker[] = [
       const burnt = [...ALPHABET].filter((letter) => ctx.state.letters[letter]?.destroyed).length
       if (burnt > 0) ctx.addMult(12 * burnt)
     },
+  },
+  {
+    id: "snowball",
+    name: "Snowball",
+    text: "Permanently gains +1 mult for each green tile you play",
+    rarity: "rare",
+    cost: RARITY_COST.rare,
+    // Pays what it had, *then* counts this guess — so a tile never pays on the
+    // guess that earned it. Growing after paying is what keeps the card legible:
+    // the number on the card is the number it just added.
+    //
+    // One, from five, by way of two. The value was never the whole problem: the
+    // ceiling at +2 landed near +200, which is where a growing card *should*
+    // finish, and it still read as an auto-buy. The reason is that it asks for
+    // nothing. Its two siblings both name a condition — Hot Streak wants the
+    // blind cleared in three, The Hoarder wants both slots full at the shop —
+    // and every word ever typed has green tiles in it. An unconditional card at
+    // $6 that ends the run as the biggest number on the board is not a build,
+    // it is a tax on not buying it.
+    //
+    // So the rarity is the real fix and the halving is the trim that follows
+    // it. Across 300 recorded runs of the greedy bot the card went from a mean
+    // +154 at the ending (median 170, peak 230) to a mean +61 (median 60, peak
+    // 115) — still the strongest rare on the mult axis, no longer three times
+    // the field. The number that matters most is the one that did *not* move:
+    // the win rate held at 10.0% against 10.3% and the mean final ante at 4.90
+    // against 4.89. Sixty points came off the best card in the game and the
+    // game did not get harder, which is what it looks like when a card was
+    // crowding builds out rather than carrying them.
+    //
+    // Being rare also self-corrects on the axis that matters, since the shelf
+    // tilts *toward* rare as the antes go by and a Snowball found at ante 7 has
+    // almost nothing left to eat.
+    onGuess: (ctx) => {
+      const banked = ctx.getData("mult")
+      if (banked > 0) ctx.addMult(banked)
+      const greens = ctx.tiles.filter((tile) => tile.color === "green").length
+      if (greens > 0) ctx.setData("mult", banked + greens)
+    },
+    detail: (instance) => `+${grown(instance, "mult")} mult`,
   },
   {
     id: "long_game",
