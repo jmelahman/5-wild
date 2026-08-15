@@ -74,6 +74,9 @@ body {
   /* Kills the ~300ms double-tap-zoom delay on keyboard keys. */
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+  /* The game claims the long press for itself — hold a key to read what the
+     letter is worth — so iOS must not answer it with a callout of its own. */
+  -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
 }
@@ -423,6 +426,10 @@ button {
   font-size: 0.6875rem;
   line-height: 1.35;
   text-align: center;
+  /* A letter's tip is a few short lines — what it pays, where that came from,
+     what is riding on it — and they are written as lines rather than run
+     together into a paragraph. A joker's tip has no newlines and is unaffected. */
+  white-space: pre-line;
   opacity: 0;
   /* Not `display: none`: the panel has to be measurable before it is placed,
      and it has to already be somewhere for the move to be a move. */
@@ -512,6 +519,8 @@ button {
 }
 
 .row {
+  /* The anchor for `.tile-gain`, which is measured against this box. */
+  position: relative;
   display: grid;
   grid-template-columns: repeat(var(--cols, 5), 1fr);
   gap: 0.3125rem;
@@ -731,6 +740,21 @@ button {
   color: var(--mult);
 }
 
+/*
+ * The word being typed, counted as it is typed. The chips stay lit — they are a
+ * real figure — while the multiplier goes hollow, because it is the half only
+ * the answer knows. Dashed rather than dimmed: an outline reads as a slot
+ * waiting to be filled, where lower opacity would read as a number that had
+ * merely gone quiet.
+ */
+.readout.drafting .mult.pending {
+  background: none;
+  border: 1px dashed color-mix(in srgb, var(--mult) 45%, transparent);
+  padding: calc(0.125rem - 1px) calc(0.5rem - 1px);
+  color: color-mix(in srgb, var(--mult) 60%, transparent);
+  text-align: center;
+}
+
 /* The cash-out readout. Deliberately quiet until it says something worth
    acting on, at which point it turns green and stops being advice. */
 .solve-hint {
@@ -827,6 +851,63 @@ button {
     opacity: 0;
     transform: translate(-50%, -2.5rem);
   }
+}
+
+/*
+ * What one tile paid, floating off the tile that paid it.
+ *
+ * Absolutely positioned against the row, from the tile's measured box. Not a
+ * child of the tile, which is mid-flip and would scale it edge-on; and not a
+ * grid item in the tile's cell either, which perturbs the auto-placement of the
+ * five tiles around it and wraps the row.
+ */
+.tile-gain {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  gap: 0.25rem;
+  pointer-events: none;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  /* The badge starts on top of a tile whose colour it does not control, so the
+     shadow is what keeps a blue number legible against a green square. */
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.75);
+  animation: gain-rise 760ms ease-out forwards;
+}
+
+.tile-gain .gain-chips {
+  color: var(--chips);
+}
+
+.tile-gain .gain-mult {
+  color: var(--mult);
+}
+
+/* Arrives quickly and leaves slowly, so five of these in a cascade read as five
+   separate payments rather than as one blur. */
+@keyframes gain-rise {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 0.35rem);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -0.25rem);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -1.75rem);
+  }
+}
+
+/* The half of the readout that just moved. Chips and mult sit side by side and
+   change for different reasons, so reacting per half is the difference between
+   "the score went up" and "that green tile is why". */
+.readout .chips.bumped,
+.readout .mult.bumped {
+  --pop: 1.18;
+  animation: pop 300ms ease;
 }
 
 /* ------------------------------------------------------------- keyboard */
@@ -966,6 +1047,32 @@ button {
 
 .key.burnt .mod-pip {
   color: #4a4b52;
+}
+
+/*
+ * The plain board, for the half of the game that is only a word puzzle.
+ *
+ * Every per-letter number and mark goes: the chip value in the corner of a key,
+ * the modifier pip beside it, the ring the modifier draws around the key, the
+ * dot it leaves on a played tile, and the `+chips +mult` a tile floats as it
+ * turns. One rule, easy to state — no number is attached to a letter anywhere.
+ * What survives is Wordle, five letters and three colours, plus the whole-guess
+ * score, which is the game rather than a decoration of it and which the readout
+ * above the keyboard still counts out.
+ *
+ * Nothing here changes what anything is worth. The letters score exactly what
+ * they scored a moment ago, and holding a key still says what that is; they have
+ * only stopped announcing it unprompted.
+ */
+.plain .etch-pip,
+.plain .mod-pip,
+.plain .tile[data-mod]::after,
+.plain .tile-gain {
+  display: none;
+}
+
+.plain .key[data-mod] {
+  box-shadow: none;
 }
 
 .key:active {

@@ -1,7 +1,7 @@
 import type { Action, GameEvent, RunState, WordSource } from "../engine"
-import { reduce, startRun } from "../engine"
+import { MULT_FOR_COLOR, reduce, startRun } from "../engine"
 import { Sound } from "./audio"
-import { clear, wait } from "./dom"
+import { clear, h, wait } from "./dom"
 import { formatNumber as num } from "./format"
 import { chosenAscension, Profile } from "./meta"
 import type { Mood } from "./music"
@@ -12,6 +12,7 @@ import {
   codexView,
   endView,
   fillCategory,
+  fillReadout,
   helpView,
   introView,
   menuView,
@@ -32,6 +33,9 @@ const SAVE_KEY = "5wild:run:v1"
 
 /** Set the first time the rules have been shown, so they only interrupt once. */
 const HELP_KEY = "5wild:seen-help"
+
+/** Set when the player has asked for a board with no numbers on it. */
+const PLAIN_KEY = "5wild:plain"
 
 /**
  * Per-event pacing, in ms. Slow enough to read, fast enough to not be a cutscene.
@@ -55,6 +59,18 @@ const FLIP = { total: 380, half: 190 }
 /** How long the score counts up to its new value. */
 const COUNT_UP = 340
 
+/** How long a tile's `+chips +mult` badge lives. Matches `gain-rise` in the CSS. */
+const GAIN = 760
+
+/**
+ * A press long enough to mean "what is this" rather than "do this", and how far
+ * a finger may drift before it is a scroll instead. Both are the platform
+ * conventions: iOS fires its own long-press at 500ms and Android at 400, so
+ * landing under both keeps this from arriving after the browser's own menu.
+ */
+const HOLD = 350
+const HOLD_SLOP = 10
+
 const reducedMotion = (): boolean =>
   window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false
 
@@ -70,8 +86,10 @@ export class App {
   private atTitle: boolean
   /** The modal on top of everything, if any. */
   private overlay: "help" | "codex" | "shapes" | "stats" | "menu" | "quit" | null = null
-  /** The joker whose tip is currently up, so re-entering it is not a change. */
+  /** The card or key whose tip is currently up, so re-entering it is not a change. */
   private hovered: HTMLElement | null = null
+  /** True when the player has asked for the letters to stop shouting numbers. */
+  private plain = plainBoard()
   private readonly sound = new Sound()
   private readonly music = new Music()
   /** The one thing here that outlives the run being played. */
@@ -86,9 +104,12 @@ export class App {
     // a null state; it simply is not persisted until the player commits to it.
     this.state = saved ?? startRun(rootSeed(), words).state
     this.atTitle = saved === null
+    // The class is on the document rather than in the render, so it has to be
+    // put back on the way in — the stylesheet is the only thing that remembers.
+    setPlainBoard(this.plain)
     this.bindPhysicalKeyboard()
     this.bindAudioWake()
-    this.bindJokerTips()
+    this.bindTips()
   }
 
   /**
@@ -235,11 +256,14 @@ export class App {
           : "tile"
       tile.textContent = (typed ?? revealed ?? "").toUpperCase()
     }
-    // The one thing outside the row that a keystroke changes: the fifth letter
-    // is what gives the word a shape, and naming it only after the guess was
-    // submitted would be naming it one guess too late to be worth reading.
+    // Two things outside the row change with a keystroke. The fifth letter is
+    // what gives the word a shape, and naming it only after the guess was
+    // submitted would be naming it one guess too late to be worth reading. The
+    // readout moves on *every* letter, since every letter is worth chips.
     const slot = this.root.querySelector(".category-slot")
     if (slot) fillCategory(slot, this.state, this.handlers)
+    const readout = this.root.querySelector(".readout")
+    if (readout) fillReadout(readout, this.state)
     return true
   }
 
@@ -291,10 +315,29 @@ export class App {
     const chipsEl = screen.querySelector(".readout .chips")
     const multEl = screen.querySelector(".readout .mult")
     const scoreEl = screen.querySelector(".hud .score")
+    // The figures already on screen, so each step can react to the half that
+    // moved rather than to both. Which half moved is the information: a gray
+    // tile pays chips and nothing else, a green one pays both, and a player who
+    // never sees the difference has to be told it in a tutorial instead.
+    let shownChips = 0
+    let shownMult = 1
     const readout = (chips: number, mult: number) => {
-      if (chipsEl) chipsEl.textContent = num(chips)
-      if (multEl) multEl.textContent = num(mult)
+      if (chipsEl && chips !== shownChips) {
+        chipsEl.textContent = num(chips)
+        this.replay(chipsEl, "bumped", 320)
+      }
+      if (multEl && mult !== shownMult) {
+        multEl.textContent = num(mult)
+        this.replay(multEl, "bumped", 320)
+      }
+      shownChips = chips
+      shownMult = mult
     }
+    // Wound back for the same reason the total below it is: the board was drawn
+    // after the guess was committed, so the readout starts out holding the
+    // figure this is about to build up to.
+    if (chipsEl) chipsEl.textContent = num(0)
+    if (multEl) multEl.textContent = num(1)
 
     // The bar under the total is driven off the same numbers the count-up walks
     // through, so it fills in step with the digits instead of trailing them.
@@ -318,7 +361,12 @@ export class App {
     for (const event of events) {
       switch (event.type) {
         case "tile": {
-          this.reveal(tiles[event.index], event.index)
+          const tile = tiles[event.index]
+          this.reveal(tile, event.index)
+          // Held until the turn is half done, which is when the colour appears.
+          // Saying what the tile paid before showing what colour it came up
+          // would answer the question in the wrong order.
+          this.tileGain(tile, event.gained)
           readout(event.chips, event.mult)
           await this.pace(PACE.tile)
           break
@@ -433,6 +481,55 @@ export class App {
   }
 
   /**
+   * What a tile just paid, said at the tile.
+   *
+   * Every other effect in the game announces itself — a joker lights up and
+   * floats its number, a modifier lights the letter it rode in on — and the
+   * tiles, which are where most of a guess actually comes from, said nothing.
+   * The readout moved and the player was left to infer which of the five
+   * letters had moved it.
+   *
+   * Both halves are named, and the chips half is named even when it is zero,
+   * because a zero is the whole point under a boss that stops paying for
+   * vowels. The mult half only appears when there is one: gray pays no
+   * multiplier, and its silence next to a green tile's `+3 mult` is the clearest
+   * statement of the rule this game has.
+   *
+   * The badge hangs off the row and is placed from the tile's own box, which is
+   * the same lesson learned twice: a child of the tile would be scaled edge-on
+   * by the very flip it is announcing, and a grid item — even one placed
+   * explicitly into the tile's cell — perturbs the auto-placement of the five
+   * tiles around it and wraps the row. Absolute, off measurements, disturbs
+   * neither.
+   */
+  private tileGain(tile: Element | undefined, chips: number): void {
+    const row = tile?.parentElement
+    if (!(tile instanceof HTMLElement) || !row) return
+    const color = ["green", "yellow", "gray"].find((name) => tile.classList.contains(name))
+    const mult = MULT_FOR_COLOR[(color ?? "gray") as keyof typeof MULT_FOR_COLOR]
+
+    const show = () => {
+      const node = document.createElement("div")
+      node.className = "tile-gain"
+      node.style.left = `${tile.offsetLeft + tile.offsetWidth / 2}px`
+      // Starts just inside the tile rather than above it, so it is unambiguously
+      // this tile's number before it rises away over the row above.
+      node.style.top = `${tile.offsetTop + tile.offsetHeight * 0.18}px`
+      node.append(h("span", { class: "gain-chips" }, `+${chips}`))
+      if (mult > 0) node.append(h("span", { class: "gain-mult" }, `+${mult}`))
+      row.append(node)
+      setTimeout(() => node.remove(), GAIN)
+    }
+
+    // Skipping runs the whole guess at once, so the badges would all land
+    // together and then all expire together — five of them stacked on one row
+    // is noise, not information. The player asked for the end; give them it.
+    if (this.skipping) return
+    if (reducedMotion()) show()
+    else setTimeout(show, FLIP.half)
+  }
+
+  /**
    * Counts a number up on screen, snapping instantly if the player skipped.
    *
    * `also` sees every intermediate value, so anything drawn from the same figure
@@ -529,47 +626,112 @@ export class App {
     this.replay(this.root.querySelector(selector), "bumped", 320)
   }
 
-  /* ------------------------------------------------------------ joker tips */
+  /* ------------------------------------------------------------------ tips */
 
   /**
-   * Hover a joker to read what it does.
+   * Read what a thing does without committing to it.
    *
    * Delegated from the root because the screen is thrown away and rebuilt on
-   * every render, and gated on the pointer being one that can hover at all: on
-   * a phone the same text is already one tap away, and a panel chasing a finger
-   * would cover the tray it is describing.
+   * every render, and keyed on `data-tip` rather than on the joker class,
+   * because a letter needs the same panel as a card: the pips on a key say
+   * `+3` and `?` and stop there, and the arithmetic behind them belongs
+   * somewhere a player can reach mid-blind.
+   *
+   * Hover is the desktop half. Touch gets `bindHeldTips`, because there is no
+   * hovering a phone and because the keys — unlike the tray — do something when
+   * you tap them.
    */
-  private bindJokerTips(): void {
+  private bindTips(): void {
+    this.bindHeldTips()
     if (!window.matchMedia?.("(hover: hover)").matches) return
     this.root.addEventListener("pointerover", (event) => {
       const target = event.target
-      const joker =
-        target instanceof Element ? target.closest<HTMLElement>(".joker[data-tip]") : null
-      this.showTip(joker)
+      const host = target instanceof Element ? target.closest<HTMLElement>("[data-tip]") : null
+      this.showTip(host)
     })
     // `pointerover` covers every move within the screen; this covers the one
     // move that fires nothing — straight out of the window.
     this.root.addEventListener("pointerleave", () => this.showTip(null))
   }
 
-  private showTip(joker: HTMLElement | null): void {
-    if (joker === this.hovered) return
-    this.hovered = joker
+  /**
+   * Press and hold, for the pointers that cannot hover.
+   *
+   * The hold has to swallow the tap that ends it, or asking what R is worth
+   * types an R — which is the whole reason this is not simply "tap to show".
+   * The click is caught in the capture phase at the root, which is upstream of
+   * the button's own handler and so the only place that can stop it without the
+   * key knowing anything about tips.
+   *
+   * Any movement cancels: a hold that has turned into a scroll is a scroll.
+   */
+  private bindHeldTips(): void {
+    let timer: ReturnType<typeof setTimeout> | null = null
+    let from: { x: number; y: number } | null = null
+    /** Set by a hold that fired, and consumed by the click it belongs to. */
+    let swallow = false
+
+    const cancel = () => {
+      if (timer !== null) clearTimeout(timer)
+      timer = null
+      from = null
+    }
+
+    this.root.addEventListener("pointerdown", (event) => {
+      this.showTip(null)
+      // Cleared here rather than only where it is consumed: a hold whose click
+      // never arrives — the browser swallowed it for a scroll — would otherwise
+      // leave this armed and eat an unrelated tap later.
+      swallow = false
+      if (event.pointerType === "mouse") return
+      const target = event.target
+      const host = target instanceof Element ? target.closest<HTMLElement>("[data-tip]") : null
+      if (!host) return
+      from = { x: event.clientX, y: event.clientY }
+      timer = setTimeout(() => {
+        swallow = true
+        this.showTip(host)
+      }, HOLD)
+    })
+
+    this.root.addEventListener("pointermove", (event) => {
+      if (!from) return
+      if (Math.hypot(event.clientX - from.x, event.clientY - from.y) > HOLD_SLOP) cancel()
+    })
+    this.root.addEventListener("pointerup", cancel)
+    this.root.addEventListener("pointercancel", cancel)
+
+    this.root.addEventListener(
+      "click",
+      (event) => {
+        if (!swallow) return
+        swallow = false
+        event.stopPropagation()
+        event.preventDefault()
+      },
+      true,
+    )
+  }
+
+  private showTip(host: HTMLElement | null): void {
+    if (host === this.hovered) return
+    this.hovered = host
     const tip = this.root.querySelector<HTMLElement>(".joker-tip")
     if (!tip) return
-    if (!joker) {
+    if (!host) {
       tip.classList.remove("show")
       return
     }
 
-    tip.textContent = joker.dataset.tip ?? ""
+    tip.textContent = host.dataset.tip ?? ""
     // Borrowing the card's rarity keeps the two reading as one object, which a
-    // sibling of the tray cannot do by inheritance.
-    tip.className = `joker-tip rarity-${joker.dataset.rarity ?? "common"}`
+    // sibling of the tray cannot do by inheritance. A key has no rarity and
+    // takes the common edge, which is the neutral one.
+    tip.className = `joker-tip rarity-${host.dataset.rarity ?? "common"}`
 
     // Measured before it is shown, which `visibility: hidden` allows and
     // `display: none` would not: the height decides which side it goes on.
-    const card = joker.getBoundingClientRect()
+    const card = host.getBoundingClientRect()
     const box = tip.getBoundingClientRect()
     const gap = 6
     const edge = 8
@@ -658,6 +820,11 @@ export class App {
       this.music.toggle()
       this.render()
     },
+    togglePlain: () => {
+      this.plain = !this.plain
+      setPlainBoard(this.plain)
+      this.render()
+    },
     openMenu: () => {
       // Mid-animation the screen belongs to the scoring; the button is on the
       // HUD the whole time, so this is a reachable tap rather than a theory.
@@ -703,7 +870,7 @@ export class App {
   }
 
   private get chrome(): Chrome {
-    return { muted: this.sound.isMuted, musicOff: this.music.isOff }
+    return { muted: this.sound.isMuted, musicOff: this.music.isOff, plain: this.plain }
   }
 
   /** `as` forces the blind board to stay on screen while its scoring plays out. */
@@ -911,6 +1078,34 @@ function clearSave(): void {
     localStorage.removeItem(SAVE_KEY)
   } catch {
     // Nothing to do: the run is gone from memory either way.
+  }
+}
+
+/**
+ * Whether the per-letter marks are hidden, and the switch for it.
+ *
+ * A class on the root element rather than a flag threaded through the views,
+ * for two reasons. The screen is rebuilt from scratch on every render, so
+ * anything the views had to remember would have to be passed to all of them;
+ * and what this hides is entirely presentational — a pip is still a pip, it is
+ * just not being drawn — so the stylesheet is where the decision belongs. The
+ * one class covers the keyboard, the board and any decoration added later,
+ * without any of them being told the setting exists.
+ */
+function plainBoard(): boolean {
+  try {
+    return localStorage.getItem(PLAIN_KEY) === "1"
+  } catch {
+    return false
+  }
+}
+
+function setPlainBoard(plain: boolean): void {
+  document.documentElement.classList.toggle("plain", plain)
+  try {
+    localStorage.setItem(PLAIN_KEY, plain ? "1" : "0")
+  } catch {
+    // The setting lasts the session instead of the install. Nothing else breaks.
   }
 }
 

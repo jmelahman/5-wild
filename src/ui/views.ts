@@ -17,6 +17,7 @@ import {
   CONSUMABLE_SLOTS,
   CONSUMABLES,
   categoryOf,
+  draftChips,
   ETCHING_BY_ID,
   ETCHINGS,
   GOLD_PER_UNUSED_GUESS,
@@ -27,6 +28,7 @@ import {
   JOKER_SLOTS,
   JOKERS,
   keyboardColors,
+  LETTER_CHIPS,
   levelBonus,
   levelOf,
   MAX_ASCENSION,
@@ -40,6 +42,7 @@ import {
   RANGES,
   rangeChips,
   rangeLevelOf,
+  rangeOf,
   rerollCost,
   rulesFor,
   sellValue,
@@ -80,6 +83,8 @@ export type Handlers = {
   play: () => void
   mute: () => void
   toggleMusic: () => void
+  /** Hide the per-letter numbers and marks, for a player who wants to deduce. */
+  togglePlain: () => void
   openMenu: () => void
   openHelp: () => void
   openCodex: () => void
@@ -93,7 +98,7 @@ export type Handlers = {
 }
 
 /** Presentation state the engine has no opinion about. */
-export type Chrome = { muted: boolean; musicOff: boolean }
+export type Chrome = { muted: boolean; musicOff: boolean; plain: boolean }
 
 const KEY_ROWS = ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
 
@@ -263,6 +268,52 @@ function grid(state: RunState): HTMLElement {
   )
 }
 
+/**
+ * Everything acting on one letter, in a sentence or four.
+ *
+ * The key already carries two marks — a `+N` for the upgrades and a pip for the
+ * modifier — and marks are a reminder, not an explanation. A player who has
+ * bought an etching, levelled a range and dropped a Lucky on the same letter is
+ * looking at `+3` and `?` and has no way to find out what either came from
+ * without leaving the blind.
+ *
+ * The headline is the boss-adjusted figure rather than the raw one, because the
+ * question is what this letter pays *now*: under The Rust every upgraded letter
+ * on the board is quietly worth less than its pip claims, and this is where that
+ * gets said. The breakdown below it is the honest arithmetic, and it is left off
+ * entirely when there is nothing to break down.
+ */
+function letterTip(state: RunState, letter: string): string {
+  const upper = letter.toUpperCase()
+  if (state.letters[letter]?.destroyed) return `${upper} · burnt out, no longer typeable`
+
+  const base = LETTER_CHIPS[letter] ?? 0
+  const etch = state.letters[letter]?.etch ?? 0
+  const range = rangeOf(letter)
+  const fromRange = rangeChips(state, letter)
+  const now = draftChips(state, letter)
+
+  const lines = [`${upper} · ${now === 0 ? "no chips" : `${now} chip${now === 1 ? "" : "s"}`}`]
+
+  if (etch > 0 || fromRange > 0) {
+    const parts = [`${base} base`]
+    if (etch > 0) parts.push(`+${etch} etched`)
+    if (fromRange > 0 && range) {
+      parts.push(`+${fromRange} from ${range.name} Lv ${rangeLevelOf(state, range.id)}`)
+    }
+    lines.push(parts.join(" "))
+  }
+
+  // Only when the boss actually moved this letter — naming a boss that is not
+  // touching it would make every key look cursed.
+  const boss = getBoss(state.blind.bossId)
+  if (boss && now !== baseChips(state, letter)) lines.push(`${boss.name}: ${boss.text}`)
+
+  const mod = modifierOf(state, letter)
+  if (mod) lines.push(`${mod.name} · ${mod.text}`)
+  return lines.join("\n")
+}
+
 function keyboard(state: RunState, on: Handlers): HTMLElement {
   const colors = keyboardColors(state.blind.guesses)
   const eliminated = new Set(state.blind.eliminated)
@@ -286,6 +337,7 @@ function keyboard(state: RunState, on: Handlers): HTMLElement {
           .filter(Boolean)
           .join(" "),
         "data-mod": mod?.id,
+        "data-tip": letterTip(state, letter),
         type: "button",
         disabled: destroyed,
         onclick: () => on.key(letter),
@@ -407,11 +459,62 @@ export function fillCategory(slot: Element, state: RunState, on: Handlers): void
   )
 }
 
+/**
+ * The chips × mult line, which answers a different question while a word is
+ * being typed than it does once one has been played.
+ *
+ * Between guesses it holds the last guess, so the number the player just earned
+ * is still on screen while they think. From the first letter typed it switches
+ * to the word being built, and that is the whole point of it: the choice of
+ * which word to spend a guess on is partly a scoring choice, and a board that
+ * only reveals the chips *after* the guess is spent makes that choice blind.
+ *
+ * Only the chips half moves. Mult comes entirely from colour, and colour is the
+ * thing the player is trying to find out, so there is genuinely nothing
+ * truthful to put there — hence the placeholder rather than a 1 or a stale
+ * figure, either of which would read as a promise the board cannot keep. Saying
+ * "unknown" out loud also teaches the rule the readout is built on: chips are
+ * the letters you chose, mult is what the answer thinks of them.
+ */
+function readoutSlot(state: RunState): HTMLElement {
+  const el = h("div", { class: "readout" })
+  fillReadout(el, state)
+  return el
+}
+
+/**
+ * Refill the readout from the word in play. Called on every keystroke, like
+ * `fillCategory`, and split out for the same reason: the draft row is patched
+ * rather than re-rendered, and a readout that only caught up on the next full
+ * render would lag the letters it is counting.
+ */
+export function fillReadout(el: Element, state: RunState): void {
+  const blind = state.blind
+  const drafting = !blind.done && blind.draft.length > 0
+  const last = blind.guesses[blind.guesses.length - 1]
+  el.classList.toggle("drafting", drafting)
+  el.replaceChildren(
+    h(
+      "span",
+      { class: "chips" },
+      num(drafting ? draftChips(state, blind.draft) : (last?.chips ?? 0)),
+    ),
+    h("span", { class: "times" }, "×"),
+    drafting
+      ? h(
+          "span",
+          {
+            class: "mult pending",
+            "data-tip": "Colour is the multiplier. Guessing is how you find it out.",
+          },
+          "?",
+        )
+      : h("span", { class: "mult" }, num(last?.mult ?? 1)),
+  )
+}
+
 export function blindView(state: RunState, on: Handlers): HTMLElement {
   const boss = getBoss(state.blind.bossId)
-  // The readout holds the last guess rather than resetting to 0 x 1, so the
-  // number the player just earned is still on screen while they think.
-  const last = state.blind.guesses[state.blind.guesses.length - 1]
   return h(
     "div",
     { class: "screen blind-screen" },
@@ -421,13 +524,7 @@ export function blindView(state: RunState, on: Handlers): HTMLElement {
     consumableRow(state, on),
     grid(state),
     categorySlot(state, on),
-    h(
-      "div",
-      { class: "readout" },
-      h("span", { class: "chips" }, num(last?.chips ?? 0)),
-      h("span", { class: "times" }, "×"),
-      h("span", { class: "mult" }, num(last?.mult ?? 1)),
-    ),
+    readoutSlot(state),
     solveHint(state),
     h("div", { class: "joker-tip" }),
     h("div", { class: "toast" }),
@@ -1666,6 +1763,18 @@ export function menuView(on: Handlers, chrome: Chrome): HTMLElement {
           onclick: () => on.toggleMusic(),
         },
         chrome.muted || chrome.musicOff ? "Music off" : "Music on",
+      ),
+      // The board is dense by design — a value on every key, a pip on every
+      // modifier — and that density is the scoring game asking to be played.
+      // Some of the time the player is doing the other thing entirely, which is
+      // working out a five-letter word, and every number on screen is noise.
+      // This turns the decoration off without touching a single rule: the
+      // letters are worth exactly what they were, they have just stopped saying
+      // so, and the tip is still one hold away when the question comes back.
+      h(
+        "button",
+        { class: "secondary", type: "button", onclick: () => on.togglePlain() },
+        chrome.plain ? "Letter values off" : "Letter values on",
       ),
       h(
         "button",

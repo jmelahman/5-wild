@@ -103,6 +103,52 @@ export function baseChips(state: RunState, letter: string): number {
 }
 
 /**
+ * What the letters typed so far are worth in chips, as the boss prices them.
+ *
+ * The board shows this while the word is still being typed, which is the only
+ * moment it can change what the player types — so it lives here beside the rule
+ * rather than being re-derived in the view, for the reason `solveBonusFor` does:
+ * a readout that disagreed with the scoring would be worse than no readout.
+ *
+ * Chips only, and only the tiles' own. Two things are left out and they are left
+ * out for opposite reasons.
+ *
+ * Mult is left out because it cannot be known. Colour is the whole of it, and
+ * colour is precisely what the player is typing the word to find out — which is
+ * why this returns chips rather than a score, and why the board shows a
+ * placeholder there instead of a number.
+ *
+ * Modifiers, joker `onTile` hooks and the category bonus are left out because
+ * knowing them costs more than it pays. Most read the tile's colour, so a dry
+ * run would have to invent one; the chance-based ones draw from a stream keyed
+ * to the position they will really fire at, so a dry run would not merely guess
+ * a coin flip, it would *report* it, handing the player an outcome before they
+ * committed to the guess. The category bonus is knowable once the word is whole,
+ * and is deliberately still absent: the line directly above the readout already
+ * names the shape and prints its bonus, and two places showing the same number
+ * is one place too many.
+ *
+ * So the figure is a floor, the same promise `solveHint` makes: nothing in the
+ * pipeline subtracts chips, so the guess can only beat this. The boss part of it
+ * is exact — the hook is asked at gray, and none of the three bosses that bend
+ * chips reads the colour: The Miser goes by whether the letter has been spent,
+ * The Drought by whether it is a vowel, The Rust by what the letter started as.
+ * One that paid less on gray would loosen the floor without breaking it, which
+ * is the direction a promise about an unearned score should fail in.
+ */
+export function draftChips(state: RunState, draft: string): number {
+  const boss = getBoss(state.blind.bossId)
+  let chips = 0
+  for (const letter of draft) {
+    const base = baseChips(state, letter)
+    chips += boss?.tileChips
+      ? boss.tileChips(base, { letter, color: "gray", shown: "gray" }, state.blind)
+      : base
+  }
+  return chips
+}
+
+/**
  * What solving right now would multiply the blind's pile by.
  *
  * Deliberately a pure function of the state rather than something assembled

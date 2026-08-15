@@ -32,7 +32,12 @@ every render and has to be restored deliberately. `holdFocus()` is that
 restoration for open sheets.
 
 Mobile first: portrait, thumb-reachable, sheets rising from the bottom edge
-rather than centred.
+rather than centred. Anything with a `data-tip` gets the hover panel on a mouse
+and a long-press one on a finger, so a new affordance usually only needs the
+attribute. Purely presentational settings live as a class on the document root
+and are switched off in the stylesheet — see `.plain` — rather than threaded
+through the views, which the full rebuild would otherwise make every view's
+business.
 
 Tests run in Node with no DOM — there is no jsdom. `test/ui` covers pure logic
 only; rendering and interaction get validated in a real browser instead.

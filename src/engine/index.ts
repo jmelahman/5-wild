@@ -18,7 +18,7 @@ export {
   INTEREST_PER,
   JOKER_SLOTS,
 } from "../content/blinds"
-export { ALPHABET, LETTER_CHIPS } from "../content/letters"
+export { ALPHABET, LETTER_CHIPS, MULT_FOR_COLOR } from "../content/letters"
 export { CONTENT_VERSION } from "../content/version"
 export type { Ascension } from "./ascensions"
 export {
@@ -63,7 +63,7 @@ export {
 } from "./ranges"
 export { reduce, startRun } from "./reduce"
 export { derive } from "./rng"
-export { baseChips, solveBonusFor } from "./scoring"
+export { baseChips, draftChips, solveBonusFor } from "./scoring"
 export { placeableLetters, rerollCost, sellValue } from "./shop"
 export type * from "./state"
 export { computeFeedback, keyboardColors } from "./words"

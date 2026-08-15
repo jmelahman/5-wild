@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest"
 import type { RunState, WordSource } from "../../src/engine"
-import { reduce, startRun } from "../../src/engine"
+import { draftChips, reduce, startRun } from "../../src/engine"
 
 /**
  * A word source narrow enough that the answer is known in advance. The engine
@@ -100,6 +100,51 @@ describe("guess scoring", () => {
       return play(state, "braid").blind.guesses[index]?.solveBonus
     })
     expect(bonuses).toEqual([6, 5, 4, 3, 2])
+  })
+
+  /*
+   * The live readout's promise, pinned against the thing it is a readout of.
+   *
+   * `draftChips` exists so the board can count a word while it is being typed,
+   * and its only obligation is that the guess never comes in *under* the figure
+   * the player was shown. Testing it against the real pipeline rather than
+   * against arithmetic is the point: an effect added later that subtracts chips
+   * would break the promise silently everywhere else, and here.
+   */
+  describe("the drafting readout", () => {
+    const typed = (state: RunState, word: string): RunState =>
+      [...word].reduce(
+        (current, letter) => reduce(current, { type: "type_letter", letter }, words).state,
+        state,
+      )
+
+    it("counts the letters as they are typed", () => {
+      // Q, then QU, then the whole of QUAZY — 10, 11, 26.
+      expect(draftChips(start, "")).toBe(0)
+      expect(draftChips(start, "q")).toBe(10)
+      expect(draftChips(start, "qu")).toBe(11)
+      expect(draftChips(start, "quazy")).toBe(26)
+    })
+
+    it("never promises more than the guess pays", () => {
+      for (const word of ["quazy", "crane", "arose", "jazzy"]) {
+        const drafting = typed(start, word)
+        const shown = draftChips(drafting, word)
+        const paid = reduce(drafting, { type: "submit" }, words).state.blind.guesses[0]?.chips ?? 0
+        expect(paid).toBeGreaterThanOrEqual(shown)
+      }
+    })
+
+    it("prices the letters the way the boss in play will", () => {
+      // The Drought pays nothing for vowels, and says so before the guess is
+      // spent rather than after — which is the whole reason the boss hook is
+      // consulted here instead of the raw letter values being summed.
+      const drought = { ...start, blind: { ...start.blind, bossId: "drought" } }
+      expect(draftChips(drought, "quazy")).toBe(24)
+      expect(
+        reduce(typed(drought, "quazy"), { type: "submit" }, words).state.blind.guesses[0],
+      ).toMatchObject({ chips: 24 })
+    })
   })
 
   it("rejects a word that is not in the allowed list", () => {
