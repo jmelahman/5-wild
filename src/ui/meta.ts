@@ -10,6 +10,16 @@ import { clampAscension, MAX_ASCENSION } from "../engine"
  * the bump resets every record rather than silently promoting players past four
  * rules they have never played. Everything else in here is a counter and would
  * have survived, which is the trade — a v2 key costs the tallies too.
+ *
+ * It stayed v2 through the next renumbering, and the difference is the whole
+ * rule for when this key moves. Replacing `Five` with `Dead Weight` changed what
+ * 9 and 10 name, exactly as before — but it changed them *downward*. Old 9 and
+ * old 10 were strictly harder than the levels now wearing those numbers, so a
+ * record written by that build understates what its player can do and cannot
+ * promote anyone past anything. The test is not "did a level change meaning" but
+ * "could the old reading credit a player with more than they earned". When the
+ * ladder gets easier under a stored `cleared`, the honest move is to keep it and
+ * keep their tallies with it.
  */
 const META_KEY = "5wild:meta:v2"
 

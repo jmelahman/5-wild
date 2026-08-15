@@ -26,19 +26,30 @@ import type { RunState } from "./state"
  *
  * They stack in roughly the order they hurt: the guess rules first, because
  * they cost a play and not a run, then the economy, then the curve, then the
- * tray, then the sixth guess. The tenth is the sharpest thing in the game.
+ * tray, then the money for a word not found, then the word not found at all.
+ * The last two are the same rule twice and that is deliberate — see rung 10.
+ * The tenth is the sharpest thing in the game.
  *
- * Measured over 250 seeds a piece, with a bot that farms the best word it can
- * find and solves the moment solving would clear the target:
+ * Measured over 250 seeds a piece, reported as mean final ante. The ante rather
+ * than the win rate, because above rung 6 the win rate is low enough that 250
+ * seeds cannot separate two neighbouring rungs and the ante can:
  *
- *   A0  win 29.6%   A6  21.2%   A8  12.4%   A10  9.6%
- *   A5      24.8%   A7  17.2%   A9   9.6%
+ *   A0  4.79   A6  4.64   A8  3.95   A10  3.26
+ *   A5  5.02   A7  4.36   A9  3.92
  *
- * — which is the shape the ladder wanted: three to five points a rung, so every
- * step is felt and none is a wall. The one flat stretch is 9 to 10, and it is an
- * artefact of the instrument rather than of the ladder: this bot always solves,
- * so Finish It takes nothing from it and everything from the player who was
- * hedging. Rung 8 is understated for a related reason. See both in place.
+ * — about a fifth of an ante a rung through the middle and two thirds at the
+ * capstone, which is the shape the ladder wanted: every step felt, none a wall.
+ *
+ * That reads off a bot that deduces honestly and will farm a blind it cannot
+ * solve, and the distinction matters far more than it sounds. Every number in
+ * this file up to rung 8 was first taken with a bot that reads the answer and
+ * always solves, and such a bot cannot price the top of this ladder at all — it
+ * scored rungs 9 and 10 as byte-identical, on win rate, final ante, blinds
+ * cleared and gold per blind alike, because a player who always finds the word
+ * is a player no must-solve rule can touch. What that instrument called free is
+ * what the top of the ladder is now built around, and what it called survivable
+ * at rung 9 was a wall. Rung 8 is understated for the same family of reasons.
+ * See all three in place.
  */
 export type Ascension = {
   /** The level this arrives at. A run at level N plays every rule at or below N. */
@@ -56,8 +67,8 @@ export type Ascension = {
   targets?: number
   /** Joker slots this rule takes off the tray. */
   jokerCut?: number
-  /** Guesses this rule takes off the blind's allowance. */
-  guessCut?: number
+  /** Whether a blind cleared without the word being found pays nothing at all. */
+  unpaidIfUnsolved?: true
 }
 
 export const ASCENSIONS: readonly Ascension[] = [
@@ -184,27 +195,34 @@ export const ASCENSIONS: readonly Ascension[] = [
   },
   {
     level: 9,
-    name: "Five",
-    text: "Five guesses, not six.",
+    name: "Dead Weight",
+    text: "A blind you did not solve pays nothing.",
     /*
-     * The board itself, at last, and the second-sharpest thing here.
+     * The hedge, priced in money before rung 10 prices it in the run.
      *
-     * It hits three ways at once, which is why it sits this high. The deduction
-     * gets a guess harder. The chip pile a farming line can build loses its
-     * biggest contributor. And the income drops again — the unused-guess dollars
-     * are capped one lower, on top of Lean Years already having taken a dollar
-     * off the base — so the run that responds by farming is the run that cannot
-     * afford the shop.
+     * What stood here was "Five" — five guesses instead of six — and it is worth
+     * recording why it is gone, because it was the largest misjudgement on the
+     * ladder. It reads like a sibling of the boss guess rules and it is not: it
+     * hits three ways at once. The deduction gets a guess harder, the farming
+     * line loses its biggest chip contributor, and the unused-guess dollars are
+     * capped one lower on top of Lean Years having already taken a dollar off
+     * the base. Measured against a bot that has to actually find the word it
+     * cost 1.22 of a mean final ante in a single step — against 0.84 for rungs 1
+     * through 8 put together. One rung outweighed the first eight, and it landed
+     * on players who had just been handed the joker-slot cut. The first boss
+     * killed 26% of runs at A9 and 43% at A10.
      *
-     * All three show up at once in the measurement: 12.4% to 9.6%, and income
-     * from $8.16 a blind to $7.09 — the only rung besides Lean Years that moves
-     * the money, and it does so without mentioning money.
+     * It only ever looked reasonable because the bot that priced it reads the
+     * answer off the state, so it paid for the missing guess in chips and never
+     * once in a word it failed to find. That bot put the rung at 0.36.
      *
-     * A boss that limits guesses of its own still wins where it is tighter: The
-     * Clock's four and The Famine's three are the tightest the board ever gets,
-     * and this must not quietly loosen them. See `beginBlind`.
+     * This asks the same question Finish It asks, in money first: clear the
+     * target off five wrong words and the blind is survived and pays nothing —
+     * no base, no unused-guess dollars, no interest. 3.95 to 3.92 by the ante,
+     * which is a cheap rung and is meant to be. What it takes is a habit, one
+     * rung before the capstone starts taking runs for the same habit.
      */
-    guessCut: 1,
+    unpaidIfUnsolved: true,
   },
   {
     level: 10,
@@ -219,15 +237,25 @@ export const ASCENSIONS: readonly Ascension[] = [
      * has to teach — the right note to end the taught half on, and the wrong one
      * to have buried in the middle of it.
      *
-     * It is also the one rung the harness scores at exactly zero: 9.6% at A9 and
-     * 9.6% at A10, identical on final ante, blinds cleared and gold per blind,
-     * because a bot that solves every blind it can already obeys this rule and
-     * never noticed it arrive. That is not evidence the rung is free — it is
-     * evidence of what the rung taxes. What it costs is the hedge, and the hedge
-     * is a human move: the blind where the word will not come, the pile is nearly
-     * there, and two more wrong guesses would bank it anyway. Under this rule that
-     * blind is lost. No bot that always finds the answer can price that, and no
-     * player will need it priced.
+     * It is also the rung the old harness scored at exactly zero — identical win
+     * rate, final ante, blinds cleared and gold per blind at A9 and A10 — because
+     * a bot that solves every blind it can already obeys this rule and never
+     * noticed it arrive. That was never evidence the rung is free; it is evidence
+     * of what the rung taxes. A bot that deduces honestly and hedges prices it at
+     * 3.92 mean final ante down to 3.26, two thirds of an ante and the largest
+     * single step on the ladder. What it costs is the hedge, and the hedge is a
+     * human move: the blind where the word will not come, the pile is nearly
+     * there, and two more wrong guesses would bank it anyway. Under this rule
+     * that blind is lost.
+     *
+     * It swallows rung 9 whole, and the measurement says so to the decimal: a
+     * ladder carrying both rules scores identically at A10 — every column, not
+     * merely the ante — to a ladder carrying only this one. There is nothing left
+     * to withhold from a blind that has already ended the run, so the capstone is
+     * the last two rungs at once. That is escalation along one axis rather than a
+     * rung going to waste: lose the money for not finding the word, then lose the
+     * run for it. Whoever arrives here has met the idea once already, which is the
+     * only reason a rule this sharp can be the one nobody gets warned about twice.
      */
     solveRequired: true,
   },
@@ -317,6 +345,8 @@ export type Difficulty = {
   jokerSlots: number
   /** The blind's guess allowance, before a boss tightens it. */
   guesses: number
+  /** Whether a blind at target but unsolved pays nothing. */
+  unpaidIfUnsolved: boolean
   /** Whether a blind at target but unsolved is still a loss. */
   mustSolve: boolean
 }
@@ -329,6 +359,7 @@ export function difficultyAt(level: number): Difficulty {
     payoutCut: 0,
     jokerSlots: JOKER_SLOTS,
     guesses: BASE_GUESSES,
+    unpaidIfUnsolved: false,
     mustSolve: false,
   }
   for (const rule of ASCENSIONS) {
@@ -336,7 +367,7 @@ export function difficultyAt(level: number): Difficulty {
     difficulty.targets *= rule.targets ?? 1
     difficulty.payoutCut += rule.payoutCut ?? 0
     difficulty.jokerSlots -= rule.jokerCut ?? 0
-    difficulty.guesses -= rule.guessCut ?? 0
+    difficulty.unpaidIfUnsolved ||= rule.unpaidIfUnsolved ?? false
     difficulty.mustSolve ||= rule.solveRequired ?? false
   }
   difficulty.targets *= ENDLESS_STEP ** Math.max(0, at - AUTHORED_ASCENSIONS)

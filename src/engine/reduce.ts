@@ -144,9 +144,13 @@ function beginBlind(state: RunState, words: WordSource, events: GameEvent[]): vo
   state.blind = {
     answer: "",
     target: scaleTarget(blindTargets(state.ante)[state.blindIndex], difficulty.targets),
-    // The tighter of the two wins rather than the boss's number simply winning,
-    // which is what keeps ascension 9 from *loosening* a blind: The Clock deals
-    // four guesses, and a run that asked for five must not be handed a fifth.
+    // The tighter of the two wins rather than the boss's number simply winning.
+    // No rung cuts the run's allowance any more — `Dead Weight` records why the
+    // one that did was removed — so today this is the boss's number or the base
+    // six and the min never fires. It stays because it is the composition rule
+    // rather than a special case of it: a run-level cut must never *loosen* a
+    // boss. The Clock deals four, and a run that asked for five may not be
+    // handed a fifth.
     maxGuesses: Math.min(boss?.maxGuesses ?? difficulty.guesses, difficulty.guesses),
     bossId,
     draft: "",
@@ -189,8 +193,9 @@ function enterShop(state: RunState, events: GameEvent[]): void {
 }
 
 /**
- * The fail state: score below target when the blind ends — and, at ascension 6,
- * a word left unsolved however big the pile is.
+ * The fail state: score below target when the blind ends — and, at ascension 10,
+ * a word left unsolved however big the pile is. One rung lower the same blind is
+ * survived and paid nothing.
  */
 function resolveBlind(state: RunState, events: GameEvent[]): void {
   const blind = state.blind
@@ -226,7 +231,22 @@ function resolveBlind(state: RunState, events: GameEvent[]): void {
     if (bend) interest = bend(interest, state)
   }
 
-  state.reward = { base, unusedGuesses, interest, total: base + unusedGuesses + interest }
+  // Dead Weight: the blind was cleared on chips alone, so it funds nothing —
+  // base, unused-guess dollars and interest together. Interest included on
+  // purpose. Withholding only the base would leave the farming line paying most
+  // of what it used to, since a farmed blind spends every guess and so was never
+  // collecting the unused-guess dollars anyway; interest is the part a hoarding
+  // run would still have banked, and it is the part that makes the rule land.
+  //
+  // Read after the loss branch rather than inside it, which is what makes this a
+  // rung and not a duplicate: by ascension 10 the branch above has already taken
+  // the run, so this can only ever fire on the single rung where an unsolved
+  // blind is still survived.
+  const unpaid = difficulty.unpaidIfUnsolved && !blind.solved
+
+  state.reward = unpaid
+    ? { base: 0, unusedGuesses: 0, interest: 0, total: 0 }
+    : { base, unusedGuesses, interest, total: base + unusedGuesses + interest }
   state.phase = "reward"
   events.push({ type: "blind_won" })
 }

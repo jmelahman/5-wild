@@ -212,11 +212,14 @@ describe("the rules themselves", () => {
     expect(refused({ ...offered, ascension: 7 })).toBe(false)
   })
 
-  it("9 — deals five guesses, unless the boss deals fewer", () => {
-    expect(at(8).blind.maxGuesses).toBe(6)
-    expect(at(9).blind.maxGuesses).toBe(5)
-    // The Clock's four is tighter and stays tighter — a rung that made a boss
-    // blind *easier* would be a rung nobody could reason about.
+  it("9 — pays nothing for a blind cleared without the word", () => {
+    expect(difficultyAt(8).unpaidIfUnsolved).toBe(false)
+    expect(difficultyAt(9).unpaidIfUnsolved).toBe(true)
+    // No rung takes a guess any more, at the top of the ladder or anywhere else.
+    // The Clock's four still has to be the tighter of the two, which is the part
+    // of the old rung 9 worth keeping a test on — a run-level allowance that
+    // made a boss blind *easier* would be a rung nobody could reason about.
+    expect(at(9).blind.maxGuesses).toBe(difficultyAt(0).guesses)
     const clock = getBoss("clock")?.maxGuesses ?? 0
     expect(Math.min(clock, difficultyAt(9).guesses)).toBe(clock)
   })
