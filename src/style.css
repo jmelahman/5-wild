@@ -1079,6 +1079,20 @@ button {
 }
 
 /*
+ * The Vandal: the modifier is still on the letter and still owned, it just does
+ * nothing for one blind. Greyed to the burnt colour rather than hidden, and the
+ * ring the key wears goes with it, so the whole keyboard reads as switched off
+ * at a glance instead of one pip at a time.
+ */
+.mod-pip.silenced {
+  color: #4a4b52;
+}
+
+.key:has(.mod-pip.silenced) {
+  box-shadow: none;
+}
+
+/*
  * The plain board, for the half of the game that is only a word puzzle.
  *
  * Every per-letter number and mark goes: the chip value in the corner of a key,

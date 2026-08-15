@@ -221,6 +221,7 @@ function grid(state: RunState): HTMLElement {
   const blind = state.blind
   const width = blind.answer.length
   const active = blind.guesses.length
+  const modsOff = getBoss(blind.bossId)?.noModifiers ?? false
 
   const rows = Array.from({ length: blind.maxGuesses }, (_, row) => {
     const played = blind.guesses[row]
@@ -236,7 +237,10 @@ function grid(state: RunState): HTMLElement {
           {
             class: `tile ${tile?.shown ?? "gray"}`,
             "data-tile": column,
-            "data-mod": tile ? modifierOf(state, tile.letter)?.id : undefined,
+            // The dot says "a modifier fired here", so under The Vandal, where
+            // none did, there is nothing for it to say. The key keeps its pip;
+            // the row is a record of what happened.
+            "data-mod": tile && !modsOff ? modifierOf(state, tile.letter)?.id : undefined,
           },
           (tile?.letter ?? "").toUpperCase(),
         )
@@ -310,7 +314,13 @@ function letterTip(state: RunState, letter: string): string {
   const etch = state.letters[letter]?.etch ?? 0
   const range = rangeOf(letter)
   const fromRange = rangeChips(state, letter)
-  const now = draftChips(state, letter)
+  const boss = getBoss(state.blind.bossId)
+  // `draftChips` prices a one-letter draft, which is to say the first column —
+  // fine for a boss that reads the letter, wrong for one that reads the column.
+  // Under The Margin every key would announce "no chips", which is true of the
+  // column it was asked about and false of the letter. So a positional boss gets
+  // the letter's own value in the headline and says the rest in its own words.
+  const now = boss?.positional ? baseChips(state, letter) : draftChips(state, letter)
 
   const lines = [`${upper} · ${now === 0 ? "no chips" : `${now} chip${now === 1 ? "" : "s"}`}`]
 
@@ -324,18 +334,33 @@ function letterTip(state: RunState, letter: string): string {
   }
 
   // Only when the boss actually moved this letter — naming a boss that is not
-  // touching it would make every key look cursed.
-  const boss = getBoss(state.blind.bossId)
-  if (boss && now !== baseChips(state, letter)) lines.push(`${boss.name}: ${boss.text}`)
+  // touching it would make every key look cursed. A positional one is always
+  // named, since the headline above it deliberately stopped accounting for it.
+  if (boss && (boss.positional || now !== baseChips(state, letter))) {
+    lines.push(`${boss.name}: ${boss.text}`)
+  }
 
   const mod = modifierOf(state, letter)
-  if (mod) lines.push(`${mod.name} · ${mod.text}`)
+  // Under The Vandal the modifier is still bought, still placed and still worth
+  // reading — it just will not fire this blind, and the tip is the one place
+  // that can say which of those two things is true.
+  if (mod) {
+    lines.push(
+      boss?.noModifiers
+        ? `${mod.name} · ${mod.text} — silenced this blind`
+        : `${mod.name} · ${mod.text}`,
+    )
+  }
   return lines.join("\n")
 }
 
 function keyboard(state: RunState, on: Handlers): HTMLElement {
   const colors = keyboardColors(state.blind.guesses)
   const eliminated = new Set(state.blind.eliminated)
+  // The Vandal. The pip stays — the modifier has not gone anywhere, and hiding
+  // it would make the blind look like it had eaten the purchase — but it greys
+  // out, which is the same thing a burnt key already does to it.
+  const modsOff = getBoss(state.blind.bossId)?.noModifiers ?? false
 
   const key = (letter: string) => {
     const destroyed = state.letters[letter]?.destroyed ?? false
@@ -363,7 +388,7 @@ function keyboard(state: RunState, on: Handlers): HTMLElement {
       },
       letter.toUpperCase(),
       etch > 0 ? h("span", { class: "etch-pip" }, `+${etch}`) : null,
-      mod ? h("span", { class: "mod-pip" }, mod.pip) : null,
+      mod ? h("span", { class: `mod-pip${modsOff ? " silenced" : ""}` }, mod.pip) : null,
     )
   }
 

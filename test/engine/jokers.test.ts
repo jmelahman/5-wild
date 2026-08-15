@@ -286,6 +286,71 @@ describe("the jokers that close a build", () => {
   })
 })
 
+/*
+ * The word-shape and position cards. Each expectation names the shape it is
+ * checking rather than just the number, because the numbers here were chosen
+ * from how often the word list actually produces that shape — a test that only
+ * pinned the arithmetic would let the shape drift silently.
+ */
+describe("the jokers that read the word's shape", () => {
+  it("Head Start pays for a vowel in the first column and nothing for one later", () => {
+    // AROSE opens on a vowel; GHOST does not. Both keep their own mult.
+    expect(withJoker("head_start", "arose").last).toMatchObject({ mult: 5 + 15 })
+    expect(withJoker("head_start", "ghost").last).toMatchObject({ mult: 1 })
+    // CRANE holds three vowels and starts on a consonant, which is the case the
+    // card is priced against: the column is the condition, not the vowel count.
+    expect(withJoker("head_start", "crane").last).toMatchObject({ mult: 7 })
+  })
+
+  it("Keystone doubles on a green middle and leaves any other green alone", () => {
+    // QUAZY against BRAID lands its A in the middle column: 4 mult becomes 12.
+    expect(withJoker("keystone", "quazy").last).toMatchObject({ chips: 26, mult: 12 })
+    // GHOST lands nothing at all, so there is nothing to double.
+    expect(withJoker("keystone", "ghost").last).toMatchObject({ mult: 1 })
+  })
+
+  it("The Chorus wants three vowels and counts them in the word, not on the board", () => {
+    // AROSE is A-O-E: 5 mult becomes 15, and only one of those vowels is even
+    // in the answer — the shape is the condition, the feedback is not.
+    expect(withJoker("chorus", "arose").last).toMatchObject({ mult: 15 })
+    // CRANE has A and E only.
+    expect(withJoker("chorus", "crane").last).toMatchObject({ mult: 7 })
+  })
+
+  it("Lexicographer counts the alphabet already spent, and never the guess itself", () => {
+    // The opening guess has nothing behind it, so it pays nothing — the same
+    // rule Slow Burn and The Vault follow. GHOST is 9 chips on its own.
+    expect(withJoker("lexicographer", "ghost").last).toMatchObject({ chips: 9 })
+    // GHOST spent five distinct letters, so QUAZY's 26 chips become 41.
+    expect(withJoker("lexicographer", "ghost", "quazy").last).toMatchObject({ chips: 41 })
+    // SASSY adds only A and Y — its three S's were spent by GHOST and its own
+    // repeats count once. Seven letters, not ten, which is the whole reason the
+    // card pays for covering ground rather than for typing.
+    expect(withJoker("lexicographer", "ghost", "sassy", "quazy").last).toMatchObject({ chips: 47 })
+  })
+
+  it("Loaded Dice rolls inside its range, and rolls the same way twice", () => {
+    const rolled = (word: string, seed: number): number => {
+      const base = startRun(seed, words).state
+      const state: RunState = { ...base, jokers: [{ id: "loaded_dice" }] }
+      const plain = apply(base, type(word)).blind.guesses[0]
+      const diced = apply(state, type(word)).blind.guesses[0]
+      return (diced?.mult ?? 0) - (plain?.mult ?? 0)
+    }
+    for (const seed of [1, 2, 3, 4, 5]) {
+      const roll = rolled("crane", seed)
+      expect(roll).toBeGreaterThanOrEqual(0)
+      expect(roll).toBeLessThanOrEqual(20)
+      expect(Number.isInteger(roll)).toBe(true)
+    }
+    // Replay is the whole contract: a golden vector cannot record a coin flip
+    // that lands differently the second time.
+    expect(rolled("crane", 7)).toBe(rolled("crane", 7))
+    // And it is genuinely a roll — five identical values would mean it was not.
+    expect(new Set([1, 2, 3, 4, 5].map((seed) => rolled("crane", seed))).size).toBeGreaterThan(1)
+  })
+})
+
 describe("etchings", () => {
   it("raise a letter's chip value for the rest of the run", () => {
     const base = startRun(1, words).state

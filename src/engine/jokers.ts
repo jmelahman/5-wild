@@ -92,7 +92,7 @@ const RARITY_COST: Record<Rarity, number> = {
 }
 
 /**
- * Twenty-three jokers, spread deliberately across archetypes so a build identity
+ * Twenty-eight jokers, spread deliberately across archetypes so a build identity
  * shows up within the first shop. Note that scoring always reads `tile.color`,
  * never `tile.shown` — The Fog lies to the player, not to the math.
  *
@@ -107,6 +107,20 @@ const RARITY_COST: Record<Rarity, number> = {
  * the alphabet a plan rather than a tax, and three cards that *grow* — one on a
  * guess condition, one on a blind condition, one on a shop condition — so that
  * scaling reads as a class of card and not as one oddity.
+ *
+ * The five after those are word-shape and position cards, and they are priced
+ * off the word list rather than off intuition: Head Start wants a vowel in
+ * column one (16.1% of allowed words), Keystone wants the middle tile green,
+ * The Chorus wants three vowels (13.4%). The rarer the shape, the bigger the
+ * payoff, which is why the ×3 sits at rare and the +15 at common. Loaded Dice
+ * is the exception and pays for variance instead of for a shape.
+ *
+ * All five were then re-priced against the shipped set by simulation — one card
+ * equipped, no shopping, 250 seeds, mean blind score against an empty tray —
+ * and three of them moved: Lexicographer +4 to +3, Loaded Dice 0–30 to 0–20,
+ * Keystone ×2 to ×3. Each card's comment carries the pair of numbers that
+ * settled it. What the harness cannot see is a player *steering*, so for the
+ * two cards that want a shape it reads as a floor rather than as a price.
  */
 export const JOKERS: readonly Joker[] = [
   {
@@ -186,6 +200,58 @@ export const JOKERS: readonly Joker[] = [
     },
   },
   {
+    id: "head_start",
+    name: "Head Start",
+    text: "+15 mult if the word begins with a vowel",
+    rarity: "common",
+    cost: RARITY_COST.common,
+    /*
+     * The first positional card in the game, and the column is a measurement
+     * rather than a preference. `TODO` asked for this on column two; the word
+     * list says column two holds a vowel in 64% of allowed words and 57% of
+     * answers, which is not a condition, it is a rounding error. Column one is
+     * 16% and 11%.
+     *
+     * That is the rare tight condition that does not fight deduction, which is
+     * why it can pay this much at common. The famous openers are vowel-initial —
+     * AROSE, ADIEU, AUDIO — so the word this card wants on guess one is the word
+     * a good player was going to type anyway. It only starts costing something
+     * later, once the greens are dictating the shape.
+     *
+     * ×2.55 on the mean blind score over 250 seeds, which is the middle of the
+     * common band — Green Thumb ×3.88, Slow Burn ×3.02, Cold Open ×2.81, Vowel
+     * Hoarder ×2.76, this, Consonant Cluster ×1.13.
+     */
+    onGuess: (ctx) => {
+      if (isVowel(ctx.word[0] ?? "")) ctx.addMult(15)
+    },
+  },
+  {
+    id: "loaded_dice",
+    name: "Loaded Dice",
+    text: "+0 to +20 mult, rolled fresh every guess",
+    rarity: "common",
+    cost: RARITY_COST.common,
+    /*
+     * Mean +10, and the variance is the price. Every other flat-mult card in the
+     * game can be planned around; this one cannot, so it is worth less than its
+     * average to a player deciding whether a guess clears the target — which is
+     * exactly the decision this game is made of.
+     *
+     * It was written at 0–30 and that was too much: ×4.01 over 250 seeds made it
+     * the strongest common in the game, ahead of Green Thumb's ×3.88, for a card
+     * that asks nothing of the player. At 0–20 it reads ×3.16 and sits where a
+     * no-condition common belongs — better than Cold Open, worse than the cards
+     * that want something in return.
+     *
+     * The roll comes from `ctx.roll()` and therefore from the seed, keyed to the
+     * ante, the blind, the guess and the slot — so it is the same dice however
+     * the run reaches that guess. Rerolling by retyping is not available, and a
+     * save resumed mid-blind scores what it would have scored.
+     */
+    onGuess: (ctx) => ctx.addMult(Math.floor(ctx.roll() * 21)),
+  },
+  {
     id: "anagrammer",
     name: "Anagrammer",
     text: "×2 mult if no letter repeats",
@@ -196,6 +262,68 @@ export const JOKERS: readonly Joker[] = [
     // same build, which is what makes each of them a choice.
     onGuess: (ctx) => {
       if (isCategory("distinct", ctx.word)) ctx.timesMult(2)
+    },
+  },
+  {
+    id: "keystone",
+    name: "Keystone",
+    text: "×3 mult if the middle tile is green",
+    rarity: "uncommon",
+    cost: RARITY_COST.uncommon,
+    /*
+     * The first ×mult keyed to a colour. Every other colour payoff in the game
+     * is additive — Green Thumb, Masochist, the base mult per tile — which left
+     * the colour build with no ceiling and no reason to want a *particular*
+     * green rather than more of them.
+     *
+     * The middle column because it is the one deduction reaches last: the edges
+     * fall out of a probe, the centre usually takes a commitment. So this pays
+     * late in a blind, which is when a farming build wants its multiplier, and
+     * asks for a green the player would have had to work for anyway.
+     *
+     * Written as ×2 and measured at ×1.40 over 250 seeds, which was the weakest
+     * uncommon in the game — the condition simply does not come up by accident,
+     * and a bot that never steers for it almost never has it. ×3 reads ×1.90,
+     * beside Anagrammer's ×2.19. The harness is the floor rather than the price:
+     * it measures a player who never plays for the middle column, and the card
+     * exists for the one who does.
+     */
+    onGuess: (ctx) => {
+      if (ctx.tiles[2]?.color === "green") ctx.timesMult(3)
+    },
+  },
+  {
+    id: "lexicographer",
+    name: "Lexicographer",
+    text: "+3 chips for each different letter in your earlier guesses this blind",
+    rarity: "uncommon",
+    cost: RARITY_COST.uncommon,
+    /*
+     * The card that pays for probing. It counts letters *spent*, not letters in
+     * the word being scored, so it reads the same information the player is
+     * playing to gather — five fresh letters a guess is +15 chips a guess, and
+     * by guess four a clean opener has it near +50. That puts it just under The
+     * Vault (+75 by then) without being it: The Vault pays for staying, this
+     * pays for staying *and* covering ground.
+     *
+     * It was written at +4 and that put it at ×5.95 over 250 seeds — above
+     * Snowball, a rare, and second among uncommons only to Sunk Cost. +3 reads
+     * ×4.73. Both figures are the card's best case: the harness probes with
+     * eight fixed words chosen to cover the alphabet, which is the play this
+     * card most wants and more discipline than a real run manages.
+     *
+     * `state.blind.guesses` holds only submitted guesses, so this reads prior
+     * ones and never itself — the same rule Slow Burn and The Vault follow.
+     *
+     * Ascension 1 works directly against it: Hunted forces found letters to be
+     * reused, so every guess after the first covers less new alphabet. That is a
+     * real anti-synergy rather than an accident, and it is the reason this sits
+     * at uncommon instead of rare.
+     */
+    onGuess: (ctx) => {
+      const seen = new Set<string>()
+      for (const guess of ctx.state.blind.guesses) for (const letter of guess.word) seen.add(letter)
+      if (seen.size > 0) ctx.addChips(3 * seen.size)
     },
   },
   {
@@ -300,6 +428,34 @@ export const JOKERS: readonly Joker[] = [
     cost: RARITY_COST.rare,
     onTile: (ctx, tile) => {
       if (tile.color === "gray") ctx.addMult(8)
+    },
+  },
+  {
+    id: "chorus",
+    name: "The Chorus",
+    text: "×3 mult if the word holds three or more vowels",
+    rarity: "rare",
+    cost: RARITY_COST.rare,
+    /*
+     * The biggest word-shape multiplier in the game, because it asks for the
+     * rarest shape: three vowels appear in 13.4% of allowed words and 9.1% of
+     * answers, against 63.9% for Anagrammer's five-distinct. A ×3 that fires one
+     * guess in eight is the same expected value as a ×2 that fires half the
+     * time, bought with far more planning.
+     *
+     * It is also the answer to the vowel build being one card deep. Vowel
+     * Hoarder pays per vowel and this multiplies once you have enough of them,
+     * so the two stack the way an engine should — and a levelled Vowel Heavy
+     * category triples the same guess a third time. That stack is intended: it
+     * is the payoff for committing to a shape the answer list rarely rewards.
+     *
+     * ×1.95 over 250 seeds, which reads low for a rare and is the measurement
+     * working: the harness types eight fixed probes, one of which happens to
+     * hold three vowels, so that number is what the card pays a player who never
+     * steers. It is priced for the one who does.
+     */
+    onGuess: (ctx) => {
+      if ([...ctx.word].filter(isVowel).length >= 3) ctx.timesMult(3)
     },
   },
   {

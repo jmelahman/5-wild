@@ -130,19 +130,26 @@ export function baseChips(state: RunState, letter: string): number {
  *
  * So the figure is a floor, the same promise `solveHint` makes: nothing in the
  * pipeline subtracts chips, so the guess can only beat this. The boss part of it
- * is exact — the hook is asked at gray, and none of the three bosses that bend
+ * is exact — the hook is asked at gray, and none of the four bosses that bend
  * chips reads the colour: The Miser goes by whether the letter has been spent,
- * The Drought by whether it is a vowel, The Rust by what the letter started as.
- * One that paid less on gray would loosen the floor without breaking it, which
- * is the direction a promise about an unearned score should fail in.
+ * The Drought by whether it is a vowel, The Rust by what the letter started as,
+ * The Margin by which column it landed in. One that paid less on gray would
+ * loosen the floor without breaking it, which is the direction a promise about
+ * an unearned score should fail in.
+ *
+ * The column is exact for the same structural reason: a draft is typed left to
+ * right, so a letter's index in the draft is the index it will be scored at.
+ * That holds for a partial word too — the fifth column simply has nothing in it
+ * yet, so The Margin zeroes the first letter immediately and the last only once
+ * it exists, which is the honest reading of a word that is not finished.
  */
 export function draftChips(state: RunState, draft: string): number {
   const boss = getBoss(state.blind.bossId)
   let chips = 0
-  for (const letter of draft) {
+  for (const [index, letter] of [...draft].entries()) {
     const base = baseChips(state, letter)
     chips += boss?.tileChips
-      ? boss.tileChips(base, { letter, color: "gray", shown: "gray" }, state.blind)
+      ? boss.tileChips(base, { letter, color: "gray", shown: "gray" }, state.blind, index)
       : base
   }
   return chips
@@ -195,6 +202,9 @@ export function scoreGuess(params: {
   /** The firing hook's own seeded stream, replaced around each hook call. */
   let roll: Rng = () => 0
 
+  /** The Plateau, read once rather than per call. */
+  const blockTimesMult = boss?.noTimesMult ?? false
+
   const burned: string[] = []
 
   /**
@@ -234,6 +244,17 @@ export function scoreGuess(params: {
       fire(`+${amount} mult`)
     },
     timesMult(factor) {
+      // The Plateau. Swallowed here rather than at each caller so that every
+      // multiplicative effect in the game — joker, modifier, category level —
+      // is covered by construction, including ones written after the boss was.
+      //
+      // It still narrates, and narrates the truth: a card that lit up saying
+      // "×3 mult" while the total did not move would read as a bug, and the
+      // player needs to see *which* of their cards the blind is eating.
+      if (blockTimesMult) {
+        fire("×1 — multiplying blocked")
+        return
+      }
       ctx.mult *= factor
       fire(`×${factor} mult`)
     },
@@ -271,14 +292,18 @@ export function scoreGuess(params: {
 
   tiles.forEach((tile, index) => {
     const base = boss?.tileChips
-      ? boss.tileChips(baseChips(state, tile.letter), tile, blind)
+      ? boss.tileChips(baseChips(state, tile.letter), tile, blind, index)
       : baseChips(state, tile.letter)
 
     ctx.chips += base
     ctx.mult += MULT_FOR_COLOR[tile.color]
     events.push({ type: "tile", index, gained: base, chips: ctx.chips, mult: ctx.mult })
 
-    const modifier = modifierOf(state, tile.letter)
+    // The Vandal switches the whole layer off. Asked here rather than inside
+    // each modifier so the tile emits no `mod` event at all: the letter still
+    // wears its badge on the board, and the row it scores in stays silent about
+    // it, which is the reading the boss's one line promises.
+    const modifier = boss?.noModifiers ? undefined : modifierOf(state, tile.letter)
     if (modifier) {
       // One stream per tile of one guess of one blind, so a chance effect is a
       // property of the position it happened at rather than of the order things

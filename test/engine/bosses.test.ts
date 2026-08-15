@@ -5,6 +5,7 @@ import {
   BOSS_TIERS,
   BOSSES,
   bossesIn,
+  draftChips,
   getBoss,
   LETTER_CHIPS,
   reduce,
@@ -153,7 +154,13 @@ describe("boss blinds", () => {
     expect(new Set(BOSSES.map((boss) => boss.id)).size).toBe(BOSSES.length)
     for (const boss of BOSSES) {
       const hasRule = Boolean(
-        boss.maxGuesses ?? boss.transform ?? boss.validate ?? boss.tileChips ?? boss.solveBonus,
+        boss.maxGuesses ??
+          boss.transform ??
+          boss.validate ??
+          boss.tileChips ??
+          boss.solveBonus ??
+          boss.noModifiers ??
+          boss.noTimesMult,
       )
       expect(hasRule, `${boss.id} does nothing`).toBe(true)
     }
@@ -197,6 +204,84 @@ describe("boss blinds", () => {
     expect(apply(etched, type("braid")).blind.guesses[0]?.chips).toBe(
       apply(base, type("braid")).blind.guesses[0]?.chips,
     )
+  })
+
+  it("The Margin pays nothing for the outer columns, in the row and in the readout", () => {
+    // BRAID under BRAID: B and D score nothing, R-A-I still do. The readout has
+    // to agree, because it is what the player types against.
+    const state = underBoss("margin")
+    const middle = (LETTER_CHIPS.r ?? 0) + (LETTER_CHIPS.a ?? 0) + (LETTER_CHIPS.i ?? 0)
+    expect(apply(state, type("braid")).blind.guesses[0]?.chips).toBe(middle)
+    expect(draftChips(state, "braid")).toBe(middle)
+    // Half-typed, the last column does not exist yet — so only the first is
+    // voided, and the promise stays a floor rather than becoming a guess.
+    expect(draftChips(state, "bra")).toBe((LETTER_CHIPS.r ?? 0) + (LETTER_CHIPS.a ?? 0))
+  })
+
+  it("The Vandal silences the modifier layer without erasing the badge", () => {
+    const base = underBoss("vandal")
+    const etched: RunState = {
+      ...base,
+      letters: { ...base.letters, a: { etch: 0, destroyed: false, mod: "chip" } },
+    }
+    // +20 chips on the A, and none of it lands. The letter keeps its modifier —
+    // the blind suppresses it, it does not scrub the run.
+    expect(apply(etched, type("braid")).blind.guesses[0]?.chips).toBe(
+      apply(base, type("braid")).blind.guesses[0]?.chips,
+    )
+    expect(apply(etched, type("braid")).letters.a?.mod).toBe("chip")
+    // And nothing narrates: a mod event here would light up a tile that did
+    // nothing.
+    expect(
+      reduce(apply(etched, type("braid").slice(0, -1)), { type: "submit" }, words).events.some(
+        (event) => event.type === "mod",
+      ),
+    ).toBe(false)
+  })
+
+  it("The Plateau lets mult be added and never multiplied", () => {
+    const base = underBoss("plateau")
+    const steel: RunState = {
+      ...base,
+      letters: { ...base.letters, a: { etch: 0, destroyed: false, mod: "steel" } },
+    }
+    // Steel is ×1.5, Anagrammer is ×2, and BRAID trips both. Under this boss
+    // the mult is exactly what the tiles paid, and the modifier still fires —
+    // only the multiplying part of it is swallowed.
+    const plateau = apply({ ...steel, jokers: [{ id: "anagrammer" }] }, type("braid"))
+    expect(plateau.blind.guesses[0]?.mult).toBe(apply(base, type("braid")).blind.guesses[0]?.mult)
+    // Five greens: 1 + 5×3 = 16.
+    expect(plateau.blind.guesses[0]?.mult).toBe(16)
+
+    // The same board without the boss is the control, and it is 42 rather than
+    // 48 because the steel fires *during* the row: 10 at the A, ×1.5 to 15, then
+    // the last two greens, then Anagrammer's ×2 on 21. That interleave is the
+    // pipeline working as documented, and it is exactly what The Plateau spares
+    // the player from having to think about — under the boss there is nothing to
+    // order, because nothing multiplies.
+    const loose = apply(
+      { ...steel, blind: { ...steel.blind, bossId: null }, jokers: [{ id: "anagrammer" }] },
+      type("braid"),
+    )
+    expect(loose.blind.guesses[0]?.mult).toBe(42)
+  })
+
+  /*
+   * `positional` is a claim the UI acts on — the key's tip stops quoting a chip
+   * value and quotes the rule instead — so a boss that reads the column and
+   * forgot to say so would leave every key announcing what the first column
+   * pays. Detected rather than trusted: score the same tile twice in different
+   * columns and see whether the answer moves.
+   */
+  it("makes every boss that reads the column say so", () => {
+    const blind = startRun(1, words).state.blind
+    for (const boss of BOSSES) {
+      if (!boss.tileChips) continue
+      const at = (index: number) =>
+        boss.tileChips?.(5, { letter: "a", color: "gray", shown: "gray" }, blind, index)
+      const moves = at(0) !== at(2) || at(2) !== at(4)
+      expect(Boolean(boss.positional), `${boss.id} positional flag`).toBe(moves)
+    }
   })
 
   it("gives every boss a band, and every band enough bosses to fill its antes", () => {

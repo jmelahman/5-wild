@@ -17,9 +17,14 @@ import type { BlindState, RunState, Tile } from "./state"
  * where no build exists yet to survive it.
  *
  * So the draw is now without replacement *within a band*. A run meets three of
- * the four early bosses, three of the four mid, two of the four late — never
+ * the five early bosses, three of the five mid, two of the five late — never
  * the same one twice, never a late boss early, and never the same set twice
  * either, which is what the old scheme gave up in exchange for completeness.
+ *
+ * Because the bands are drawn short, every boss added to a band is a boss some
+ * runs will not meet, and that is the argument for adding them in threes: one
+ * per band keeps the odds of meeting any particular one even, and keeps a band
+ * from becoming the one where you already know what is coming.
  */
 export type BossTier = "early" | "mid" | "late"
 
@@ -55,8 +60,27 @@ export type Boss = {
   note?: (tiles: readonly Tile[]) => string | null
   /** A rejection reason, or null to allow the guess. */
   validate?: (word: string, blind: BlindState) => string | null
-  /** Bends a tile's base chip value. */
-  tileChips?: (base: number, tile: Tile, blind: BlindState) => number
+  /** Bends a tile's base chip value. `index` is the column it was played in. */
+  tileChips?: (base: number, tile: Tile, blind: BlindState, index: number) => number
+  /**
+   * `tileChips` reads the column, so what a letter is worth is not a fact about
+   * the letter. Declared rather than inferred because the UI is what needs to
+   * know: anything that prices a single letter — the key's tip, most obviously
+   * — has to stop quoting a number and start quoting the rule.
+   */
+  positional?: true
+  /**
+   * Letter modifiers do not fire this blind. A flag rather than a hook because
+   * there is nothing to compute — the layer is simply switched off, and the one
+   * place that decides whether to run a modifier is the one place that reads it.
+   */
+  noModifiers?: true
+  /**
+   * `timesMult` does nothing; mult may only be added. Same reasoning as
+   * `noModifiers`, and it deliberately catches everything multiplicative at
+   * once — jokers, modifiers, category levels — rather than naming a source.
+   */
+  noTimesMult?: true
   /** Rewrites the solve multiplier, jokers included. Applied last, so a cap caps. */
   solveBonus?: (base: number, blind: BlindState) => number
 }
@@ -226,6 +250,62 @@ export const BOSSES: readonly Boss[] = [
     // you added". Which is why it caught alphabet range levels for free, and
     // why the text says upgrades rather than naming either line.
     tileChips: (_base, tile) => LETTER_CHIPS[tile.letter] ?? 0,
+  },
+  {
+    id: "margin",
+    tier: "early",
+    name: "The Margin",
+    text: "The first and last letters score no chips.",
+    // The first boss that cares *where* a letter was played, which is a pole
+    // nothing else in the set attacks — every other chip boss asks what the
+    // letter is or whether it has been spent. The columns are the expensive
+    // ones: 2.34 and 2.15 mean chips against 1.48–1.69 for the middle three, so
+    // this takes 4.49 of an average word's 9.30. Nearly half, and all of it
+    // recoverable by a player who moves the heavy letters inward, which is the
+    // counterplay — an early boss should teach a habit rather than tax one.
+    //
+    // ×0.85 on the mean blind score over 250 seeds, which lands it exactly on
+    // The Drought in the same band. Two early bosses that each cost a sixth of
+    // the pile by refusing to pay for a different thing is the shape that band
+    // is for.
+    positional: true,
+    tileChips: (base, _tile, blind, index) =>
+      index === 0 || index === blind.answer.length - 1 ? 0 : base,
+  },
+  {
+    id: "vandal",
+    tier: "mid",
+    name: "The Vandal",
+    text: "Letter modifiers do nothing.",
+    // The etching line has The Rust; the modifier line had nothing, which left
+    // the layer the run spends most of its shop money on unattackable. This is
+    // the counterpart, and mid rather than late on purpose: by ante 4 a run has
+    // two or three modifiers placed and the loss is felt, but it is not yet the
+    // whole build, so the blind reads as a setback instead of a wall.
+    //
+    // The bite scales with what the run actually bought, which is the property
+    // worth having. Over 250 seeds it costs a board with one modifier ×0.60, two
+    // ×0.52, three ×0.45 — and a run that placed nothing does not notice it at
+    // all. No other boss prices itself off the player's own investment, and it
+    // is why this one can hit as hard as a late boss without landing like one.
+    noModifiers: true,
+  },
+  {
+    id: "plateau",
+    tier: "late",
+    name: "The Plateau",
+    text: "Multiplying effects do nothing. Mult may only be added.",
+    // The late band is where builds are finished, and a finished build wins by
+    // multiplying — Anagrammer, Speedrunner, The Chorus, a levelled category, a
+    // ×mult etching. Nothing in the game attacked that side, so the answer to
+    // every late boss was the same stack. This one asks the opposite question:
+    // what does the build score when only the flat half fires? A run that bought
+    // Masochist and Sunk Cost walks through it, which is the whole idea.
+    //
+    // ×0.51 over 250 seeds against a tray holding one ×mult joker, which puts it
+    // level with The Auditor — the other late boss that takes a multiplier away
+    // — and they take different ones, so a build cannot be safe from both.
+    noTimesMult: true,
   },
 ]
 
