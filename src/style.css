@@ -86,6 +86,26 @@ button {
   cursor: pointer;
 }
 
+/*
+ * One ring, everywhere, and only for the keyboard — `:focus-visible` leaves a
+ * tapped button alone. It is spelled out rather than left to the browser because
+ * every surface here is dark and custom-coloured, and the default ring is drawn
+ * assuming neither. Without it the sheets are tabbable but the tab is invisible,
+ * which is the same problem one step further on.
+ */
+:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 2px;
+}
+
+/* The exception: a sheet takes focus when it opens so the keyboard starts
+   inside it, and a ring around the whole panel would announce that as a
+   selection. It is a destination, not a control. */
+.sheet:focus,
+.sheet:focus-visible {
+  outline: none;
+}
+
 #app {
   display: flex;
   flex-direction: column;
@@ -598,6 +618,18 @@ button {
 
 /* ------------------------------------------------------------- category */
 
+/* The slot the fill writes into — always in the document, empty or not, so the
+   draft patch has somewhere to write. It centres because a `button` sizes to
+   its content: before the slot existed the button was a flex item of `.screen`
+   and got stretched the full width, which is what its own `justify-content`
+   was centring against. Wrapped in a plain div it kept the centring rule and
+   lost the width, and slid to the left margin. */
+.category-slot {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: center;
+}
+
 /* Sits directly above the readout it feeds, and stays quiet at level one: a
    category worth nothing yet is a label, not a number. When it does pay, it
    lights the same way a joker card does — that is what it has become. */
@@ -800,6 +832,23 @@ button {
 /* ------------------------------------------------------------- keyboard */
 
 /*
+ * The key height is declared on the screen rather than on the keyboard, because
+ * the toast has to clear the keyboard and is not inside it. One definition, two
+ * readers — a second copy is a second thing to keep in step, and the one that
+ * drifts is the one nothing draws.
+ */
+.blind-screen {
+  /* Taller than it is wide, and taller than the old 2.75rem, because the keys
+     are the thing being aimed at. Capped so a tall phone does not spend its
+     extra height on the keyboard when the board wants it more. */
+  --key-h: clamp(2.75rem, 7svh, 3.375rem);
+  /* Three key rows, the two gaps between them, the screen's own bottom padding,
+     and a gap above. Everything between the foot of the viewport and the top of
+     the keyboard, which is where a refusal has to land to be read. */
+  --toast-lift: calc(3 * var(--key-h) + 0.75rem + 0.5rem + 1rem);
+}
+
+/*
  * Wordle's proportions, and for its reason: every key is the same width, so the
  * nine-key middle row comes out narrower than the ten-key top row and centres.
  * Stretching each row to full width instead — the obvious flexbox default —
@@ -814,10 +863,6 @@ button {
   /* The widest row is ten keys and nine gaps; that divides into the unit every
      key in every row is then built from. */
   --key-w: calc((100% - 9 * var(--key-gap)) / 10);
-  /* Taller than it is wide, and taller than the old 2.75rem, because the keys
-     are the thing being aimed at. Capped so a tall phone does not spend its
-     extra height on the keyboard when the board wants it more. */
-  --key-h: clamp(2.75rem, 7svh, 3.375rem);
 }
 
 .key-row {
@@ -1717,9 +1762,20 @@ button {
 }
 
 .ladder-name {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3125rem;
   font-size: 0.9375rem;
   font-weight: 700;
   letter-spacing: 0.04em;
+}
+
+/* Smaller than the text it sits beside: it is a state, not a heading, and an
+   emoji rendered at its natural weight would outshout the level it marks. */
+.ladder-lock {
+  font-size: 0.75rem;
+  line-height: 1;
 }
 
 .ladder-rule {
@@ -1743,13 +1799,21 @@ button {
   color: color-mix(in srgb, var(--gold) 80%, var(--muted));
 }
 
-/*
- * The same line, saying the opposite thing: this rung has not been earned. Red
- * rather than gold, and no louder than that — it is a caution about the shape of
- * the climb, not a refusal, and the button above it still works.
- */
-.ladder-note.warn {
-  color: color-mix(in srgb, var(--mult) 80%, var(--muted));
+/* Where the carrot goes when the level is above what was earned. Muted rather
+   than red: this is advice, and the second sentence of it grants permission —
+   a warning colour would be the screen arguing with a decision it just allowed. */
+.ladder-warn {
+  margin-top: 0.25rem;
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+/* Dimmed, not alarmed. The box keeps whatever colour its level earned it and
+   loses a little confidence, which is the whole of what a lock means here. */
+.ladder.locked {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--muted) 55%, transparent);
 }
 
 /*
@@ -1986,10 +2050,19 @@ button {
 
 /* ---------------------------------------------------------------- toast */
 
+/* Lifted clear of the keyboard on the board, and sat at the foot of the screen
+   anywhere else — the shop has no keyboard to clear, so it keeps the fallback.
+
+   The z-index is not decoration. `.key` is `position: relative` for the sake of
+   its own pseudo-elements, which makes every key a positioned box at the same
+   auto level as this one; document order then decides, the keyboard is written
+   after the toast, and the refusal loses. It was being drawn all along,
+   underneath the row of keys the player was about to press again. */
 .toast {
   position: fixed;
+  z-index: 6;
   left: 50%;
-  bottom: calc(var(--safe-bottom) + 1rem);
+  bottom: calc(var(--safe-bottom) + var(--toast-lift, 1rem));
   transform: translateX(-50%);
   max-width: 90vw;
   padding: 0.5rem 0.875rem;

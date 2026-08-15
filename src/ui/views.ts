@@ -49,7 +49,14 @@ import {
 import { h } from "./dom"
 import { money, formatNumber as num } from "./format"
 import type { MetaState } from "./meta"
-import { blindsPlayed, chosenAscension, favouriteJokers, favouriteWord, unlocked } from "./meta"
+import {
+  blindsPlayed,
+  chosenAscension,
+  favouriteJokers,
+  favouriteWord,
+  isLocked,
+  unlocked,
+} from "./meta"
 
 export type Handlers = {
   key: (letter: string) => void
@@ -660,7 +667,7 @@ export function packView(state: RunState, on: Handlers): HTMLElement | null {
     { class: "overlay pack-overlay" },
     h(
       "div",
-      { class: "sheet pack-sheet" },
+      { class: "sheet pack-sheet", ...SHEET_ATTRS },
       h("h2", { class: "sheet-title" }, pack?.name ?? "Pack"),
       h(
         "p",
@@ -749,7 +756,7 @@ export function placeView(state: RunState, on: Handlers): HTMLElement | null {
     { class: "overlay pack-overlay" },
     h(
       "div",
-      { class: "sheet pack-sheet" },
+      { class: "sheet pack-sheet", ...SHEET_ATTRS },
       h("h2", { class: "sheet-title" }, modifier.name),
       h("p", { class: "pack-hint" }, `Choose a letter. It ${modifier.text}.`),
       h(
@@ -973,7 +980,7 @@ export function titleView(on: Handlers, chrome: Chrome, meta: MetaState): HTMLEl
     "div",
     { class: "screen center title" },
     h("h1", { class: "title-name" }, "5 WILD"),
-    h("p", { class: "title-tag" }, "A Wordle roguelike"),
+    h("p", { class: "title-tag" }, "A word-guessing roguelike"),
     record(meta, on),
     ladder(on, meta),
     h("button", { class: "primary", type: "button", onclick: () => on.newRun() }, "Play"),
@@ -1128,22 +1135,23 @@ export function statsView(meta: MetaState, pool: number, on: Handlers): HTMLElem
  * already finished it; showing it makes six named rules part of what the game
  * looks like, not a reward for having seen the ending.
  *
- * Nothing above what has been won is locked, only warned about. The climb is
- * still the intended shape — each rung is one new rule to learn, and the note
+ * Above what has been won the rung wears a lock, and the lock yields. The climb
+ * is still the intended shape — each rung is one new rule to learn, and the note
  * under an unearned level says so — but a player who wants to open on Tyranny is
  * making a choice about their own evening, and a disabled button is the wrong
- * answer to that.
+ * answer to that. A lock that states its reason and then lets you past is worth
+ * more than a `+` that stops responding and explains nothing.
  *
  * A stepper rather than a list of six buttons, because the ladder is ordered and
  * cumulative — the question is "how far up", not "which one". The level's own
  * rule is spelled out under it; the ones below are named on the intro card of
  * every blind, and written out in full in the codex.
  */
-function ladder(on: Handlers, meta: MetaState): HTMLElement | null {
+function ladder(on: Handlers, meta: MetaState): HTMLElement {
   const top = unlocked(meta)
   const level = chosenAscension(meta)
   const rule = ascensionAt(level)
-  const ahead = level > top
+  const locked = isLocked(meta, level)
 
   const step = (label: string, to: number, live: boolean) =>
     h(
@@ -1160,7 +1168,7 @@ function ladder(on: Handlers, meta: MetaState): HTMLElement | null {
 
   return h(
     "div",
-    { class: `ladder ${level > 0 ? "lit" : ""}` },
+    { class: `ladder ${level > 0 ? "lit" : ""} ${locked ? "locked" : ""}` },
     h(
       "div",
       { class: "ladder-row" },
@@ -1168,7 +1176,14 @@ function ladder(on: Handlers, meta: MetaState): HTMLElement | null {
       h(
         "div",
         { class: "ladder-level" },
-        h("span", { class: "ladder-name" }, `Ascension ${level}`),
+        h(
+          "span",
+          { class: "ladder-name" },
+          // The lock rides the name rather than sitting in the note alone, so
+          // the state is legible from the one line the eye lands on first.
+          locked && h("span", { class: "ladder-lock", "aria-label": "Locked" }, "🔒"),
+          `Ascension ${level}`,
+        ),
         rule && h("span", { class: "ladder-rule" }, rule.name),
       ),
       step("+", level + 1, level < MAX_ASCENSION),
@@ -1183,11 +1198,13 @@ function ladder(on: Handlers, meta: MetaState): HTMLElement | null {
         : "The game as it is written, with nothing extra asked of you.",
     ),
     // One line under the dial, and which one it is says where the player stands
-    // on the ladder: past the climb, at its edge, or partway up it.
-    ahead
+    // on the ladder: past the climb, at its edge, or partway up it. The warning
+    // displaces the carrot rather than joining it — they are the same line doing
+    // the same job in opposite directions, which is "what to aim at next".
+    locked
       ? h(
           "p",
-          { class: "ladder-note warn" },
+          { class: "ladder-warn" },
           top === 0
             ? "Meant to be met after a win. You can start here anyway."
             : `Ascension ${top} hasn't been won yet — these are meant to be climbed one at a time.`,
@@ -1216,6 +1233,18 @@ function buildStamp(): string {
 /* -------------------------------------------------------------- overlays */
 
 /**
+ * What every sheet wears, whichever shell built it.
+ *
+ * `tabindex="-1"` is the load-bearing one: it is what lets focus be *put* on the
+ * sheet when it opens without putting the sheet in the tab order itself, which
+ * is how the keyboard gets inside a thing that was appended to the document
+ * rather than navigated to. The two ARIA attributes say the same thing to a
+ * screen reader that the backdrop says to everyone else — nothing behind this is
+ * available until it is dealt with.
+ */
+export const SHEET_ATTRS = { role: "dialog", "aria-modal": "true", tabindex: -1 }
+
+/**
  * Everything modal shares this shell. The backdrop closes on tap, which on a
  * phone is the gesture people reach for before they look for a button.
  */
@@ -1227,6 +1256,7 @@ function overlay(on: Handlers, ...body: (HTMLElement | string | false | null)[])
       "div",
       {
         class: "sheet",
+        ...SHEET_ATTRS,
         // Taps inside the sheet are for the sheet; without this every button
         // press would also dismiss the thing it was pressed in.
         onclick: (event: Event) => event.stopPropagation(),

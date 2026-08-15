@@ -100,6 +100,9 @@ const GUESS_CAP = 12
  */
 export const unlocked = (meta: MetaState): number => Math.min(MAX_ASCENSION, meta.cleared + 1)
 
+/** Whether a level is above what the record has earned, and so wears a lock. */
+export const isLocked = (meta: MetaState, level: number): boolean => level > unlocked(meta)
+
 /**
  * The level a new run would start at.
  *

@@ -751,6 +751,30 @@ export class App {
 
     clear(this.root).append(view)
     if (sheet) this.root.append(sheet)
+    this.holdFocus()
+  }
+
+  /**
+   * Put the keyboard inside the sheet, and keep it there.
+   *
+   * Called after every render rather than only on the one that opened the sheet,
+   * because a render throws the whole screen away and builds a new one — the
+   * focused node goes in the bin with it, and without this the tab order silently
+   * resets to the top of the document behind the backdrop on every action.
+   *
+   * The sheet itself takes focus rather than its first button: a screen reader
+   * then starts at the title and reads down, where landing on "Open the codex"
+   * would announce the last thing in the sheet as though it were the point of it.
+   *
+   * Nothing is restored on close, and that is not an oversight — the element that
+   * opened the sheet was destroyed by the render that opened it, so there is no
+   * node left to hand focus back to. Focus falls to the body, which is where the
+   * board wants it anyway: every key the game reads is bound to `window`.
+   */
+  private holdFocus(): void {
+    const sheet = this.root.querySelector<HTMLElement>(".sheet")
+    if (!sheet) return
+    if (!sheet.contains(document.activeElement)) sheet.focus()
   }
 
   /* ----------------------------------------------------------------- save */
@@ -800,6 +824,15 @@ export class App {
     // Desktop convenience during development; harmless on a phone.
     window.addEventListener("keydown", (event) => {
       if (event.metaKey || event.ctrlKey || event.altKey) return
+      // Tab is the one key an open sheet does not swallow, and the reason this
+      // check sits above the overlay branch rather than inside it: the pack and
+      // the letter picker are modal too, and they are held by the engine rather
+      // than by `overlay`. Everything wearing `.sheet` traps the same way.
+      const sheet = this.root.querySelector<HTMLElement>(".sheet")
+      if (sheet && event.key === "Tab") {
+        trapTab(sheet, event)
+        return
+      }
       if (this.overlay) {
         // A sheet is modal, so it swallows everything and Escape dismisses it.
         if (event.key === "Escape") this.handlers.closeOverlay()
@@ -829,6 +862,48 @@ export class App {
       event.preventDefault()
     })
   }
+}
+
+/**
+ * Everything in a sheet a Tab can land on, in the order Tab would visit it.
+ *
+ * Disabled buttons are excluded because the browser skips them anyway, and a
+ * trap that thinks a disabled button is the last stop would wrap early — the
+ * quit sheet and the shop both carry buttons that disable themselves.
+ */
+const focusableIn = (sheet: HTMLElement): HTMLElement[] => [
+  ...sheet.querySelectorAll<HTMLElement>(
+    'button:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+  ),
+]
+
+/**
+ * Keep Tab inside the open sheet.
+ *
+ * Without this, tabbing off the last button walks into the screen *behind* the
+ * backdrop — buttons that are visible, pressable, and were supposed to be
+ * unreachable until the sheet was dealt with. The wrap is the whole of what
+ * makes a sheet modal to a keyboard rather than only to a mouse.
+ */
+function trapTab(sheet: HTMLElement, event: KeyboardEvent): void {
+  const focusable = focusableIn(sheet)
+  const active = document.activeElement
+  if (focusable.length === 0) {
+    // Nothing to move to, so the only correct move is not to move.
+    event.preventDefault()
+    return
+  }
+  const first = focusable[0]
+  const last = focusable[focusable.length - 1]
+  // Forward off the end, backward off the front, or adrift outside the sheet
+  // entirely. Backward from the sheet itself counts as off the front: it holds
+  // focus on the way in, and it sits before everything it contains.
+  const leaving = event.shiftKey
+    ? active === first || active === sheet || !sheet.contains(active)
+    : active === last || !sheet.contains(active)
+  if (!leaving) return
+  event.preventDefault()
+  ;(event.shiftKey ? last : first)?.focus()
 }
 
 function clearSave(): void {

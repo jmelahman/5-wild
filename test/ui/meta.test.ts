@@ -6,6 +6,7 @@ import {
   chosenAscension,
   favouriteJokers,
   favouriteWord,
+  isLocked,
   loadMeta,
   Profile,
   unlocked,
@@ -209,6 +210,16 @@ describe("what the ladder offers", () => {
     // nearest legal level is what stops that record from being an unstartable run.
     expect(chosenAscension(meta({ cleared: 99, ascension: 99 }))).toBe(MAX_ASCENSION)
     expect(chosenAscension(meta({ ascension: -4 }))).toBe(0)
+  })
+
+  it("locks every level above the hardest earned, and nothing at or below it", () => {
+    const fresh = meta({ cleared: -1 })
+    expect(isLocked(fresh, 0)).toBe(false)
+    expect(isLocked(fresh, 1)).toBe(true)
+
+    const won = meta({ cleared: 2 })
+    expect(isLocked(won, 3)).toBe(false)
+    expect(isLocked(won, 4)).toBe(true)
   })
 })
 
