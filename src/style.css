@@ -1787,9 +1787,13 @@ button {
 
 /* ------------------------------------------------------------- the record */
 
+/* Three across, two down. Four across fit the first four figures and had no room
+   for the next two; three gives every label a line of its own on a 390px screen
+   and splits the six along the seam they already had — the run record above, the
+   word record below. */
 .figures {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 0.25rem;
 }
 

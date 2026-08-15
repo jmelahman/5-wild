@@ -66,6 +66,21 @@ export type MetaState = {
   /** Blinds that ended with the answer still hidden, won on score or lost. */
   missed: number
   /**
+   * Blinds solved back to back, right now.
+   *
+   * Counted across runs rather than inside one, which is the whole reason it is
+   * interesting: a run ends every few minutes and takes its own numbers with it,
+   * so a streak scoped to a run would top out around fifteen and reset on
+   * something the player did not choose. This one is only ever broken by a blind
+   * where the word did not come, which is the thing it is asking about.
+   *
+   * A blind solved and then lost on score keeps the streak alive. The question
+   * is whether the word was found, and it was.
+   */
+  streak: number
+  /** The longest that run of solves has ever been. */
+  bestStreak: number
+  /**
    * Every distinct answer ever cracked, sorted.
    *
    * The one growing field, and the only one that earns it: it is bounded by the
@@ -92,6 +107,8 @@ const FRESH: MetaState = {
   guesses: 0,
   solves: [],
   missed: 0,
+  streak: 0,
+  bestStreak: 0,
   cracked: [],
   words: {},
   jokers: {},
@@ -134,9 +151,30 @@ export const isLocked = (meta: MetaState, level: number): boolean => level > unl
  */
 export const chosenAscension = (meta: MetaState): number => clampAscension(meta.ascension)
 
+/** Blinds whose word was found, on whichever guess found it. */
+export const wordsFound = (meta: MetaState): number =>
+  meta.solves.reduce((sum, count) => sum + count, 0)
+
 /** Blinds that reached an ending, which is what the breakdown is a breakdown of. */
-export const blindsPlayed = (meta: MetaState): number =>
-  meta.missed + meta.solves.reduce((sum, count) => sum + count, 0)
+export const blindsPlayed = (meta: MetaState): number => meta.missed + wordsFound(meta)
+
+/**
+ * Which guess a solve lands on on average, or null before one has.
+ *
+ * The number the distribution has always implied and never said. A player reads
+ * five bars and comes away with an impression; this is the impression as a
+ * figure, and it is the one that moves when they get better at the game — the
+ * bars can look much the same while the weight shifts a column to the left.
+ *
+ * Averaged over solves and not over blinds, so a blind where the word never came
+ * is not a sixth guess dragging the mean up. Never found is its own row, and
+ * folding it in here would make one number answer two questions badly.
+ */
+export function meanSolve(meta: MetaState): number | null {
+  const found = wordsFound(meta)
+  if (found === 0) return null
+  return meta.solves.reduce((sum, count, at) => sum + at * count, 0) / found
+}
 
 /**
  * The word played most, and how often — or null before anything has been.
@@ -246,15 +284,18 @@ export class Profile {
     while (solves.length <= at) solves.push(0)
     solves[at] = (solves[at] ?? 0) + 1
     const known = this.state.cracked.includes(answer)
+    const streak = this.state.streak + 1
     this.write({
       solves,
+      streak,
+      bestStreak: Math.max(this.state.bestStreak, streak),
       ...(known ? {} : { cracked: [...this.state.cracked, answer].sort() }),
     })
   }
 
-  /** A blind that ended with the answer never found. */
+  /** A blind that ended with the answer never found. The one thing that breaks a streak. */
   missed(): void {
-    this.write({ missed: this.state.missed + 1 })
+    this.write({ missed: this.state.missed + 1, streak: 0 })
   }
 
   /** A joker joining the tray, however it got there. */
@@ -306,6 +347,11 @@ export function loadMeta(): MetaState {
       guesses: count(meta.guesses),
       solves: counts(meta.solves).slice(0, GUESS_CAP + 1),
       missed: count(meta.missed),
+      streak: count(meta.streak),
+      // Read independently rather than as `max(stored, streak)`: a hand-edited
+      // record claiming a streak of 400 should say so on one line, not quietly
+      // promote itself to a best as well.
+      bestStreak: count(meta.bestStreak),
       cracked: collection(meta.cracked),
       words: table(meta.words, WORD_SLOTS),
       jokers: table(meta.jokers),

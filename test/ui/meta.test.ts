@@ -8,8 +8,10 @@ import {
   favouriteWord,
   isLocked,
   loadMeta,
+  meanSolve,
   Profile,
   unlocked,
+  wordsFound,
 } from "../../src/ui/meta"
 
 const KEY = "5wild:meta:v2"
@@ -49,6 +51,8 @@ const FRESH: MetaState = {
   guesses: 0,
   solves: [],
   missed: 0,
+  streak: 0,
+  bestStreak: 0,
   cracked: [],
   words: {},
   jokers: {},
@@ -78,6 +82,8 @@ describe("reading the record", () => {
       guesses: 431,
       solves: [0, 1, 4, 19, 22, 9],
       missed: 7,
+      streak: 3,
+      bestStreak: 11,
       cracked: ["crane", "slate"],
       words: { crane: 88, slate: 12 },
       jokers: { snowball: 3 },
@@ -291,6 +297,59 @@ describe("what the runs added up to", () => {
     expect(profile.stats.cracked).toEqual(["crane"])
   })
 
+  it("counts solves back to back and keeps the longest run of them", () => {
+    const profile = new Profile()
+    profile.solved("crane", 3)
+    profile.solved("slate", 4)
+    profile.solved("mound", 2)
+    expect(profile.stats.streak).toBe(3)
+    expect(profile.stats.bestStreak).toBe(3)
+
+    // The one counter in the record that goes down, and the one thing that
+    // sends it down.
+    profile.missed()
+    expect(profile.stats.streak).toBe(0)
+    expect(profile.stats.bestStreak).toBe(3)
+
+    profile.solved("adobe", 5)
+    expect(profile.stats.streak).toBe(1)
+    expect(profile.stats.bestStreak).toBe(3)
+  })
+
+  it("carries a streak across runs, because a run ending is not a word missed", () => {
+    const profile = new Profile()
+    profile.solved("crane", 3)
+    // A win, a fresh run, and the streak is still standing: it is a count of
+    // words found, and nothing here is a word that was not found.
+    profile.won(2)
+    profile.started()
+    profile.solved("slate", 3)
+    expect(profile.stats.streak).toBe(2)
+  })
+
+  it("averages over the solves and not over the blinds", () => {
+    const profile = new Profile()
+    profile.solved("crane", 2)
+    profile.solved("slate", 4)
+    expect(meanSolve(profile.stats)).toBe(3)
+
+    // A blind where the word never came has its own row on the chart. Counting
+    // it here as a seventh guess would make one number answer two questions
+    // badly, and would move the mean on a blind that has no guess to average.
+    profile.missed()
+    expect(meanSolve(profile.stats)).toBe(3)
+    expect(wordsFound(profile.stats)).toBe(2)
+    expect(blindsPlayed(profile.stats)).toBe(3)
+  })
+
+  it("has no average at all before a word has been found", () => {
+    const profile = new Profile()
+    profile.missed()
+    // Null rather than zero, so the screen can say "—" instead of claiming this
+    // player solves on the zeroth guess.
+    expect(meanSolve(profile.stats)).toBe(null)
+  })
+
   it("keeps a wild guess count inside the row it has", () => {
     const profile = new Profile()
     profile.solved("crane", 0)
@@ -330,6 +389,13 @@ describe("salvaging the longer record", () => {
       cracked: ["crane"],
       words: {},
     })
+  })
+
+  it("will not let a claimed streak promote itself to a record", () => {
+    // Read field by field rather than as `max(streak, bestStreak)`. A record
+    // hand-edited to say 400 says it on one line and gets nothing for it.
+    store.items.set(KEY, JSON.stringify({ streak: 400, bestStreak: 2 }))
+    expect(loadMeta()).toMatchObject({ streak: 400, bestStreak: 2 })
   })
 
   it("trims a word table that arrives too big for its slots", () => {

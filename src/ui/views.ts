@@ -60,7 +60,9 @@ import {
   favouriteJokers,
   favouriteWord,
   isLocked,
+  meanSolve,
   unlocked,
+  wordsFound,
 } from "./meta"
 
 export type Handlers = {
@@ -1261,11 +1263,26 @@ function record(meta: MetaState, on: Handlers): HTMLElement | null {
 export function statsView(meta: MetaState, pool: number, on: Handlers): HTMLElement {
   const played = blindsPlayed(meta)
   const best = favouriteWord(meta)
-  const solved = meta.solves.reduce((sum, count) => sum + count, 0)
+  const solved = wordsFound(meta)
+  const mean = meanSolve(meta)
+
+  /** The tallest row in the chart. Never zero, so an empty chart cannot divide by it. */
+  const peak = Math.max(1, meta.missed, ...meta.solves)
 
   const figure = (label: string, value: string) =>
     h("div", { class: "figure" }, h("strong", {}, value), h("span", {}, label))
 
+  /**
+   * Two readings of the same number, on purpose.
+   *
+   * The percentage is the share of every blind ever played, which is the honest
+   * one and is what a player would mean by "how often". The bar is drawn against
+   * the tallest row instead. A distribution whose mode is 31% would otherwise
+   * spend the whole chart in the left third of the track, and the shape — did the
+   * answers come on the third guess or the fifth, is the peak sharp or flat — is
+   * the entire reason a bar is here rather than a fourth column of digits. The
+   * label carries the truth and the bar carries the shape.
+   */
   const bar = (label: string, count: number, tone: string) => {
     const share = played > 0 ? count / played : 0
     return h(
@@ -1275,7 +1292,10 @@ export function statsView(meta: MetaState, pool: number, on: Handlers): HTMLElem
       h(
         "span",
         { class: "breakdown-track" },
-        h("span", { class: "breakdown-fill", style: `--fill:${(share * 100).toFixed(1)}%` }),
+        h("span", {
+          class: "breakdown-fill",
+          style: `--fill:${((count / peak) * 100).toFixed(1)}%`,
+        }),
       ),
       h("span", { class: "breakdown-share" }, `${Math.round(share * 100)}%`),
       h("span", { class: "breakdown-count" }, num(count)),
@@ -1294,6 +1314,13 @@ export function statsView(meta: MetaState, pool: number, on: Handlers): HTMLElem
       figure(meta.wins === 1 ? "win" : "wins", num(meta.wins)),
       figure("best ante", num(meta.bestAnte)),
       figure("guesses", num(meta.guesses)),
+      // Three across and two down rather than four across, which is what buys the
+      // second row: the top one is the run record and the bottom one is the word
+      // record, and a player who wants to know whether they are getting better at
+      // the game reads the bottom row. An em dash rather than a zero before any
+      // blind has ended — 0% solved is a claim, and this player has not made it.
+      figure("solved", played > 0 ? `${Math.round((solved / played) * 100)}%` : "—"),
+      figure("avg guess", mean === null ? "—" : mean.toFixed(1)),
     ),
     h(
       "p",
@@ -1321,13 +1348,12 @@ export function statsView(meta: MetaState, pool: number, on: Handlers): HTMLElem
             count > 0 ? [bar(`Solved in ${at}`, count, "won")] : [],
           ),
           meta.missed > 0 ? bar("Never found", meta.missed, "lost") : null,
-          h(
-            "p",
-            { class: "stat-foot" },
-            solved > 0
-              ? `${Math.round((solved / played) * 100)}% of blinds gave up their word.`
-              : "No answer found yet.",
-          ),
+          // The percentage that used to sit here is a figure now, so the foot is
+          // free to say the thing a distribution structurally cannot: not how
+          // often the word comes, but how long it kept coming. It is the only
+          // number on this screen with any tension in it — every other one can
+          // just go up.
+          h("p", { class: "stat-foot" }, streakLine(meta)),
         )
       : null,
     jokers.length > 0
@@ -1347,6 +1373,27 @@ export function statsView(meta: MetaState, pool: number, on: Handlers): HTMLElem
       : null,
     h("button", { class: "primary", type: "button", onclick: () => on.closeOverlay() }, "Close"),
   )
+}
+
+/**
+ * The streak as a sentence, because it is two numbers that only mean something
+ * beside each other.
+ *
+ * "14" on its own is a boast with no date on it, and "3" on its own is noise.
+ * "14 in a row, 3 now" is a player being told how far they are off their own
+ * best, which is the only reading that earns the field its place in the record.
+ */
+export function streakLine(meta: MetaState): string {
+  if (meta.bestStreak === 0) return "No answer found yet."
+  // Level with the record and still climbing, so there is no gap to report and
+  // reporting one anyway — "14 in a row, 14 now" — reads as a bug rather than as
+  // the best thing that has happened to this player.
+  if (meta.streak === meta.bestStreak) {
+    return `${num(meta.streak)} solved in a row, and still going — the longest yet.`
+  }
+  return meta.streak > 0
+    ? `Longest streak: ${num(meta.bestStreak)} in a row, ${num(meta.streak)} now.`
+    : `Longest streak: ${num(meta.bestStreak)} in a row.`
 }
 
 /**
