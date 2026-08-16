@@ -1,10 +1,18 @@
 name: Android
 
-# Builds the sideloadable APK. Every push builds one so a break is caught at
-# the commit that caused it, but only a published release gets a signed build
+# Builds the two Android packages, which are the same code aimed at two doors.
+#
+# The APK is the sideload: every push builds one so a break is caught at the
+# commit that caused it, but only a published release gets a signed build
 # attached to it — that asset is the install path for a phone, reachable at
 # https://github.com/jmelahman/5-wild/releases/latest/download/5-wild.apk
 # without a GitHub login, which a workflow artifact is not.
+#
+# The AAB is for Play, which has not accepted APKs for new apps since 2021. It
+# stays a workflow artifact rather than a release asset on purpose: an .aab is
+# not installable, and a file sitting on the releases page beside the .apk is a
+# file someone will download and be unable to open. The only party who needs it
+# is whoever is doing the Play upload, and they are logged in already.
 on:
   push:
     branches:
@@ -58,14 +66,25 @@ jobs:
           printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
           echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
 
-      - name: Assemble release APK
+      # Both packages in one Gradle invocation: they share every task up to
+      # packaging, so building the pair costs a fraction of building each. The
+      # bundle is built on a plain push too, unsigned and discarded, for the
+      # reason the APK is — a break in it should surface at the commit that
+      # caused it, not on the evening someone is trying to ship.
+      - name: Assemble release APK and AAB
         env:
           # Monotonic across the repo's history, which is all Android asks of a
           # versionCode. The name is what shows up in the phone's app settings.
+          #
+          # Play is stricter than Android here: a versionCode may never be
+          # *reused*, even by a draft that was deleted without publishing. A
+          # re-run of a failed job keeps the same run_number, so if the first
+          # attempt got as far as a Play upload, the retry needs a bump — push
+          # an empty commit rather than re-running the job.
           ANDROID_VERSION_CODE: ${{ github.run_number }}
           ANDROID_VERSION_NAME: ${{ github.event.release.tag_name || github.sha }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-        run: ./gradlew assembleRelease --no-daemon
+        run: ./gradlew assembleRelease bundleRelease --no-daemon
         working-directory: android
 
       # Signed builds land as app-release.apk and unsigned ones as
@@ -80,6 +99,24 @@ jobs:
         with:
           name: 5-wild-apk
           path: 5-wild.apk
+          if-no-files-found: error
+
+      # Gradle does not suffix an unsigned bundle the way it does an unsigned
+      # APK, so both trigger paths write app-release.aab; the glob is only there
+      # so this step fails the same way its neighbour does if that ever changes.
+      - name: Name the AAB for humans
+        run: |
+          find android/app/build/outputs/bundle/release -name 'app-release*.aab' \
+            -exec mv {} 5-wild.aab \;
+          ls -l 5-wild.aab
+
+      # Kept out of the publish job below: that one attaches assets to the
+      # release, and this is not one. Download it from this run's artifacts when
+      # promoting a version to Play.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: 5-wild-aab
+          path: 5-wild.aab
           if-no-files-found: error
 
   publish:

@@ -61,6 +61,39 @@ Building locally additionally needs a JDK and the Android SDK:
 npm run apk        # build + cap sync + gradlew assembleDebug
 ```
 
+## Publishing to Play
+
+Play has not accepted APKs for new apps since 2021, so the release workflow
+builds an App Bundle alongside the APK and leaves it as a workflow artifact
+named `5-wild-aab`. Promoting a version is: cut the release as above, open that
+run in Actions, download the artifact, upload it in the Play Console. The `.aab`
+is deliberately not attached to the GitHub release — it is not installable, and
+sitting beside the `.apk` it would only be downloaded by mistake.
+
+The listing graphics are rendered from `assets/*.svg` and committed, the same
+arrangement as the launcher icons and for the same reason:
+
+```sh
+./tools/gen-store-art.sh   # assets/store/{icon,feature-graphic}.png
+```
+
+Play's sizes are exact rather than minimums and it checks them at the upload
+form, which is the worst place to find out; `test/store-art.test.ts` checks them
+here instead. The listing icon has its own source, `assets/icon-store.svg`,
+because Play applies its own rounding and a file with the radius already baked
+in shows up notched.
+
+Screenshots are the one listing asset that cannot be generated from source art,
+and the privacy policy Play requires of every app is served from
+`public/privacy/` at <https://5-wild.com/privacy/>.
+
+The signing story has one trap worth stating plainly. Play re-signs what you
+upload, so unless the existing keystore is handed to Play App Signing at the
+moment the app is created — a choice with no later undo — the Play build and the
+sideloaded APK are signed by different keys, which makes them *different apps* to
+Android. Anyone holding an install from the releases page would then have to
+uninstall to move to Play, and the save goes with it.
+
 ## Layout
 
 ```
