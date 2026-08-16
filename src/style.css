@@ -2000,25 +2000,27 @@ button {
  * a rule that wraps to two lines where the last one wrapped to one moved the
  * Play button under the thumb already on its way to it. Measured by stepping all
  * 101 levels at 390 and at 320 — the two ends of the widths this ever renders at
- * — the tallest rung comes to 108: the earned edge, whose rule wraps to two lines
+ * — the tallest rung comes to 110: the earned edge, whose rule wraps to two lines
  * and whose carrot sits under it. Both widths agree, because the rule tops out at
- * two lines either way. So 7rem, four pixels of slack over the worst case.
+ * two lines either way. So 7rem, two pixels of slack over the worst case.
  *
  * It was 8rem while a two-line warning could sit under an unearned level, then
  * 7rem once that line was cut, then 6.375rem when the padding that warning had
  * needed turned out to be padding around nothing. It is back at 7rem now, and the
- * four pixels bought there are the difference between the tallest rung being
- * exact and being cramped — at 6.75rem the sentence cleared the dial by 3px.
+ * pixels bought there are the difference between the tallest rung being exact and
+ * being cramped — at 6.75rem the sentence cleared the dial by 3px. Two of the four
+ * went to the label's own gap (see `.ladder-level`), which is what the rest of
+ * this comment's numbers were re-measured against.
  *
  * What changed under it: the box is a column now, and the rule text takes the
  * slack instead of the foot of the box (see `.ladder-text`). A pin sized to the
  * tallest rung leaves every shorter rung holding the difference, and the height
  * that stops the Play button moving should not decide where the white sits
  * inside a card that isn't that tall. Stepping all 101 rungs at both widths: box
- * 112 throughout, Play at a constant 462, the dial's row at a constant 10 from
- * the top, nothing overflowing. The sentence lands 21px clear of the dial on a
- * one-line rung, 13 on a two-line one, 5 on the earned edge where the carrot is
- * also in the box.
+ * 112 throughout, Play constant, the dial's row at a constant 10 from the top,
+ * nothing overflowing. Measured from the step row's bottom edge to the sentence's
+ * first glyph, it lands 27.4 clear of the dial on a one-line rung, 18.4 on a
+ * two-line one, 10.4 on the earned edge where the carrot is also in the box.
  *
  * That is the whole reason the measurement is written down: the next person to
  * delete a line needs to know these numbers were measured rather than chosen, or
@@ -2084,10 +2086,23 @@ button {
   font-size: 0.875rem;
 }
 
+/* The two lines of the label — which rung this is, and what it is called — with
+   air between them bought out of the leading rather than out of the box. The gap
+   was 1px, which put 2.3 between the glyphs against the 29.6 to the sentence
+   below: a ratio that read as one crushed line rather than as two.
+
+   Five pixels is what the row can hold. The `−` and `+` set the row's height at
+   32, and this column measures 15 + gap + 12.65; the gap only starts costing the
+   box anything past 4px, and the pin has four pixels of slack over the tallest
+   rung to spend after that. Six would have cost 1.65 of them and left the earned
+   edge's sentence 3px clear of the dial, which is the cramp `6.75rem` was
+   rejected for. Hence also `line-height: 1` on the name and not here: the rule
+   line wraps to two on the earned edge, and tightening its leading to pay for the
+   gap would only move the crush one line down. */
 .ladder-level {
   display: flex;
   flex-direction: column;
-  gap: 0.0625rem;
+  gap: 0.3125rem;
   line-height: 1.15;
 }
 
@@ -2111,6 +2126,10 @@ button {
   font-weight: 700;
   letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
+  /* Always one line — "Ascension 100" fits at 320 — so the leading under it is
+     dead space held between two lines it is not separating. Given to the column's
+     gap instead, where it is visible. */
+  line-height: 1;
 }
 
 /* Smaller than the text it sits beside: it is a state, not a heading, and an
@@ -2149,8 +2168,9 @@ button {
 
    The dial keeps its anchor at the top, because it is the thing a thumb aims at
    and it is the only part of the box that is pressed. Everything the pin does
-   not need goes here instead, split above and below the sentence: 21px either
-   side on a one-line rung, 13 on a two-line one. Centring the whole column
+   not need goes here instead, split above and below the sentence: 27.4 above and
+   30.6 below on a one-line rung, 18.4 and 21.6 on a two-line one, 10.4 and 10 on
+   the earned edge where the carrot takes the foot. Centring the whole column
    instead would have shared the slack the same way and taken the dial with it,
    sliding the buttons 8px up the box on whichever rung happened to wrap. */
 .ladder-text {
