@@ -61,6 +61,43 @@ describe("what a shop card says it is", () => {
     expect(describeItem(ONE_OF_EACH.relic, state).rarity).toBe("rare")
   })
 
+  /**
+   * A range card is bought for the letters it covers, and "A–E" is the one form
+   * of that fact a player has to expand themselves — mid-shop, under a price,
+   * against their own vocabulary. F–M is the case that matters: nobody reciting
+   * the endpoints thinks of I or L, which are the letters that decide whether
+   * the level is worth $7.
+   */
+  it("spells a range out letter by letter rather than naming its endpoints", () => {
+    const state = fresh()
+    const slices: [string, string][] = [
+      ["range_ae", "A B C D E"],
+      ["range_fm", "F G H I J K L M"],
+      ["range_nr", "N O P Q R"],
+      ["range_sz", "S T U V W X Y Z"],
+    ]
+    for (const [id, letters] of slices) {
+      const { text } = describeItem({ kind: "range", id, cost: 7 }, state)
+      expect(text, id).toBe(`${letters} are worth +4 chips per level`)
+    }
+  })
+
+  it("keeps a destroyed letter in the list, because the slice is fixed", () => {
+    // Dropping C would read as a differently-cut range rather than as a fact
+    // about this run, and the title above it still says A–E. Where a letter has
+    // died is a mark on its key, and has been since the moment it broke.
+    const state = fresh()
+    const c = state.letters.c
+    if (!c) throw new Error("no such letter: c")
+    const broken: RunState = {
+      ...state,
+      letters: { ...state.letters, c: { ...c, destroyed: true } },
+    }
+    expect(describeItem(ONE_OF_EACH.range, broken).text).toBe(
+      "A B C D E are worth +4 chips per level",
+    )
+  })
+
   it("turns the tag into a warning when there is nowhere to put the card", () => {
     const state = fresh()
     const full: RunState = {

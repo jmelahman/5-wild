@@ -1,4 +1,4 @@
-import type { BossTier, Modifier, Rarity, RunState, ShopItem } from "../engine"
+import type { BossTier, Modifier, Range, Rarity, RunState, ShopItem } from "../engine"
 import {
   ASCENSIONS,
   AUTHORED_ASCENSIONS,
@@ -956,6 +956,19 @@ export function rewardView(state: RunState, on: Handlers): HTMLElement {
 /* ---------------------------------------------------------------- the shop */
 
 /**
+ * What a range level buys, spelled out letter by letter.
+ *
+ * Shared between the shelf's card and the rules sheet's list because they are
+ * the same sentence about the same four cards, and the sheet is most often
+ * opened *from* the shop by a player deciding whether to buy the thing they are
+ * looking at. Two copies of it drifted apart once already: the sheet enumerated
+ * the letters from the day ranges landed and the card said "A–E letters", which
+ * is the shorter of the two and the one being read under a price.
+ */
+const rangeText = (range: Range): string =>
+  `${[...range.letters].join(" ").toUpperCase()} are worth +${CHIPS_PER_LEVEL} chips per level`
+
+/**
  * What a card says about itself. Split out from the card because a pack lays out
  * the same items the shop sells, and a Steel E ought to read identically whether
  * it is being bought or being chosen.
@@ -1112,7 +1125,21 @@ export function describeItem(
     // Named the same way a category level is — the level it buys, not the one
     // you hold — because the gold buys the step.
     title = range ? `${range.name} → Lv ${rangeLevelOf(state, item.id) + 1}` : "Range"
-    text = range ? `${range.name} letters are worth +${CHIPS_PER_LEVEL} chips per level` : ""
+    // Spelled out rather than named again. "A–E letters" is the title over
+    // again in the body's ink, and it asks a player mid-shop to expand a dash
+    // into five letters and check their own vocabulary against it — which is
+    // the whole decision the card is selling. F–M is the one that settles it:
+    // eight letters, and the ones that matter to a guess are the ones nobody
+    // recites when they read the endpoints. So it reads exactly the way an
+    // etching does — "A E I O U are worth +2 chips" — and exactly the way the
+    // same four ranges are already listed in the rules sheet.
+    //
+    // The whole slice, including any letter that has been destroyed. The range
+    // is a fixed partition of the alphabet and the title names it as one, so a
+    // list that quietly dropped C would read as a differently-cut range rather
+    // than as a fact about this run; deadness is a mark on the key, which is
+    // where the player has been reading it since the letter broke.
+    text = range ? rangeText(range) : ""
     tag = "Alphabet"
     tip = "It levels a slice of the alphabet, so every letter in it is worth more."
   } else if (item.kind === "level") {
@@ -2502,12 +2529,7 @@ export function codexView(on: Handlers): HTMLElement {
          letter, ranges raise a slice of the alphabet. Every letter sits in exactly one
          slice.`,
         ...ETCHINGS.map((etching) => entry(etching.name, etching.text, money(etching.cost))),
-        ...RANGES.map((range) =>
-          entry(
-            range.name,
-            `${[...range.letters].join(" ").toUpperCase()} are worth +${CHIPS_PER_LEVEL} chips per level`,
-          ),
-        ),
+        ...RANGES.map((range) => entry(range.name, rangeText(range))),
       ),
 
       section(
