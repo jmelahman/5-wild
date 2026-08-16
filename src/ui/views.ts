@@ -546,11 +546,23 @@ function keyboard(state: RunState, on: Handlers): HTMLElement {
  *
  * The factor comes from the engine rather than from `maxGuesses` arithmetic here,
  * so The Long Game and The Auditor move this line as well as the score.
+ *
+ * Returns the box whether or not it has anything to say, for the reason
+ * `categorySlot` does — and this one was worse. The line goes quiet the instant
+ * the round is `done`, and `submit` keeps the board on screen through the whole
+ * reveal after that (`render("round")`), so the 20px it was holding came out of
+ * the grid on the guess that ended the round. Measured at 390×640, where the
+ * board is bound by height: the grid went 275px to 301px and every tile 41.7px
+ * to 46.1px, mid-flip, on the one guess the player is watching hardest. The
+ * board is centred, so on a taller screen it slid instead of growing; neither is
+ * something the round should do as it ends.
  */
-function solveHint(state: RunState): HTMLElement | false {
+function solveHint(state: RunState): HTMLElement {
   const round = state.round
   const factor = solveBonusFor(state, round.maxGuesses - round.guesses.length - 1)
-  if (round.done || round.guesses.length >= round.maxGuesses || factor < 1) return false
+  if (round.done || round.guesses.length >= round.maxGuesses || factor < 1) {
+    return h("div", { class: "solve-hint" })
+  }
 
   const floor = Math.round(round.score * factor)
   const clears = floor >= round.target

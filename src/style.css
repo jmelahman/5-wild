@@ -967,13 +967,36 @@ button {
 /* The cash-out readout. Deliberately quiet until it says something worth
    acting on, at which point it turns green and stops being advice. */
 .solve-hint {
+  /* The height of this line, said or unsaid — held open the way `.category-slot`
+     holds the shape line, and for the same reason. There is nothing to advise
+     once the round is `done`, but the board stays on screen through the reveal
+     after that, so an emptied line took its height out of the grid on the
+     scoring guess: 275px of board to 301px at 390×640, tiles growing 10% while
+     they were still turning over. On a screen tall enough for the board to be
+     bound by width it slid down 13px instead of growing; neither is a thing the
+     round should do as it ends.
+     A height rather than a `min-height`, because the two states have to measure
+     the same and only one number can decide that. `min-height` leaves the filled
+     line free to want a seventeenth pixel out of the font's metrics and jump by
+     it — a pixel instead of twenty, but the same bug, and the drift
+     `.category-slot` records paying for. The bottom padding is inside this
+     figure rather than under it: everything vertical about the line is one
+     number, and there is no second one to disagree with it. */
+  --solve-line: 1.25rem;
   flex: 0 0 auto;
+  height: var(--solve-line);
   display: flex;
   align-items: baseline;
   justify-content: center;
   gap: 0.375rem;
-  padding: 0 0.25rem 0.25rem;
+  padding: 0 0.25rem;
   font-size: 0.8125rem;
+  /* Stated, not inherited, and deliberately short of the height: the text keeps
+     to the top of the box and the slack below it is the gap to the keyboard that
+     the old bottom padding used to be. Left to `normal` the line box would come
+     off the font, which is the metric the pinned height exists to stop
+     consulting. */
+  line-height: 1rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--muted);
