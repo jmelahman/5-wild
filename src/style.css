@@ -2081,6 +2081,17 @@ button {
   line-height: 1.15;
 }
 
+/* Tabular figures because the line is centred: anything that changes its width
+   slides every glyph in it, and the one the eye catches sliding is the lock, which
+   is supposed to sit still and mean one thing. Measured here, stepping every rung
+   from 2 to 100, the lock moves at exactly two places — 9 to 10 and 99 to 100, four
+   and a half pixels each — because the digits of the font this resolves to are all
+   one width already. Those two are a digit arriving, they are allowed, and buying
+   them off costs a reserved slot's worth of air after the word at every level below
+   ten. This line is the guard for the fonts where the figures are *not* uniform:
+   Segoe UI sets a narrow 1, and there the same stepper would twitch on nearly every
+   press. Free where it is not needed, which is why it is here rather than measured
+   again on every platform the thing ships to. */
 .ladder-name {
   display: flex;
   align-items: center;
@@ -2089,6 +2100,7 @@ button {
   font-size: 0.9375rem;
   font-weight: 700;
   letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Smaller than the text it sits beside: it is a state, not a heading, and an
