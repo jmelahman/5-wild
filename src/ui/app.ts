@@ -99,6 +99,12 @@ const COUNT_UP = 340
 const GAIN = 760
 
 /**
+ * How long a refusal stays on screen. Counted here rather than in the
+ * stylesheet, for the reason `toast` gives at length.
+ */
+const TOAST = 2200
+
+/**
  * A press long enough to mean "what is this" rather than "do this", and how far
  * a finger may drift before it is a scroll instead. Both are the platform
  * conventions: iOS fires its own long-press at 500ms and Android at 400, so
@@ -109,6 +115,20 @@ const HOLD_SLOP = 10
 
 const reducedMotion = (): boolean =>
   window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false
+
+/**
+ * Classes the app puts on a live screen that no freshly-built view will carry.
+ *
+ * There is exactly one, and it is here rather than inlined because the next one
+ * will be added by somebody who has never read `reuseBoard` and will not think
+ * to. What they all have in common is that they describe what is *happening* to
+ * a screen rather than which screen it is.
+ */
+const TRANSIENT_SCREEN = ["shaking"]
+
+/** Which screen this is, ignoring whatever is currently happening to it. */
+const screenKind = (node: Element): string =>
+  [...node.classList].filter((name) => !TRANSIENT_SCREEN.includes(name)).join(" ")
 
 export class App {
   private state: RunState
@@ -137,6 +157,8 @@ export class App {
   private arming: string | null = null
   /** The card or key whose tip is currently up, so re-entering it is not a change. */
   private hovered: HTMLElement | null = null
+  /** Counts down the refusal on screen, and is restarted by the next one. */
+  private toastTimer: ReturnType<typeof setTimeout> | undefined
   /** How loudly the letters are allowed to announce what they are worth. */
   private decor = loadDecor()
   /**
@@ -932,14 +954,41 @@ export class App {
     tip.classList.add("show")
   }
 
+  /**
+   * Say why, and keep saying it for long enough to be read.
+   *
+   * The dwell is counted here rather than written as a keyframe, and that is the
+   * whole point of the method. A refusal is the only channel this game has for
+   * telling a player their tap was wrong, and as a `2200ms forwards` animation
+   * ending at `opacity: 0` it was at the mercy of the blanket reduced-motion
+   * kill-switch in the stylesheet: `animation-duration: 1ms !important` runs the
+   * whole thing in a millisecond, `forwards` holds the last keyframe, and the
+   * last keyframe is the one where the message is gone. Sampled through a full
+   * dwell with the preference set, the toast read `opacity: 0.00` at every
+   * point — +0, +60, +250, +1000, +2000, +2400ms — against 1.00 → 0.33 → 0.00
+   * without it. Not shortened: deleted, in the frame it was raised. That is
+   * "Remove animations" on an Android phone, which the APK's WebView passes
+   * straight through, and it took the sentence with it.
+   *
+   * So the class stays on for as long as a timer says and the stylesheet is left
+   * with a transition, which the kill-switch may flatten to 1ms with nothing
+   * lost: a message that appears instantly and stays 2.2 seconds is exactly what
+   * somebody who turned animations off asked for. Only the fade is decoration.
+   * The dwell is the message.
+   *
+   * Two in a row no longer restart a fade-in — the timer is reset and the text
+   * swapped under a panel that never left. The repeat is not lost: `refuse`
+   * shakes the row every time, which is the faster half of that answer anyway,
+   * and a pop here would have to be a transform, which is already spoken for by
+   * the `translateX(-50%)` holding the panel in the middle of the screen.
+   */
   private toast(message: string): void {
     const host = this.root.querySelector(".toast")
     if (!host) return
     host.textContent = message
-    host.classList.remove("show")
-    // Forcing a reflow restarts the animation when two refusals land in a row.
-    void (host as HTMLElement).offsetWidth
     host.classList.add("show")
+    clearTimeout(this.toastTimer)
+    this.toastTimer = setTimeout(() => host.classList.remove("show"), TOAST)
   }
 
   /* --------------------------------------------------------------- render */
@@ -1270,7 +1319,20 @@ export class App {
     const live = this.root.firstElementChild
     // The same kind of screen on both sides, or there is nothing to line up. A
     // board only ever stands in for a board.
-    if (!(live instanceof HTMLElement) || live.className !== view.className) return false
+    //
+    // Compared on kind rather than on the class string, because the live screen
+    // has been on screen and the new one has not, and things happen to screens
+    // that are on screen. `emphasise` is the case that proved it: a guess worth
+    // half the target puts `shaking` on the screen root for 420ms, and the
+    // render that ends the cascade is awaited on `PACE.total`, which is 400.
+    // Twenty milliseconds is not a race, it is a rule — the render lands inside
+    // the shake every time, found a class the new view had no reason to carry,
+    // and refused the reuse. The board was rebuilt against an unmeasured
+    // container on the one guess in the round worth watching, which is both the
+    // most conspicuous moment available and the hardest to catch, since the
+    // screen is already moving. Keeping the node fixes the shake too: it used to
+    // be thrown away mid-animation and stop dead.
+    if (!(live instanceof HTMLElement) || screenKind(live) !== screenKind(view)) return false
     const kept = live.querySelector(":scope > .grid-wrap")
     const built = view.querySelector(":scope > .grid-wrap")
     if (!kept || !built) return false

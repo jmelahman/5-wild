@@ -2957,21 +2957,17 @@ button {
   font-size: 0.75rem;
   text-align: center;
   opacity: 0;
+  /* A fade and nothing else. How long the message stays is `TOAST` in `app.ts`,
+     deliberately out of reach of the kill-switch below — as a keyframe ending at
+     `opacity: 0` it was being run to completion in a millisecond and held there,
+     which deleted the one sentence this game has for saying no. Flattening a
+     fade costs nothing; flattening a dwell costs the message. */
+  transition: opacity 260ms ease;
   pointer-events: none;
 }
 
 .toast.show {
-  animation: toast 2200ms ease forwards;
-}
-
-@keyframes toast {
-  0%,
-  85% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
+  opacity: 1;
 }
 
 /*
@@ -2998,5 +2994,33 @@ button {
     animation-iteration-count: 1 !important;
     /* biome-ignore lint/complexity/noImportantStyles: must override every transition shorthand above */
     transition-duration: 1ms !important;
+  }
+
+  /*
+   * The two animations that are not decoration.
+   *
+   * Everything else in this file animates something already on screen and
+   * survives being flattened. These two *carry* a number — what one tile paid,
+   * and what the guess paid — and they are the only keyframes left that end at
+   * `opacity: 0`. Flattened, the rule above runs them to that last frame in a
+   * millisecond and `forwards` pins them there, so every `+chips +mult` badge
+   * in a cascade reads 0.00 for its whole life: measured, all of them, with the
+   * preference set. Turning animations off should not cost a player the scoring
+   * breakdown — that is the half of the game the coaching exists to teach.
+   *
+   * So they are stilled rather than sped up. Neither depends on the animation to
+   * leave: `floater` and `tileGain` each remove their node on a timer, 900ms and
+   * `GAIN`, so what the keyframes contributed was the drift and the fade and
+   * nothing else. What they also contributed, and it is easy to miss, is the
+   * horizontal centring — both are placed by a `left` that marks their middle,
+   * and every frame of both carries the `-50%` that makes that true. Killing the
+   * animation has to hand that back or the badge sits a half-width right of the
+   * tile it is announcing.
+   */
+  .floater,
+  .tile-gain {
+    /* biome-ignore lint/complexity/noImportantStyles: must outrank the duration above, which would otherwise still run these to their invisible last frame */
+    animation: none !important;
+    transform: translateX(-50%);
   }
 }

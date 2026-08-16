@@ -55,6 +55,26 @@ and a gate built on that answer handed a thumb both halves at once — see
 `bindTips` for what that did to the panel. Anything the app has to ask about the
 *input* is worth distrusting; the queries about the screen are sound.
 
+The stylesheet answers `prefers-reduced-motion` with one blanket
+`animation-duration: 1ms !important`, and that rule is sharper than it looks: an
+animation with `forwards` fill is not calmed by it, it is *completed* by it, in
+the frame it starts. Any keyframe sequence ending at `opacity: 0` therefore
+deletes its element rather than slowing it. That took the refusal toast — the
+only channel the game has for saying no — and every `+chips +mult` badge in a
+cascade, all reading 0.00 for their whole lives on any phone with "Remove
+animations" switched on, which the APK's WebView passes straight through. So:
+if an animation carries information rather than decorating it, own its lifetime
+in JS and leave CSS only the fade, or carve it out of the block by name. Both
+patterns are in the file — see `TOAST` in `app.ts` and the `.floater, .tile-gain`
+exception at the foot of the stylesheet.
+
+The same render that `reuseBoard` protects can be defeated by a class. It keeps
+the container only when the live screen and the new one are the same kind, and a
+live screen collects classes describing what is happening to it — `shaking`
+lasts 420ms after a big guess, against a final render awaited on 400. Compare
+screens on `screenKind`, not on the class string, and add anything transient to
+`TRANSIENT_SCREEN`.
+
 Purely presentational settings live as a class on the document root
 and are switched off in the stylesheet — see `.plain` and `.quiet` — rather than
 threaded through the views, which the full rebuild would otherwise make every
