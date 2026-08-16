@@ -1499,6 +1499,7 @@ function ladder(on: Handlers, meta: MetaState): HTMLElement {
   const rule = ascensionAt(level)
   const locked = isLocked(meta, level)
   const ahead = level === top && level < MAX_ASCENSION
+  const carrot = ahead ? `Beat this to unlock ascension ${level + 1}` : null
 
   const step = (label: string, to: number, live: boolean) =>
     h(
@@ -1531,7 +1532,14 @@ function ladder(on: Handlers, meta: MetaState): HTMLElement {
           locked && h("span", { class: "ladder-lock", "aria-label": "Locked" }, "🔒"),
           `Ascension ${level}`,
         ),
-        rule && h("span", { class: "ladder-rule" }, rule.name),
+        // The second line of the dial is "what this rung is", and at zero there
+        // is no rule to be. Rather than leave the slot empty and push the carrot
+        // to the foot of the box, zero says what beating it earns *here* — so
+        // stepping 0 → 1 swaps one line in place instead of deleting a line from
+        // the bottom and growing one in the middle.
+        rule
+          ? h("span", { class: "ladder-rule" }, rule.name)
+          : carrot && h("span", { class: "ladder-rule forward" }, carrot),
       ),
       ahead
         ? h(
@@ -1556,14 +1564,18 @@ function ladder(on: Handlers, meta: MetaState): HTMLElement {
         : "The game as it is written, with nothing extra asked of you.",
     ),
     // One line under the dial, and only ever the forward-looking one: what
-    // beating this rung would open. The warning that used to displace it here is
-    // gone. It said the player had not won yet, in a box whose lock says the
-    // same thing in a glyph and whose sheet had just said it in a sentence, and
-    // three tellings of "you have not earned this" is the screen holding a
-    // grudge about a choice it offered. Above the earned rung there is now no
-    // line at all, which is the right amount to say to someone who has already
-    // been asked and has already answered.
-    ahead ? h("p", { class: "ladder-note" }, `Beat this to unlock ascension ${level + 1}`) : null,
+    // beating this rung would open. It sits here only when the rung has a rule
+    // holding the line above — at zero it has already been said in the dial, and
+    // saying it twice would be the box shouting the one thing it wants.
+    //
+    // The warning that used to displace it here is gone. It said the player had
+    // not won yet, in a box whose lock says the same thing in a glyph and whose
+    // sheet had just said it in a sentence, and three tellings of "you have not
+    // earned this" is the screen holding a grudge about a choice it offered.
+    // Above the earned rung there is now no line at all, which is the right
+    // amount to say to someone who has already been asked and has already
+    // answered.
+    rule && carrot ? h("p", { class: "ladder-note" }, carrot) : null,
   )
 }
 

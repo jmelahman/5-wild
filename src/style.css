@@ -2116,6 +2116,17 @@ button {
   color: var(--mult);
 }
 
+/* The carrot standing in the rule's place at ascension 0. It keeps the note's
+   own voice — smaller, tracked out, gold — rather than dressing up as a rule
+   name, because it is a promise about the next rung and not the name of this
+   one. Only the slot is borrowed. */
+.ladder-rule.forward {
+  font-size: 0.6875rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: color-mix(in srgb, var(--gold) 80%, var(--muted));
+}
+
 /* Two lines whether the rule needs two or one, so that the line under it — the
    carrot, or the warning — is at the same height on every rung. Pinning only the
    box would hold the Play button still and still let this slide about inside it. */
