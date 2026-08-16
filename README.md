@@ -222,3 +222,59 @@ and it only works if somebody reads the diff.
 **The UI.** Nothing here touches rendering, animation, focus or storage. The
 engine is the portable part and the vectors are its contract; the browser is
 tested in a browser.
+
+**What the game is like to play.** Every scenario types `state.round.answer`,
+which is right for a recorder and useless for a balance question. That one has
+its own instrument.
+
+## The blind simulator
+
+```sh
+npm run sim                                        # 300 seeds, two policies
+SIM=1 SIM_SEEDS=60 npx vitest run test/sim.test.ts  # narrower, while iterating
+```
+
+`test/helpers/blind.ts` is a player handed the run with `round.answer`
+destructured off it — genuinely absent from the object rather than merely
+unread, and `test/sim.test.ts` asserts the absence. It narrows a candidate pool
+with the engine's own `computeFeedback`, and it reads `tile.shown` rather than
+`tile.color`, so The Fog and The Mirror mislead it exactly as they mislead a
+player. Two policies differ only in how they spend the guess budget — `solver`
+guesses to find the word, `farmer` buys chips with the first two — and share
+every line of shop code, so a gap between them is attributable to the guessing.
+
+This answers what the vectors cannot. Not "does the engine still compute 471"
+but "how far does somebody who has to *find* the word actually get". At
+`CONTENT_VERSION` 20, over 300 seeds:
+
+```
+                solver   farmer
+won run           7.3%     3.3%
+median stage         4        4
+rounds banked     3565     2876
+by solving       92.2%    87.1%
+guesses/round     4.30     5.55
+```
+
+Two things came out of it. **Boss rounds are a third of the rounds and 72% of
+the deaths** — 199 of the solver's 278 losses land on round 3, which is what the
+`stage.round` histogram in the report exists to show. And **the income line is
+dominated**: farming gets worse the harder it is played, because mult comes from
+colours and colours come from being right, so a guess thrown at chips alone
+scores its tiles at ×1 and buys nothing towards the next one. Income is worth
+taking when a guess you wanted anyway happens to be rich; it does not survive
+being made the plan.
+
+`npm test` runs the same thing over a dozen seeds with deliberately loose
+assertions — a smoke alarm for an edit that made the game unwinnable or trivial,
+not a measurement of the curve. Pinning the curve here would recreate exactly the
+problem the balance notes warn about: a balance expectation living in a test
+nobody thinks of as a balance test.
+
+Treat it as a *policy*, not an oracle. Its numbers move when the policy moves,
+and it found its own worst bug that way — ranking guesses by information with
+chips as a strict tie-break reads as sensible and is not, because information is
+a sum running into the thousands, so exact ties never occur and the chip term
+never fired at all. That player was blind to chips in a game about chips and died
+on stage one of 39 runs in 300. Quote the policy's constants alongside any number
+taken from it.
