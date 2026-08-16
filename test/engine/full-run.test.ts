@@ -92,7 +92,7 @@ describe("a full run, headless", () => {
   })
 
   /*
-   * The stage's shape is Small → Big → Boss, and the boss rule is a large part
+   * The stage's shape is Normal → Elite → Boss, and the boss rule is a large part
    * of a round's difficulty. A boss leaking onto round 0 or 1 — or missing from
    * round 2 — silently rewrites the difficulty curve without failing anything
    * else, so the placement is asserted rather than assumed.

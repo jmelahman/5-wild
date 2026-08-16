@@ -14,7 +14,7 @@ const type = (word: string): Action[] => [
 const solve = (state: RunState, words: WordSource) => apply(state, type(state.round.answer), words)
 
 describe("run structure", () => {
-  it("opens on stage 1, small round, with the first target", () => {
+  it("opens on stage 1, normal round, with the first target", () => {
     const state = startRun(7, realWords).state
     expect(state.stage).toBe(1)
     expect(state.roundIndex).toBe(0)
@@ -83,7 +83,7 @@ describe("economy", () => {
     const state = solve(startRun(1, words).state, words)
 
     expect(state.phase).toBe("reward")
-    // Small round pays $3; solving on guess 1 leaves 5 guesses unused; the run
+    // The normal round pays $3; solving on guess 1 leaves 5 guesses unused; the run
     // opens with $4, which is one $5 bracket short of any interest.
     expect(state.reward).toEqual({ base: 3, unusedGuesses: 5, interest: 0, total: 8 })
   })

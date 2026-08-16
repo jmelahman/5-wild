@@ -68,7 +68,7 @@ export type LetterState = {
   mod: ModId | null
 }
 
-/** 0 small, 1 big, 2 boss. */
+/** 0 normal, 1 elite, 2 boss. */
 export type RoundIndex = 0 | 1 | 2
 
 export type RoundState = {

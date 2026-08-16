@@ -715,7 +715,7 @@ export function introView(state: RunState, on: Handlers, chrome: Chrome): HTMLEl
 
   // Three rounds, three tokens. The shape carries the warning before the name is
   // read, which matters most for the one that changes the rules.
-  const token = boss ? "boss" : state.roundIndex === 0 ? "small" : "big"
+  const token = boss ? "boss" : state.roundIndex === 0 ? "normal" : "elite"
 
   return h(
     "div",
