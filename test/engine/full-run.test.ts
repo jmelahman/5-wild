@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { Action, RunState } from "../../src/engine"
-import { ANTES, blindTargets, getBoss, reduce, startRun } from "../../src/engine"
+import { getBoss, reduce, roundTargets, STAGES, startRun } from "../../src/engine"
 import { realWords } from "../helpers/words"
 
 const words = realWords
@@ -21,53 +21,53 @@ const type = (word: string): Action[] => [
  */
 function playRun(seed: number): {
   state: RunState
-  blindsCleared: number
+  roundsCleared: number
   illegal: string[]
   misplacedBosses: string[]
 } {
   let state = startRun(seed, words).state
-  let blindsCleared = 0
+  let roundsCleared = 0
   const illegal: string[] = []
   const misplacedBosses: string[] = []
 
-  // 24 blinds is a full win; the cap is a runaway guard, not an expectation.
+  // 24 rounds is a full win; the cap is a runaway guard, not an expectation.
   for (let step = 0; step < 200; step++) {
     if (state.phase === "game_over" || state.phase === "victory") break
 
-    if (state.phase === "blind") {
-      if ((state.blind.bossId !== null) !== (state.blindIndex === 2)) {
+    if (state.phase === "round") {
+      if ((state.round.bossId !== null) !== (state.roundIndex === 2)) {
         misplacedBosses.push(
-          `ante ${state.ante} blind ${state.blindIndex}: ${state.blind.bossId ?? "none"}`,
+          `stage ${state.stage} round ${state.roundIndex}: ${state.round.bossId ?? "none"}`,
         )
       }
-      const refusal = getBoss(state.blind.bossId)?.validate?.(state.blind.answer, state.blind)
+      const refusal = getBoss(state.round.bossId)?.validate?.(state.round.answer, state.round)
       if (refusal) {
-        illegal.push(`${state.blind.bossId}/${state.blind.answer}: ${refusal}`)
+        illegal.push(`${state.round.bossId}/${state.round.answer}: ${refusal}`)
         break
       }
-      state = apply(state, type(state.blind.answer))
+      state = apply(state, type(state.round.answer))
       continue
     }
     if (state.phase === "reward") {
-      blindsCleared++
+      roundsCleared++
       state = apply(state, [{ type: "collect" }])
       continue
     }
     if (state.phase === "shop") {
       const index = state.shop?.items.findIndex((item) => item && item.cost <= state.gold) ?? -1
       if (index < 0) {
-        state = apply(state, [{ type: "next_blind" }])
+        state = apply(state, [{ type: "next_round" }])
         continue
       }
-      // A buy can be refused — full joker slots, full card slots — and a bot
+      // A buy can be refused — full relic slots, full card slots — and a bot
       // that cannot tell that from a purchase will shop forever.
       const attempt = reduce(state, { type: "buy", index }, words)
       const refused = attempt.events.some((event) => event.type === "rejected")
-      state = refused ? apply(state, [{ type: "next_blind" }]) : attempt.state
+      state = refused ? apply(state, [{ type: "next_round" }]) : attempt.state
     }
   }
 
-  return { state, blindsCleared, illegal, misplacedBosses }
+  return { state, roundsCleared, illegal, misplacedBosses }
 }
 
 describe("a full run, headless", () => {
@@ -79,9 +79,9 @@ describe("a full run, headless", () => {
   })
 
   /*
-   * The blind must always be winnable. The Glutton demands two vowels of every
+   * The round must always be winnable. The Glutton demands two vowels of every
    * guess and a fifth of the answer list has one, so an unfiltered draw hands
-   * the player a word they are forbidden to type — a blind that cannot be
+   * the player a word they are forbidden to type — a round that cannot be
    * solved by any play. Pyromaniac makes this worse: burning enough letters can
    * empty the pool, and the escape hatch that heals the alphabet must not also
    * drop the boss rule on its way out.
@@ -92,12 +92,12 @@ describe("a full run, headless", () => {
   })
 
   /*
-   * The ante's shape is Small → Big → Boss, and the boss rule is a large part
-   * of a blind's difficulty. A boss leaking onto blind 0 or 1 — or missing from
-   * blind 2 — silently rewrites the difficulty curve without failing anything
+   * The stage's shape is Small → Big → Boss, and the boss rule is a large part
+   * of a round's difficulty. A boss leaking onto round 0 or 1 — or missing from
+   * round 2 — silently rewrites the difficulty curve without failing anything
    * else, so the placement is asserted rather than assumed.
    */
-  it("puts a boss on the third blind of an ante and nowhere else", () => {
+  it("puts a boss on the third round of an stage and nowhere else", () => {
     const misplaced = Array.from({ length: 40 }, (_, seed) => playRun(seed + 1).misplacedBosses)
     expect(misplaced.flat()).toEqual([])
   })
@@ -128,16 +128,16 @@ describe("a full run, headless", () => {
    * mostly not, and if either half of that stops being true someone should
    * know.
    */
-  it("gets a greedy solver a few blinds in, and only sometimes all the way", () => {
-    const cleared = Array.from({ length: 20 }, (_, index) => playRun(index + 1).blindsCleared)
+  it("gets a greedy solver a few rounds in, and only sometimes all the way", () => {
+    const cleared = Array.from({ length: 20 }, (_, index) => playRun(index + 1).roundsCleared)
     for (const count of cleared) expect(count).toBeGreaterThanOrEqual(2)
     const won = cleared.filter((count) => count >= 24).length
     expect(won).toBeLessThan(cleared.length / 2)
   })
 
   it("has a final target far beyond any single unbuilt guess", () => {
-    // Sanity on the curve itself: ante 8 must require a real build, not one
+    // Sanity on the curve itself: stage 8 must require a real build, not one
     // lucky word. A bare 5-letter solve tops out in the low thousands.
-    expect(blindTargets(ANTES)[2]).toBeGreaterThan(100_000)
+    expect(roundTargets(STAGES)[2]).toBeGreaterThan(100_000)
   })
 })

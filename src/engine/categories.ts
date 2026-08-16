@@ -10,10 +10,10 @@ import type { RunState } from "./state"
  * levelling that category raises what every future guess of that shape is worth.
  *
  * It exists because of what the build rubric found: **nothing in this game scales
- * across a run** while blind targets multiply by 2.2× per ante. Jokers pay a flat
+ * across a run** while round targets multiply by 2.2× per stage. Relics pay a flat
  * amount forever, modifiers pay a flat amount forever, etchings pay a flat amount
  * forever. Levels are the first thing that grows, and because they land on the
- * base — before the ×mult jokers fire — a levelled category is worth more to a
+ * base — before the ×mult relics fire — a levelled category is worth more to a
  * build the more that build already multiplies.
  *
  * Level 1 is worth nothing, deliberately. A fresh run scores exactly as it did
@@ -29,16 +29,16 @@ export type Category = {
    * Carried beside the predicate rather than written on the screen that shows
    * it, for the reason the whole content layer is: a shape whose description
    * lives somewhere else drifts away from the shape it describes. This is the
-   * only table where that mattered enough to add a field — a joker says what it
+   * only table where that mattered enough to add a field — a relic says what it
    * does on its own card, but `matches` is a function, and a player who has
    * never seen the source has no way at all to find out what Cluster means.
    */
   text: string
-  /** What one level above the first adds to the base, before jokers see it. */
+  /** What one level above the first adds to the base, before relics see it. */
   chips: number
   mult: number
   /**
-   * Whether a word is of this shape. Read directly by the jokers that were
+   * Whether a word is of this shape. Read directly by the relics that were
    * written around these same predicates, and used by `categoryOf` to pick which
    * one a word scores as — two jobs, one definition, so they cannot drift apart.
    */
@@ -132,7 +132,7 @@ export function categoryOf(word: string): Category {
  * The distinction is the reason both functions exist. A distinct word that also
  * happens to be alphabetical scores as Alphabetical — but Anagrammer still pays
  * for it, because Anagrammer asks whether the letters repeat, not which category
- * won the tie. The jokers ask this one; the scoring stage asks `categoryOf`.
+ * won the tie. The relics ask this one; the scoring stage asks `categoryOf`.
  */
 export const isCategory = (id: string, word: string): boolean =>
   CATEGORY_BY_ID.get(id)?.matches(word) ?? false
@@ -142,7 +142,7 @@ export const isCategory = (id: string, word: string): boolean =>
  *
  * Levels are stored as the level itself rather than as a count of upgrades, so
  * the number in the save is the number on the card. Absent is the default for
- * the same reason `JokerInstance.data` is absent until written: a run that never
+ * the same reason `RelicInstance.data` is absent until written: a run that never
  * buys a level adds nothing to its save file.
  */
 export const levelOf = (state: RunState, id: string): number => state.levels?.[id] ?? 1

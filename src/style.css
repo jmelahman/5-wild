@@ -151,19 +151,19 @@ button {
   border-radius: 0.5rem;
 }
 
-.blind-name {
+.round-name {
   font-weight: 700;
   font-size: 0.9375rem;
 }
 
-.ante {
+.stage {
   color: var(--muted);
   font-size: 0.6875rem;
   letter-spacing: 0.04em;
 }
 
 /* The run's difficulty, in the boss's colour: both are rules bending the guess. */
-.ante-asc {
+.stage-asc {
   margin-left: 0.3125rem;
   color: var(--mult);
   font-weight: 800;
@@ -187,7 +187,7 @@ button {
   font-size: 0.6875rem;
 }
 
-/* The moment the blind is won. It is worth a light going on. */
+/* The moment the round is won. It is worth a light going on. */
 .hud-score.met .score {
   color: var(--green);
   text-shadow: 0 0 0.75rem color-mix(in srgb, var(--green) 60%, transparent);
@@ -243,15 +243,15 @@ button {
   color: var(--mult);
 }
 
-/* --------------------------------------------------------------- jokers */
+/* --------------------------------------------------------------- relics */
 
 /*
  * The tray scrolls sideways when the slots are full. `overflow-x: auto` forces
- * the y axis to `auto` too, which was quietly shaving the top off every joker
+ * the y axis to `auto` too, which was quietly shaving the top off every relic
  * that fired — the padding gives the lift and its ring somewhere to go, and the
  * matching negative margin keeps the row occupying exactly the space it did.
  */
-.jokers {
+.relics {
   flex: 0 0 auto;
   display: flex;
   gap: 0.25rem;
@@ -261,14 +261,14 @@ button {
   scrollbar-width: none;
 }
 
-.jokers::-webkit-scrollbar {
+.relics::-webkit-scrollbar {
   display: none;
 }
 
 /*
  * Rarity is one inherited colour rather than a border override per class, so a
- * card's tint, its edge and its pip all come from the same place and a joker in
- * the shop matches the same joker in the tray.
+ * card's tint, its edge and its pip all come from the same place and a relic in
+ * the shop matches the same relic in the tray.
  */
 .rarity-common {
   --rare: var(--rare-common);
@@ -283,7 +283,7 @@ button {
   --rare: var(--rare-legendary);
 }
 
-.joker {
+.relic {
   position: relative;
   flex: 1 1 0;
   min-width: 3.5rem;
@@ -307,7 +307,7 @@ button {
   transition: transform 120ms ease;
 }
 
-.joker.empty {
+.relic.empty {
   background: transparent;
   border: 1px dashed var(--line);
   border-top-width: 1px;
@@ -356,62 +356,62 @@ button {
   }
 }
 
-.joker-name {
+.relic-name {
   font-size: 0.625rem;
   font-weight: 700;
   line-height: 1.15;
 }
 
-.joker .sell {
+.relic .sell {
   font-size: 0.5625rem;
   color: var(--gold);
 }
 
 /*
- * What a scaling joker has grown to. Tinted like mult rather than like the card,
+ * What a scaling relic has grown to. Tinted like mult rather than like the card,
  * because it is a live number rather than part of the card's identity — the one
- * thing on a joker that is worth re-reading between blinds.
+ * thing on a relic that is worth re-reading between rounds.
  */
-.joker-detail {
+.relic-detail {
   font-size: 0.5625rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--mult);
 }
 
-.joker.fired {
+.relic.fired {
   transform: translateY(-3px) scale(1.06);
   box-shadow: 0 0 0 2px var(--gold);
 }
 
 /*
- * A joker's name is a mnemonic, not an explanation, and on a mouse the player
+ * A relic's name is a mnemonic, not an explanation, and on a mouse the player
  * has a way to ask what it does that costs them nothing — so the card leans
  * toward the pointer and the text arrives beside it. On a phone there is no
  * such gesture, so the tray keeps tap-to-inspect and none of this is bound.
  */
 @media (hover: hover) {
-  .joker[data-tip]:hover {
+  .relic[data-tip]:hover {
     transform: translateY(-2px);
     box-shadow:
       0 3px 6px #0007,
       0 0 0 1px color-mix(in srgb, var(--rare, var(--rare-common)) 55%, transparent);
   }
 
-  /* Losing to `.fired` matters: a joker scoring is louder news than a hover. */
-  .joker[data-tip].fired:hover {
+  /* Losing to `.fired` matters: a relic scoring is louder news than a hover. */
+  .relic[data-tip].fired:hover {
     transform: translateY(-3px) scale(1.06);
   }
 }
 
 /*
  * Fixed, and a sibling of the tray rather than a child of the card, because
- * `.jokers` scrolls sideways — which forces the other axis to clip too — and
- * `.joker` hides its own overflow so the legendary sheen stays inside its
+ * `.relics` scrolls sideways — which forces the other axis to clip too — and
+ * `.relic` hides its own overflow so the legendary sheen stays inside its
  * edges. Anything nested would be cut off by one of the two. The position is
  * set from script; the transition is the whole animation.
  */
-.joker-tip {
+.relic-tip {
   position: fixed;
   z-index: 5;
   top: 0;
@@ -428,7 +428,7 @@ button {
   text-align: center;
   /* A letter's tip is a few short lines — what it pays, where that came from,
      what is riding on it — and they are written as lines rather than run
-     together into a paragraph. A joker's tip has no newlines and is unaffected. */
+     together into a paragraph. A relic's tip has no newlines and is unaffected. */
   white-space: pre-line;
   opacity: 0;
   /* Not `display: none`: the panel has to be measurable before it is placed,
@@ -444,7 +444,7 @@ button {
     visibility 140ms;
 }
 
-.joker-tip.show {
+.relic-tip.show {
   opacity: 1;
   visibility: visible;
   transform: translateY(0);
@@ -485,7 +485,7 @@ button {
 /* ----------------------------------------------------------------- grid */
 
 /*
- * The board takes whatever is left after the HUD, the boss banner, the joker
+ * The board takes whatever is left after the HUD, the boss banner, the relic
  * row and the keyboard have taken theirs — and that total is not knowable in
  * CSS, since half of it is conditional. So the grid claims the leftover space
  * as a size container and fits itself to it, keeping tiles square via
@@ -686,7 +686,7 @@ button {
 
 /* Sits directly above the readout it feeds, and stays quiet at level one: a
    category worth nothing yet is a label, not a number. When it does pay, it
-   lights the same way a joker card does — that is what it has become. */
+   lights the same way a relic card does — that is what it has become. */
 .category {
   flex: 0 0 auto;
   display: flex;
@@ -885,7 +885,7 @@ button {
 }
 
 /* --pop is set per guess from the score's size against the target, so the
-   reaction is proportional: a chip guess twitches, a blind-clearing one lunges. */
+   reaction is proportional: a chip guess twitches, a round-clearing one lunges. */
 .readout.popped {
   animation: pop 300ms ease;
 }
@@ -1023,7 +1023,7 @@ button {
  * readers — a second copy is a second thing to keep in step, and the one that
  * drifts is the one nothing draws.
  */
-.blind-screen {
+.round-screen {
   /* Taller than it is wide, and taller than the old 2.75rem, because the keys
      are the thing being aimed at. Capped so a tall phone does not spend its
      extra height on the keyboard when the board wants it more. */
@@ -1109,7 +1109,7 @@ button {
 
 /*
  * Letter modifiers. One inherited colour per modifier, the same trick rarity
- * plays for jokers: the ring on the key, the pip in its corner and the dot on a
+ * plays for relics: the ring on the key, the pip in its corner and the dot on a
  * played tile all read off `--mod`, so a steel K looks like a steel K wherever
  * it turns up.
  */
@@ -1156,7 +1156,7 @@ button {
 
 /*
  * The Vandal: the modifier is still on the letter and still owned, it just does
- * nothing for one blind. Greyed to the burnt colour rather than hidden, and the
+ * nothing for one round. Greyed to the burnt colour rather than hidden, and the
  * ring the key wears goes with it, so the whole keyboard reads as switched off
  * at a glance instead of one pip at a time.
  */
@@ -1260,10 +1260,10 @@ button {
 /*
  * The kind tag. Small, letterspaced and muted, ticketed to the right of the name
  * — a label on the shelf rather than a second title, and the thing an eye
- * scanning five cards for "is there a joker" lands on.
+ * scanning five cards for "is there a relic" lands on.
  *
  * Uppercased in CSS rather than in the string, so the tag that has to say
- * something in prose — "Joker · tray full" — is still written as prose in the
+ * something in prose — "Relic · tray full" — is still written as prose in the
  * one place a reader of the view code will look for it.
  */
 .shop-item-kind {
@@ -1279,9 +1279,9 @@ button {
 }
 
 /* The collectible lines take the card's own rarity colour, which is the one
-   place the tag is worth more than a label: "Rare Joker" written in the rare
+   place the tag is worth more than a label: "Rare Relic" written in the rare
    colour teaches the border a player has otherwise had to learn by rote. */
-.shop-item.kind-joker .shop-item-kind {
+.shop-item.kind-relic .shop-item-kind {
   color: color-mix(in srgb, var(--rare, var(--rare-common)) 65%, var(--fg));
 }
 
@@ -1294,7 +1294,7 @@ button {
 
 .shop-item-name {
   /* `min-width: 0` because a flex item will not shrink below its longest word
-     without it, and one long joker name would otherwise push the ticket off the
+     without it, and one long relic name would otherwise push the ticket off the
      card — which `overflow: hidden` would silently swallow. */
   flex: 1 1 auto;
   min-width: 0;
@@ -1470,13 +1470,13 @@ button {
  * The letter picker, which borrows the pack's sheet for the same reason: it is a
  * decision that has already been paid for, so there is no way out of it either.
  *
- * The keys are the blind's keys — same class, same colours, same modifier pips —
+ * The keys are the round's keys — same class, same colours, same modifier pips —
  * because the player has spent the whole run learning to aim at that layout, and
  * this is a question about which of those keys they actually press.
  */
 .place-keys {
   /* Shorter than the board's, where the keyboard is the thing under the thumb
-     for a whole blind. Here it is a single tap, and the sheet has a note under
+     for a whole round. Here it is a single tap, and the sheet has a note under
      it that should not be pushed off a short screen. */
   --key-h: clamp(2.5rem, 6svh, 3rem);
 }
@@ -1626,18 +1626,18 @@ button {
   text-align: left;
 }
 
-/* ------------------------------------------------------------ blind intro */
+/* ------------------------------------------------------------ round intro */
 
 /*
  * The card between the shop and the board. The whole screen is a tap target —
- * on a phone, hunting for a button after every blind gets old fast — so the
+ * on a phone, hunting for a button after every round gets old fast — so the
  * Play button is an affordance rather than the only way through.
  */
 .intro {
   cursor: pointer;
 }
 
-.intro-ante {
+.intro-stage {
   font-size: 0.75rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -1675,14 +1675,14 @@ button {
 }
 
 /*
- * The blind's token — Balatro's chip at phone scale. The two ordinary blinds get
+ * The round's token — Balatro's chip at phone scale. The two ordinary rounds get
  * a disc and the boss gets a spiked one, so the shape says which kind of trouble
  * this is from across the room, before the name has been read.
  *
  * The ring is a gradient stop rather than an inset shadow because the boss is
  * clipped to a star, and an inset shadow would be cut into ribbons by the points.
  */
-.blind-token {
+.round-token {
   width: 4.25rem;
   height: 4.25rem;
   margin-bottom: 0.375rem;
@@ -1704,11 +1704,11 @@ button {
   animation: token 460ms cubic-bezier(0.2, 1.4, 0.4, 1);
 }
 
-.blind-token.small {
+.round-token.small {
   --token: #5a7fa8;
 }
 
-.blind-token.big {
+.round-token.big {
   --token: #c08a3e;
 }
 
@@ -1717,7 +1717,7 @@ button {
  * star. Written out because clip-path has no polar form — the only interesting
  * numbers are the two radii, 50% and 42%.
  */
-.blind-token.boss {
+.round-token.boss {
   --token: #a83a3f;
   border-radius: 0;
   clip-path: polygon(
@@ -1792,7 +1792,7 @@ button {
 }
 
 /*
- * The run's standing rules, ruled off from the blind's own numbers above them.
+ * The run's standing rules, ruled off from the round's own numbers above them.
  * They belong to a different scope — the whole run, not this card — and the line
  * is what says so without a heading.
  */
@@ -2250,10 +2250,10 @@ button {
 /* ----------------------------------------------------------------- codex */
 
 /*
- * The catalogue is long — every joker, boss and shape in the game — so entries
+ * The catalogue is long — every relic, boss and shape in the game — so entries
  * are denser than the rules sheet and lean on a left edge rather than on gaps
  * to separate themselves. The edge takes the rarity colour where there is one,
- * which is what lets the joker list be skimmed by tier without reading it.
+ * which is what lets the relic list be skimmed by tier without reading it.
  */
 .codex-entry {
   display: flex;
@@ -2286,7 +2286,7 @@ button {
 
 /*
  * A band label inside a section — a rarity, or a boss tier. Sticky, because the
- * joker list is longer than the sheet and losing track of which rarity you are
+ * relic list is longer than the sheet and losing track of which rarity you are
  * reading is the one way this screen fails to answer the question you opened it
  * with.
  */

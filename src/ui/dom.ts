@@ -2,7 +2,7 @@
  * Just enough DOM helper to avoid string-concatenating HTML.
  *
  * There is no framework here on purpose: the whole game is one grid, one
- * keyboard, a joker row and a shop. A framework would add weight without
+ * keyboard, a relic row and a shop. A framework would add weight without
  * solving anything, and this file is the entire cost of not having one.
  */
 

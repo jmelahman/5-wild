@@ -41,9 +41,17 @@ function xmur3(str: string): () => number {
 /**
  * One root seed per run; every consumer derives an independent sub-stream from
  * a coordinate. `derive(seed, "word", 3, 1)` always yields the same stream, so
- * rerolling the shop cannot shift which word ante 3 gets — the streams do not
+ * rerolling the shop cannot shift which word stage 3 gets — the streams do not
  * share a cursor. That independence is what makes save/resume and the golden
  * vectors work without storing any PRNG state.
+ *
+ * Which makes the string coordinates *content*, not names. They are hashed, so
+ * `"joker"` and `"relic"` are different streams and every seed in existence
+ * would deal itself a different run if one became the other — a balance change
+ * wearing a rename's clothes. Three literals still spell the old vocabulary for
+ * exactly that reason (`"joker"` in `scoring.ts`, `"blind_start"` and
+ * `"blind_end"` in `reduce.ts`), and they are frozen. Rename them only as a
+ * deliberate reshuffle: bump `CONTENT_VERSION` and re-record the vectors.
  */
 export function derive(root: number, ...coord: ReadonlyArray<string | number>): Rng {
   const next = xmur3(`${root}:${coord.join(":")}`)

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { Action, GuessRecord, RunState, WordSource } from "../../src/engine"
-import { INTEREST_CAP, JOKERS, reduce, startRun } from "../../src/engine"
+import { INTEREST_CAP, RELICS, reduce, startRun } from "../../src/engine"
 import { realWords } from "../helpers/words"
 
 const words: WordSource = {
@@ -16,136 +16,136 @@ const type = (word: string): Action[] => [
   { type: "submit" },
 ]
 
-/** Plays one guess with a joker equipped and hands back the scored record. */
-function withJoker(id: string, ...guesses: string[]): { last: GuessRecord; state: RunState } {
+/** Plays one guess with a relic equipped and hands back the scored record. */
+function withRelic(id: string, ...guesses: string[]): { last: GuessRecord; state: RunState } {
   const base = startRun(1, words).state
-  let state: RunState = { ...base, jokers: [{ id }] }
+  let state: RunState = { ...base, relics: [{ id }] }
   for (const word of guesses) state = apply(state, type(word))
-  const last = state.blind.guesses[state.blind.guesses.length - 1]
+  const last = state.round.guesses[state.round.guesses.length - 1]
   if (!last) throw new Error("no guess was scored")
   return { last, state }
 }
 
-describe("jokers", () => {
+describe("relics", () => {
   // Baselines, so every expectation below reads as a delta rather than a magic
   // number: CRANE is 7 chips x 7 mult, QUAZY is 26 x 4.
-  it("scores nothing extra with no jokers", () => {
+  it("scores nothing extra with no relics", () => {
     const base = startRun(1, words).state
     const state = apply(base, type("crane"))
-    expect(state.blind.guesses[0]).toMatchObject({ chips: 7, mult: 7, score: 49 })
+    expect(state.round.guesses[0]).toMatchObject({ chips: 7, mult: 7, score: 49 })
   })
 
   it("Green Thumb pays 8 chips per green", () => {
     // CRANE lands two greens: 7 + 16 chips.
-    expect(withJoker("green_thumb", "crane").last).toMatchObject({ chips: 23, mult: 7 })
+    expect(withRelic("green_thumb", "crane").last).toMatchObject({ chips: 23, mult: 7 })
   })
 
   it("Vowel Hoarder pays 4 mult per vowel", () => {
     // A and E: 7 + 8 mult.
-    expect(withJoker("vowel_hoarder", "crane").last).toMatchObject({ chips: 7, mult: 15 })
+    expect(withRelic("vowel_hoarder", "crane").last).toMatchObject({ chips: 7, mult: 15 })
   })
 
   it("Greedy Grammarian pays 15 chips per gray", () => {
     // QUAZY leaves four grays: 26 + 60 chips.
-    expect(withJoker("greedy_grammarian", "quazy").last).toMatchObject({ chips: 86, mult: 4 })
+    expect(withRelic("greedy_grammarian", "quazy").last).toMatchObject({ chips: 86, mult: 4 })
   })
 
   it("Masochist pays 8 mult per gray", () => {
-    expect(withJoker("masochist", "quazy").last).toMatchObject({ chips: 26, mult: 36 })
+    expect(withRelic("masochist", "quazy").last).toMatchObject({ chips: 26, mult: 36 })
   })
 
   it("Q's Bargain triples the rare letters", () => {
     // Q and Z are 10 each, so each adds another 20.
-    expect(withJoker("qs_bargain", "quazy").last).toMatchObject({ chips: 66, mult: 4 })
+    expect(withRelic("qs_bargain", "quazy").last).toMatchObject({ chips: 66, mult: 4 })
   })
 
   it("Doppelgänger scores repeated letters twice", () => {
     // SASSY: three Ss at 1 chip each pay again.
-    expect(withJoker("doppelganger", "sassy").last.chips).toBe(11)
+    expect(withRelic("doppelganger", "sassy").last.chips).toBe(11)
   })
 
   it("Alphabetist doubles an in-order word", () => {
     // GHOST is non-decreasing and misses entirely: 9 chips, mult 1 doubled.
-    expect(withJoker("alphabetist", "ghost").last).toMatchObject({ chips: 9, mult: 2 })
+    expect(withRelic("alphabetist", "ghost").last).toMatchObject({ chips: 9, mult: 2 })
   })
 
   it("Consonant Cluster wants three consonants in a row", () => {
     // SASSY ends S-S-Y and lands a single yellow: mult 2, then x1.5.
-    expect(withJoker("consonant_cluster", "sassy").last.mult).toBe(3)
-    expect(withJoker("consonant_cluster", "crane").last.mult).toBe(7) // no run, untouched
+    expect(withRelic("consonant_cluster", "sassy").last.mult).toBe(3)
+    expect(withRelic("consonant_cluster", "crane").last.mult).toBe(7) // no run, untouched
   })
 
   it("Slow Burn pays for stalling", () => {
-    expect(withJoker("slow_burn", "crane").last.mult).toBe(7)
-    expect(withJoker("slow_burn", "crane", "crane").last.mult).toBe(12)
+    expect(withRelic("slow_burn", "crane").last.mult).toBe(7)
+    expect(withRelic("slow_burn", "crane", "crane").last.mult).toBe(12)
   })
 
   it("Speedrunner triples a fast solve", () => {
-    const { last } = withJoker("speedrunner", "braid")
+    const { last } = withRelic("speedrunner", "braid")
     expect(last).toMatchObject({ chips: 8, mult: 48, solveBonus: 6 })
   })
 
   it("Speedrunner does nothing on a slow one", () => {
-    const { last } = withJoker("speedrunner", "crane", "crane", "crane", "braid")
+    const { last } = withRelic("speedrunner", "crane", "crane", "crane", "braid")
     expect(last.mult).toBe(16)
   })
 
   it("Cold Open pays the opening probe and nothing after it", () => {
-    expect(withJoker("cold_open", "crane").last.chips).toBe(37)
-    expect(withJoker("cold_open", "crane", "crane").last.chips).toBe(7)
+    expect(withRelic("cold_open", "crane").last.chips).toBe(37)
+    expect(withRelic("cold_open", "crane", "crane").last.chips).toBe(7)
   })
 
   it("Bloodhound pays chips per yellow", () => {
     // DAIRY lands four yellows: 9 + 24 chips.
-    expect(withJoker("bloodhound", "dairy").last).toMatchObject({ chips: 33, mult: 5 })
+    expect(withRelic("bloodhound", "dairy").last).toMatchObject({ chips: 33, mult: 5 })
   })
 
   it("Anagrammer doubles a word with five distinct letters", () => {
-    expect(withJoker("anagrammer", "crane").last.mult).toBe(14)
+    expect(withRelic("anagrammer", "crane").last.mult).toBe(14)
     // SASSY repeats S three times, so it earns nothing: its lone yellow A is
-    // the whole of that 2, exactly as it would be with no joker at all.
-    expect(withJoker("anagrammer", "sassy").last.mult).toBe(2)
-    expect(apply(startRun(1, words).state, type("sassy")).blind.guesses[0]?.mult).toBe(2)
+    // the whole of that 2, exactly as it would be with no relic at all.
+    expect(withRelic("anagrammer", "sassy").last.mult).toBe(2)
+    expect(apply(startRun(1, words).state, type("sassy")).round.guesses[0]?.mult).toBe(2)
   })
 
   it("Sunk Cost pays for the guesses you are about to give up", () => {
     // Guess one of six leaves five behind: +50 mult on top of CRANE's 7.
-    expect(withJoker("sunk_cost", "crane").last.mult).toBe(57)
-    expect(withJoker("sunk_cost", "crane", "crane").last.mult).toBe(47)
+    expect(withRelic("sunk_cost", "crane").last.mult).toBe(57)
+    expect(withRelic("sunk_cost", "crane", "crane").last.mult).toBe(47)
   })
 
   it("The Vault pays chips for stalling, the way Slow Burn pays mult", () => {
-    expect(withJoker("vault", "crane").last.chips).toBe(7)
-    expect(withJoker("vault", "crane", "crane").last.chips).toBe(32)
+    expect(withRelic("vault", "crane").last.chips).toBe(7)
+    expect(withRelic("vault", "crane", "crane").last.chips).toBe(32)
   })
 
   it("The Long Game buys back a point of solve multiplier", () => {
     // Solving on guess one is x6; with this it is x7, and the pile it
     // multiplies is the whole round rather than this guess.
-    const { last, state } = withJoker("long_game", "braid")
+    const { last, state } = withRelic("long_game", "braid")
     expect(last.solveBonus).toBe(7)
-    expect(state.blind.score).toBe(last.score * 7)
+    expect(state.round.score).toBe(last.score * 7)
   })
 
   it("Scavenger pays gold per yellow", () => {
-    const { state } = withJoker("scavenger", "dairy")
+    const { state } = withRelic("scavenger", "dairy")
     expect(state.gold).toBe(startRun(1, words).state.gold + 4)
   })
 
   it("Pyromaniac burns a letter out of the alphabet, and the answer respects it", () => {
-    // Needs a real blind transition, since burning happens before the draw.
+    // Needs a real round transition, since burning happens before the draw.
     let state = startRun(1, realWords).state
-    state = apply(state, type(state.blind.answer), realWords)
+    state = apply(state, type(state.round.answer), realWords)
     state = apply(state, [{ type: "collect" }], realWords)
-    state = { ...state, jokers: [{ id: "pyromaniac" }] }
-    state = apply(state, [{ type: "next_blind" }], realWords)
+    state = { ...state, relics: [{ id: "pyromaniac" }] }
+    state = apply(state, [{ type: "next_round" }], realWords)
 
     const burnt = Object.entries(state.letters)
       .filter(([, letter]) => letter.destroyed)
       .map(([name]) => name)
 
     expect(burnt).toHaveLength(1)
-    expect(state.blind.answer).not.toContain(burnt[0])
+    expect(state.round.answer).not.toContain(burnt[0])
   })
 
   it("refuses to type a burnt letter", () => {
@@ -158,10 +158,10 @@ describe("jokers", () => {
     expect(events).toEqual([{ type: "rejected", reason: "Q is burnt out" }])
   })
 
-  it("gives every joker a distinct id, name and price", () => {
-    expect(new Set(JOKERS.map((joker) => joker.id)).size).toBe(JOKERS.length)
-    expect(new Set(JOKERS.map((joker) => joker.name)).size).toBe(JOKERS.length)
-    for (const joker of JOKERS) expect(joker.cost).toBeGreaterThan(0)
+  it("gives every relic a distinct id, name and price", () => {
+    expect(new Set(RELICS.map((relic) => relic.id)).size).toBe(RELICS.length)
+    expect(new Set(RELICS.map((relic) => relic.name)).size).toBe(RELICS.length)
+    for (const relic of RELICS) expect(relic.cost).toBeGreaterThan(0)
   })
 })
 
@@ -170,11 +170,11 @@ describe("jokers", () => {
  * archetypes that previously had no way to cash in — money and sacrifice — and
  * three grow, one per lifecycle hook, which is what P1's `data` was built for.
  */
-describe("the jokers that close a build", () => {
+describe("the relics that close a build", () => {
   const held = (id: string, gold: number, word: string): GuessRecord => {
     const base = startRun(1, words).state
-    const state: RunState = { ...base, gold, jokers: [{ id }] }
-    const last = apply(state, type(word)).blind.guesses[0]
+    const state: RunState = { ...base, gold, relics: [{ id }] }
+    const last = apply(state, type(word)).round.guesses[0]
     if (!last) throw new Error("no guess was scored")
     return last
   }
@@ -187,9 +187,9 @@ describe("the jokers that close a build", () => {
 
   it("The Mint takes the interest away, which is what pays for it", () => {
     const base = startRun(1, words).state
-    // Parked at the end of a cleared blind with enough gold to cap interest.
-    const cleared = (jokers: RunState["jokers"]): number => {
-      const state: RunState = { ...base, gold: 40, jokers, blind: { ...base.blind, target: 1 } }
+    // Parked at the end of a cleared round with enough gold to cap interest.
+    const cleared = (relics: RunState["relics"]): number => {
+      const state: RunState = { ...base, gold: 40, relics, round: { ...base.round, target: 1 } }
       return apply(state, type("braid")).reward?.interest ?? -1
     }
     expect(cleared([])).toBe(INTEREST_CAP)
@@ -200,30 +200,30 @@ describe("the jokers that close a build", () => {
     const base = startRun(1, words).state
     const letters = { ...base.letters }
     for (const letter of "jkvwxz") letters[letter] = { etch: 0, destroyed: true, mod: null }
-    const state: RunState = { ...base, letters, jokers: [{ id: "scorched_earth" }] }
+    const state: RunState = { ...base, letters, relics: [{ id: "scorched_earth" }] }
     // Six burnt: 7 + 72 mult, and none of those letters is in CRANE.
-    expect(apply(state, type("crane")).blind.guesses[0]).toMatchObject({ chips: 7, mult: 79 })
+    expect(apply(state, type("crane")).round.guesses[0]).toMatchObject({ chips: 7, mult: 79 })
   })
 
   it("Scorched Earth is worth nothing to a run that has burnt nothing", () => {
-    expect(withJoker("scorched_earth", "crane").last).toMatchObject({ mult: 7 })
+    expect(withRelic("scorched_earth", "crane").last).toMatchObject({ mult: 7 })
   })
 
   it("Snowball pays what it banked, then counts the guess that grew it", () => {
     // CRANE lands two greens against BRAID. The first guess pays nothing and
     // banks +2; the second pays that 2 and banks another.
-    const { state } = withJoker("snowball", "crane")
-    expect(state.blind.guesses[0]).toMatchObject({ mult: 7 })
-    expect(state.jokers[0]?.data).toEqual({ mult: 2 })
+    const { state } = withRelic("snowball", "crane")
+    expect(state.round.guesses[0]).toMatchObject({ mult: 7 })
+    expect(state.relics[0]?.data).toEqual({ mult: 2 })
 
-    const second = apply(state, type("crane")).blind.guesses[1]
+    const second = apply(state, type("crane")).round.guesses[1]
     expect(second).toMatchObject({ mult: 9 })
   })
 
   it("Snowball survives the save round trip with its growth intact", () => {
-    const { state } = withJoker("snowball", "crane")
+    const { state } = withRelic("snowball", "crane")
     const revived = JSON.parse(JSON.stringify(state)) as RunState
-    expect(apply(revived, type("crane")).blind.guesses[1]?.mult).toBe(9)
+    expect(apply(revived, type("crane")).round.guesses[1]?.mult).toBe(9)
   })
 
   it("Hot Streak grows on a fast clear and not on a slow one", () => {
@@ -232,15 +232,15 @@ describe("the jokers that close a build", () => {
     const run = (probes: string[]): RunState => {
       let state: RunState = {
         ...base,
-        jokers: [{ id: "hot_streak" }],
-        blind: { ...base.blind, target: 1 },
+        relics: [{ id: "hot_streak" }],
+        round: { ...base.round, target: 1 },
       }
       for (const word of probes) state = apply(state, type(word))
       return apply(state, type("braid"))
     }
-    expect(run([]).jokers[0]?.data).toEqual({ chips: 30 })
+    expect(run([]).relics[0]?.data).toEqual({ chips: 30 })
     // Four guesses to solve is past the three-guess line: nothing banked.
-    expect(run(["crane", "quazy", "dairy"]).jokers[0]?.data).toBeUndefined()
+    expect(run(["crane", "quazy", "dairy"]).relics[0]?.data).toBeUndefined()
   })
 
   it("The Hoarder grows only when both card slots are full", () => {
@@ -249,27 +249,27 @@ describe("the jokers that close a build", () => {
       const state: RunState = {
         ...base,
         consumables,
-        jokers: [{ id: "hoarder" }],
+        relics: [{ id: "hoarder" }],
         phase: "reward",
         reward: { base: 0, unusedGuesses: 0, interest: 0, total: 0 },
       }
       return reduce(state, { type: "collect" }, words).state
     }
-    expect(shopped([]).jokers[0]?.data).toBeUndefined()
-    expect(shopped([{ id: "oracle" }]).jokers[0]?.data).toBeUndefined()
-    expect(shopped([{ id: "oracle" }, { id: "hermit" }]).jokers[0]?.data).toEqual({ chips: 40 })
+    expect(shopped([]).relics[0]?.data).toBeUndefined()
+    expect(shopped([{ id: "oracle" }]).relics[0]?.data).toBeUndefined()
+    expect(shopped([{ id: "oracle" }, { id: "hermit" }]).relics[0]?.data).toEqual({ chips: 40 })
   })
 
   it("announces every growth, so the card visibly gets bigger", () => {
     const base = startRun(1, words).state
     const state: RunState = {
       ...base,
-      jokers: [{ id: "snowball" }],
-      blind: { ...base.blind, draft: "crane" },
+      relics: [{ id: "snowball" }],
+      round: { ...base.round, draft: "crane" },
     }
     const { events } = reduce(state, { type: "submit" }, words)
     expect(events).toContainEqual({
-      type: "joker_grew",
+      type: "relic_grew",
       slot: 0,
       id: "snowball",
       label: "+2 mult",
@@ -278,10 +278,10 @@ describe("the jokers that close a build", () => {
 
   it("wears what it has grown to, so the board never has to be guessed at", () => {
     for (const id of ["snowball", "hot_streak", "hoarder"]) {
-      const joker = JOKERS.find((entry) => entry.id === id)
-      expect(joker?.detail, `${id} has no detail`).toBeDefined()
-      expect(joker?.detail?.({ id })).toMatch(/^\+0 /)
-      expect(joker?.detail?.({ id, data: { mult: 5, chips: 5 } })).toMatch(/^\+5 /)
+      const relic = RELICS.find((entry) => entry.id === id)
+      expect(relic?.detail, `${id} has no detail`).toBeDefined()
+      expect(relic?.detail?.({ id })).toMatch(/^\+0 /)
+      expect(relic?.detail?.({ id, data: { mult: 5, chips: 5 } })).toMatch(/^\+5 /)
     }
   })
 })
@@ -292,49 +292,49 @@ describe("the jokers that close a build", () => {
  * from how often the word list actually produces that shape — a test that only
  * pinned the arithmetic would let the shape drift silently.
  */
-describe("the jokers that read the word's shape", () => {
+describe("the relics that read the word's shape", () => {
   it("Head Start pays for a vowel in the first column and nothing for one later", () => {
     // AROSE opens on a vowel; GHOST does not. Both keep their own mult.
-    expect(withJoker("head_start", "arose").last).toMatchObject({ mult: 5 + 15 })
-    expect(withJoker("head_start", "ghost").last).toMatchObject({ mult: 1 })
+    expect(withRelic("head_start", "arose").last).toMatchObject({ mult: 5 + 15 })
+    expect(withRelic("head_start", "ghost").last).toMatchObject({ mult: 1 })
     // CRANE holds three vowels and starts on a consonant, which is the case the
     // card is priced against: the column is the condition, not the vowel count.
-    expect(withJoker("head_start", "crane").last).toMatchObject({ mult: 7 })
+    expect(withRelic("head_start", "crane").last).toMatchObject({ mult: 7 })
   })
 
   it("Keystone doubles on a green middle and leaves any other green alone", () => {
     // QUAZY against BRAID lands its A in the middle column: 4 mult becomes 12.
-    expect(withJoker("keystone", "quazy").last).toMatchObject({ chips: 26, mult: 12 })
+    expect(withRelic("keystone", "quazy").last).toMatchObject({ chips: 26, mult: 12 })
     // GHOST lands nothing at all, so there is nothing to double.
-    expect(withJoker("keystone", "ghost").last).toMatchObject({ mult: 1 })
+    expect(withRelic("keystone", "ghost").last).toMatchObject({ mult: 1 })
   })
 
   it("The Chorus wants three vowels and counts them in the word, not on the board", () => {
     // AROSE is A-O-E: 5 mult becomes 15, and only one of those vowels is even
     // in the answer — the shape is the condition, the feedback is not.
-    expect(withJoker("chorus", "arose").last).toMatchObject({ mult: 15 })
+    expect(withRelic("chorus", "arose").last).toMatchObject({ mult: 15 })
     // CRANE has A and E only.
-    expect(withJoker("chorus", "crane").last).toMatchObject({ mult: 7 })
+    expect(withRelic("chorus", "crane").last).toMatchObject({ mult: 7 })
   })
 
   it("Lexicographer counts the alphabet already spent, and never the guess itself", () => {
     // The opening guess has nothing behind it, so it pays nothing — the same
     // rule Slow Burn and The Vault follow. GHOST is 9 chips on its own.
-    expect(withJoker("lexicographer", "ghost").last).toMatchObject({ chips: 9 })
+    expect(withRelic("lexicographer", "ghost").last).toMatchObject({ chips: 9 })
     // GHOST spent five distinct letters, so QUAZY's 26 chips become 41.
-    expect(withJoker("lexicographer", "ghost", "quazy").last).toMatchObject({ chips: 41 })
+    expect(withRelic("lexicographer", "ghost", "quazy").last).toMatchObject({ chips: 41 })
     // SASSY adds only A and Y — its three S's were spent by GHOST and its own
     // repeats count once. Seven letters, not ten, which is the whole reason the
     // card pays for covering ground rather than for typing.
-    expect(withJoker("lexicographer", "ghost", "sassy", "quazy").last).toMatchObject({ chips: 47 })
+    expect(withRelic("lexicographer", "ghost", "sassy", "quazy").last).toMatchObject({ chips: 47 })
   })
 
   it("Loaded Dice rolls inside its range, and rolls the same way twice", () => {
     const rolled = (word: string, seed: number): number => {
       const base = startRun(seed, words).state
-      const state: RunState = { ...base, jokers: [{ id: "loaded_dice" }] }
-      const plain = apply(base, type(word)).blind.guesses[0]
-      const diced = apply(state, type(word)).blind.guesses[0]
+      const state: RunState = { ...base, relics: [{ id: "loaded_dice" }] }
+      const plain = apply(base, type(word)).round.guesses[0]
+      const diced = apply(state, type(word)).round.guesses[0]
       return (diced?.mult ?? 0) - (plain?.mult ?? 0)
     }
     for (const seed of [1, 2, 3, 4, 5]) {
@@ -359,6 +359,6 @@ describe("etchings", () => {
       ...base,
       letters: { ...base.letters, a: { etch: 2, destroyed: false, mod: null } },
     }
-    expect(apply(state, type("crane")).blind.guesses[0]?.chips).toBe(9)
+    expect(apply(state, type("crane")).round.guesses[0]?.chips).toBe(9)
   })
 })

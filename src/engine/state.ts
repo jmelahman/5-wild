@@ -24,7 +24,7 @@ export type GuessRecord = {
   mult: number
   /**
    * ×(1 + guesses left) when this guess solved the word, else 1. It is recorded
-   * here but *not* folded into `score`: the bonus multiplies the blind's total,
+   * here but *not* folded into `score`: the bonus multiplies the round's total,
    * so it belongs to the round rather than to any one guess.
    */
   solveBonus: number
@@ -46,14 +46,14 @@ export type GuessRecord = {
 export type Rarity = "common" | "uncommon" | "rare" | "legendary"
 
 /**
- * Where a scaling joker keeps what it has grown.
+ * Where a scaling relic keeps what it has grown.
  *
- * `data` is absent until the joker actually writes to it, which is what keeps
+ * `data` is absent until the relic actually writes to it, which is what keeps
  * this compatible in both directions: a save written before scaling existed
- * loads unchanged, and a run full of non-scaling jokers adds nothing to the
+ * loads unchanged, and a run full of non-scaling relics adds nothing to the
  * file. Plain numbers only, for the same reason the rest of RunState is plain.
  */
-export type JokerInstance = { id: string; data?: Record<string, number> }
+export type RelicInstance = { id: string; data?: Record<string, number> }
 export type ConsumableInstance = { id: string }
 
 export type LetterState = {
@@ -69,9 +69,9 @@ export type LetterState = {
 }
 
 /** 0 small, 1 big, 2 boss. */
-export type BlindIndex = 0 | 1 | 2
+export type RoundIndex = 0 | 1 | 2
 
-export type BlindState = {
+export type RoundState = {
   answer: string
   target: number
   maxGuesses: number
@@ -93,7 +93,7 @@ export type BlindState = {
 }
 
 export type ShopItem =
-  | { kind: "joker"; id: string; cost: number }
+  | { kind: "relic"; id: string; cost: number }
   | { kind: "consumable"; id: string; cost: number }
   /** A group etching. Keyed by the group, not by a letter — it buys many. */
   | { kind: "etch"; id: string; cost: number }
@@ -140,13 +140,13 @@ export type OpenPack = {
 }
 
 export type Phase =
-  | "blind"
-  /** Blind cleared; waiting for the player to bank the reward. */
+  | "round"
+  /** Round cleared; waiting for the player to bank the reward. */
   | "reward"
   | "shop"
   | "game_over"
   /**
-   * The final ante's last blind is banked. Not a terminus: the run is complete
+   * The final stage's last round is banked. Not a terminus: the run is complete
    * and the player chooses whether it is over, so this phase is a held screen
    * rather than a stopped machine. `continue_run` releases it into the shop.
    */
@@ -154,17 +154,17 @@ export type Phase =
 
 export type RunState = {
   seed: number
-  ante: number
-  blindIndex: BlindIndex
+  stage: number
+  roundIndex: RoundIndex
   phase: Phase
   gold: number
-  jokers: JokerInstance[]
+  relics: RelicInstance[]
   consumables: ConsumableInstance[]
   letters: Record<string, LetterState>
   /**
    * Word category levels, by category id, where absent means level one. Optional
    * and unwritten until a level is bought, on the same reasoning as
-   * `JokerInstance.data`: a run that never levels anything costs its save
+   * `RelicInstance.data`: a run that never levels anything costs its save
    * nothing, and a save from before levelling existed loads unchanged.
    */
   levels?: Record<string, number>
@@ -175,11 +175,11 @@ export type RunState = {
    */
   ranges?: Record<string, number>
   /**
-   * Whether this run has already cleared the final ante.
+   * Whether this run has already cleared the final stage.
    *
    * Set once and never cleared, which is what makes it more than a phase: it is
-   * why the win is only offered once however far past ante `ANTES` the run goes,
-   * and it is how a run that wins and then dies at ante 14 is told apart from
+   * why the win is only offered once however far past stage `STAGES` the run goes,
+   * and it is how a run that wins and then dies at stage 14 is told apart from
    * one that simply died. Optional, so a save written before endless existed
    * loads as a run that has not won — which is what it is.
    */
@@ -191,17 +191,17 @@ export type RunState = {
    */
   ascension?: number
   /**
-   * Every word this run has submitted, in order, across all its blinds.
+   * Every word this run has submitted, in order, across all its rounds.
    *
    * Ascension 3 forbids repeating one, and there is nowhere else that fact could
-   * live — a blind only knows its own guesses. Written on every submit whatever
+   * live — a round only knows its own guesses. Written on every submit whatever
    * the ascension, because a rule that only records when it is switched on is a
    * rule that cannot be switched on. Optional, so older saves load as a run that
    * has not guessed anything yet, which costs those runs nothing: the rule that
    * reads it is not in play on a run started before it existed.
    */
   history?: string[]
-  blind: BlindState
+  round: RoundState
   shop: ShopState | null
   /**
    * The pack currently open, if one is. Absent rather than null when there is
@@ -228,7 +228,7 @@ export type RunState = {
    * the right answer.
    */
   placing?: ModId | null
-  /** Set when a blind is cleared, so the reward screen can itemise it. */
+  /** Set when a round is cleared, so the reward screen can itemise it. */
   reward: RewardBreakdown | null
 }
 
@@ -247,10 +247,10 @@ export type Action =
   | { type: "use_consumable"; index: number }
   | { type: "collect" }
   | { type: "buy"; index: number }
-  | { type: "sell_joker"; index: number }
+  | { type: "sell_relic"; index: number }
   | { type: "reroll" }
-  | { type: "next_blind" }
-  /** Play on past the win, into antes nobody authored. */
+  | { type: "next_round" }
+  /** Play on past the win, into stages nobody authored. */
   | { type: "continue_run" }
   /** Point the modifier bought a moment ago at a letter. */
   | { type: "place_mod"; letter: string }
@@ -267,14 +267,14 @@ export type Action =
 export type GameEvent =
   | { type: "rejected"; reason: string }
   | { type: "tile"; index: number; gained: number; chips: number; mult: number }
-  | { type: "joker"; slot: number; id: string; label: string; chips: number; mult: number }
+  | { type: "relic"; slot: number; id: string; label: string; chips: number; mult: number }
   /**
-   * A joker permanently growing. Distinct from `joker` because it happens
+   * A relic permanently growing. Distinct from `relic` because it happens
    * outside the scoring pipeline, where there is no running chips or mult for
    * it to quote — and because the screen should say "this is worth more now"
    * differently from how it says "this just paid".
    */
-  | { type: "joker_grew"; slot: number; id: string; label: string }
+  | { type: "relic_grew"; slot: number; id: string; label: string }
   /** A letter's own modifier firing, on the tile that carried it. */
   | {
       type: "mod"
@@ -286,20 +286,20 @@ export type GameEvent =
       mult: number
     }
   /**
-   * A levelled word category paying out, between the tiles and the jokers. Only
+   * A levelled word category paying out, between the tiles and the relics. Only
    * emitted when it is actually worth something — at level one the category is
    * still named on the board, but it has nothing to announce.
    */
   | { type: "category"; id: string; name: string; level: number; chips: number; mult: number }
-  /** `total` is the blind's score *after* the multiply, not the guess's. */
+  /** `total` is the round's score *after* the multiply, not the guess's. */
   | { type: "solve_bonus"; factor: number; total: number }
   | { type: "guess_scored"; score: number; total: number }
   | { type: "letter_destroyed"; letter: string }
   | { type: "consumable"; id: string; label: string }
   /** A bought modifier landing on the letter the player chose for it. */
   | { type: "mod_placed"; id: ModId; letter: string; label: string }
-  | { type: "blind_won" }
-  | { type: "blind_lost" }
+  | { type: "round_won" }
+  | { type: "round_lost" }
   | { type: "gold"; delta: number; reason: string }
   | { type: "shop_entered" }
   /** A pack laid out on the table, waiting to be chosen from. */

@@ -2,14 +2,14 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { MAX_ASCENSION } from "../../src/engine"
 import type { MetaState } from "../../src/ui/meta"
 import {
-  blindsPlayed,
   chosenAscension,
-  favouriteJokers,
+  favouriteRelics,
   favouriteWord,
   isLocked,
   loadMeta,
   meanSolve,
   Profile,
+  roundsPlayed,
   unlocked,
   wordsFound,
 } from "../../src/ui/meta"
@@ -45,7 +45,7 @@ const stored = (): unknown => JSON.parse(store.items.get(KEY) ?? "null")
 const FRESH: MetaState = {
   runs: 0,
   wins: 0,
-  bestAnte: 0,
+  bestStage: 0,
   cleared: -1,
   ascension: 0,
   guesses: 0,
@@ -55,7 +55,7 @@ const FRESH: MetaState = {
   bestStreak: 0,
   cracked: [],
   words: {},
-  jokers: {},
+  relics: {},
 }
 
 beforeEach(() => {
@@ -76,7 +76,7 @@ describe("reading the record", () => {
     const record: MetaState = {
       runs: 12,
       wins: 2,
-      bestAnte: 14,
+      bestStage: 14,
       cleared: 1,
       ascension: 2,
       guesses: 431,
@@ -86,7 +86,7 @@ describe("reading the record", () => {
       bestStreak: 11,
       cracked: ["crane", "slate"],
       words: { crane: 88, slate: 12 },
-      jokers: { snowball: 3 },
+      relics: { snowball: 3 },
     }
     store.items.set(KEY, JSON.stringify(record))
     expect(loadMeta()).toEqual(record)
@@ -95,7 +95,7 @@ describe("reading the record", () => {
   it("keeps the fields it can read when one of them is garbage", () => {
     // The opposite of `loadSave`, which throws a bad run away whole. Independent
     // counters: a broken one is no reason to forget the rest.
-    store.items.set(KEY, JSON.stringify({ runs: 9, wins: "lots", bestAnte: 6.5, cleared: null }))
+    store.items.set(KEY, JSON.stringify({ runs: 9, wins: "lots", bestStage: 6.5, cleared: null }))
     expect(loadMeta()).toEqual({ ...FRESH, runs: 9 })
   })
 
@@ -109,8 +109,8 @@ describe("reading the record", () => {
   it("reads a record written before a field existed as zero on it", () => {
     // Which is what every record in the wild looks like to the build that added
     // the ascension to it: a player mid-career, at the bottom of a new ladder.
-    store.items.set(KEY, JSON.stringify({ runs: 3, wins: 1, bestAnte: 8, cleared: 0 }))
-    expect(loadMeta()).toEqual({ ...FRESH, runs: 3, wins: 1, bestAnte: 8, cleared: 0 })
+    store.items.set(KEY, JSON.stringify({ runs: 3, wins: 1, bestStage: 8, cleared: 0 }))
+    expect(loadMeta()).toEqual({ ...FRESH, runs: 3, wins: 1, bestStage: 8, cleared: 0 })
   })
 })
 
@@ -123,12 +123,12 @@ describe("keeping the record", () => {
     expect(stored()).toMatchObject({ runs: 2 })
   })
 
-  it("keeps the deepest ante and ignores the shallower ones", () => {
+  it("keeps the deepest stage and ignores the shallower ones", () => {
     const profile = new Profile()
     profile.reached(1)
     profile.reached(7)
     profile.reached(3)
-    expect(profile.stats.bestAnte).toBe(7)
+    expect(profile.stats.bestStage).toBe(7)
   })
 
   it("does not touch the store when the mark has not moved", () => {
@@ -277,7 +277,7 @@ describe("what the runs added up to", () => {
     profile.solved("slate", 4)
     profile.solved("mound", 2)
     expect(profile.stats.solves).toEqual([0, 0, 1, 0, 2])
-    expect(blindsPlayed(profile.stats)).toBe(3)
+    expect(roundsPlayed(profile.stats)).toBe(3)
   })
 
   it("collects each answer once, however often it comes up", () => {
@@ -289,11 +289,11 @@ describe("what the runs added up to", () => {
     expect(profile.stats.cracked).toEqual(["adobe", "crane"])
   })
 
-  it("counts a blind that ran out of guesses", () => {
+  it("counts a round that ran out of guesses", () => {
     const profile = new Profile()
     profile.solved("crane", 3)
     profile.missed()
-    expect(blindsPlayed(profile.stats)).toBe(2)
+    expect(roundsPlayed(profile.stats)).toBe(2)
     expect(profile.stats.cracked).toEqual(["crane"])
   })
 
@@ -327,19 +327,19 @@ describe("what the runs added up to", () => {
     expect(profile.stats.streak).toBe(2)
   })
 
-  it("averages over the solves and not over the blinds", () => {
+  it("averages over the solves and not over the rounds", () => {
     const profile = new Profile()
     profile.solved("crane", 2)
     profile.solved("slate", 4)
     expect(meanSolve(profile.stats)).toBe(3)
 
-    // A blind where the word never came has its own row on the chart. Counting
+    // A round where the word never came has its own row on the chart. Counting
     // it here as a seventh guess would make one number answer two questions
-    // badly, and would move the mean on a blind that has no guess to average.
+    // badly, and would move the mean on a round that has no guess to average.
     profile.missed()
     expect(meanSolve(profile.stats)).toBe(3)
     expect(wordsFound(profile.stats)).toBe(2)
-    expect(blindsPlayed(profile.stats)).toBe(3)
+    expect(roundsPlayed(profile.stats)).toBe(3)
   })
 
   it("has no average at all before a word has been found", () => {
@@ -354,17 +354,17 @@ describe("what the runs added up to", () => {
     const profile = new Profile()
     profile.solved("crane", 0)
     profile.solved("slate", 99)
-    // Nothing is solved on guess zero, and no blind runs to ninety-nine. Both
+    // Nothing is solved on guess zero, and no round runs to ninety-nine. Both
     // are clamped rather than trusted, because this array is indexed with them.
     expect(profile.stats.solves.length).toBeLessThanOrEqual(13)
     expect(profile.stats.solves[1]).toBe(1)
     expect(profile.stats.solves[12]).toBe(1)
   })
 
-  it("ranks the jokers by how often they were taken", () => {
+  it("ranks the relics by how often they were taken", () => {
     const profile = new Profile()
     for (const id of ["snowball", "banker", "snowball", "banker", "snowball"]) profile.took(id)
-    expect(favouriteJokers(profile.stats)).toEqual([
+    expect(favouriteRelics(profile.stats)).toEqual([
       { id: "snowball", count: 3 },
       { id: "banker", count: 2 },
     ])
@@ -375,8 +375,8 @@ describe("salvaging the longer record", () => {
   it("reads a record written before the statistics existed", () => {
     // Every record in the wild, to the build that adds them: a player mid-career
     // whose history starts today.
-    store.items.set(KEY, JSON.stringify({ runs: 40, wins: 3, bestAnte: 9, cleared: 2 }))
-    expect(loadMeta()).toEqual({ ...FRESH, runs: 40, wins: 3, bestAnte: 9, cleared: 2 })
+    store.items.set(KEY, JSON.stringify({ runs: 40, wins: 3, bestStage: 9, cleared: 2 }))
+    expect(loadMeta()).toEqual({ ...FRESH, runs: 40, wins: 3, bestStage: 9, cleared: 2 })
   })
 
   it("drops the cells it cannot read and keeps the row", () => {
@@ -404,13 +404,13 @@ describe("salvaging the longer record", () => {
     const bloated = Object.fromEntries(
       Array.from({ length: 90 }, (_, n) => [`w${n.toString().padStart(4, "0")}`, n + 1]),
     )
-    store.items.set(KEY, JSON.stringify({ words: bloated, jokers: bloated }))
+    store.items.set(KEY, JSON.stringify({ words: bloated, relics: bloated }))
     const meta = loadMeta()
     expect(Object.keys(meta.words).length).toBe(24)
     expect(favouriteWord(meta)).toEqual({ word: "w0089", count: 90 })
-    // The joker map is bounded by the catalogue, so it is left alone — a joker
+    // The relic map is bounded by the catalogue, so it is left alone — a relic
     // no longer in the game should still be able to have been a favourite.
-    expect(Object.keys(meta.jokers).length).toBe(90)
+    expect(Object.keys(meta.relics).length).toBe(90)
   })
 
   it("carries the statistics across sessions", () => {

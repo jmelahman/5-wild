@@ -105,12 +105,12 @@ describe("category levels", () => {
   it("lands on the base, so the guess scores more chips and more mult", () => {
     // CRANE is Distinct: 7 chips x 7 mult unlevelled.
     const plain = apply(startRun(1, words).state, type("crane"))
-    expect(plain.blind.guesses[0]).toMatchObject({ chips: 7, mult: 7 })
+    expect(plain.round.guesses[0]).toMatchObject({ chips: 7, mult: 7 })
 
     const distinct = CATEGORY_BY_ID.get("distinct")
     if (!distinct) throw new Error("no distinct category")
     const raised = apply(levelled("distinct", 3), type("crane"))
-    expect(raised.blind.guesses[0]).toMatchObject({
+    expect(raised.round.guesses[0]).toMatchObject({
       chips: 7 + distinct.chips * 2,
       mult: 7 + distinct.mult * 2,
     })
@@ -120,7 +120,7 @@ describe("category levels", () => {
     // SHRUB is a Cluster, so a levelled Distinct does nothing for it.
     const raised = apply(levelled("distinct", 5), type("shrub"))
     const plain = apply(startRun(1, words).state, type("shrub"))
-    expect(raised.blind.guesses[0]?.score).toBe(plain.blind.guesses[0]?.score)
+    expect(raised.round.guesses[0]?.score).toBe(plain.round.guesses[0]?.score)
   })
 
   it("announces itself only once it is worth something", () => {
@@ -136,14 +136,14 @@ describe("category levels", () => {
     )
   })
 
-  it("scores before the jokers, so a ×mult joker multiplies the level", () => {
+  it("scores before the relics, so a ×mult relic multiplies the level", () => {
     // Anagrammer is ×2 mult on a distinct word. Level 2 Distinct adds its mult
     // to the base first, so the doubling lands on the raised figure.
     const distinct = CATEGORY_BY_ID.get("distinct")
     if (!distinct) throw new Error("no distinct category")
-    const state: RunState = { ...levelled("distinct", 2), jokers: [{ id: "anagrammer" }] }
+    const state: RunState = { ...levelled("distinct", 2), relics: [{ id: "anagrammer" }] }
     const played = apply(state, type("crane"))
-    expect(played.blind.guesses[0]?.mult).toBe((7 + distinct.mult) * 2)
+    expect(played.round.guesses[0]?.mult).toBe((7 + distinct.mult) * 2)
   })
 })
 
@@ -189,7 +189,7 @@ describe("buying a level", () => {
   })
 })
 
-describe("the jokers that read a category", () => {
+describe("the relics that read a category", () => {
   /*
    * These three were written around inline predicates and now share the
    * category table's. They ask `isCategory` rather than `categoryOf`, which is
@@ -197,25 +197,25 @@ describe("the jokers that read a category", () => {
    * when a rarer category claimed it for scoring.
    */
   it("still pays Anagrammer for a distinct word that scored as something rarer", () => {
-    const state: RunState = { ...startRun(1, words).state, jokers: [{ id: "anagrammer" }] }
+    const state: RunState = { ...startRun(1, words).state, relics: [{ id: "anagrammer" }] }
     // AUDIO has no repeats and scores as Vowel Heavy.
     expect(categoryOf("audio").id).toBe("vowel_heavy")
     const played = apply(state, type("audio"))
     const plain = apply(startRun(1, words).state, type("audio"))
-    expect(played.blind.guesses[0]?.mult).toBe((plain.blind.guesses[0]?.mult ?? 0) * 2)
+    expect(played.round.guesses[0]?.mult).toBe((plain.round.guesses[0]?.mult ?? 0) * 2)
   })
 
   it("still pays Alphabetist for a word that also repeats a letter", () => {
-    const state: RunState = { ...startRun(1, words).state, jokers: [{ id: "alphabetist" }] }
+    const state: RunState = { ...startRun(1, words).state, relics: [{ id: "alphabetist" }] }
     const played = apply(state, type("abbot"))
     const plain = apply(startRun(1, words).state, type("abbot"))
-    expect(played.blind.guesses[0]?.mult).toBe((plain.blind.guesses[0]?.mult ?? 0) * 2)
+    expect(played.round.guesses[0]?.mult).toBe((plain.round.guesses[0]?.mult ?? 0) * 2)
   })
 
   it("still pays Consonant Cluster on a three-consonant run", () => {
-    const state: RunState = { ...startRun(1, words).state, jokers: [{ id: "consonant_cluster" }] }
+    const state: RunState = { ...startRun(1, words).state, relics: [{ id: "consonant_cluster" }] }
     const played = apply(state, type("shrub"))
     const plain = apply(startRun(1, words).state, type("shrub"))
-    expect(played.blind.guesses[0]?.mult).toBe((plain.blind.guesses[0]?.mult ?? 0) * 1.5)
+    expect(played.round.guesses[0]?.mult).toBe((plain.round.guesses[0]?.mult ?? 0) * 1.5)
   })
 })

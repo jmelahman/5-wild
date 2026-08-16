@@ -1,4 +1,4 @@
-import { BASE_GUESSES, JOKER_SLOTS } from "../content/blinds"
+import { BASE_GUESSES, RELIC_SLOTS } from "../content/rounds"
 import { getBoss } from "./bosses"
 import { found, keepGreens, useFound } from "./rules"
 import type { RunState } from "./state"
@@ -30,22 +30,22 @@ import type { RunState } from "./state"
  * The last two are the same rule twice and that is deliberate — see rung 10.
  * The tenth is the sharpest thing in the game.
  *
- * Measured over 250 seeds a piece, reported as mean final ante. The ante rather
+ * Measured over 250 seeds a piece, reported as mean final stage. The stage rather
  * than the win rate, because above rung 6 the win rate is low enough that 250
- * seeds cannot separate two neighbouring rungs and the ante can:
+ * seeds cannot separate two neighbouring rungs and the stage can:
  *
  *   A0  4.79   A6  4.64   A8  3.95   A10  3.26
  *   A5  5.02   A7  4.36   A9  3.92
  *
- * — about a fifth of an ante a rung through the middle and two thirds at the
+ * — about a fifth of an stage a rung through the middle and two thirds at the
  * capstone, which is the shape the ladder wanted: every step felt, none a wall.
  *
- * That reads off a bot that deduces honestly and will farm a blind it cannot
+ * That reads off a bot that deduces honestly and will farm a round it cannot
  * solve, and the distinction matters far more than it sounds. Every number in
  * this file up to rung 8 was first taken with a bot that reads the answer and
  * always solves, and such a bot cannot price the top of this ladder at all — it
- * scored rungs 9 and 10 as byte-identical, on win rate, final ante, blinds
- * cleared and gold per blind alike, because a player who always finds the word
+ * scored rungs 9 and 10 as byte-identical, on win rate, final stage, rounds
+ * cleared and gold per round alike, because a player who always finds the word
  * is a player no must-solve rule can touch. What that instrument called free is
  * what the top of the ladder is now built around, and what it called survivable
  * at rung 9 was a wall. Rung 8 is understated for the same family of reasons.
@@ -61,13 +61,13 @@ export type Ascension = {
   validate?: (word: string, state: RunState) => string | null
   /** Ascension 10 alone: clearing the target stops being enough. */
   solveRequired?: true
-  /** Gold this rule takes off every blind's base payout. */
+  /** Gold this rule takes off every round's base payout. */
   payoutCut?: number
-  /** What this rule multiplies every blind's target by. */
+  /** What this rule multiplies every round's target by. */
   targets?: number
-  /** Joker slots this rule takes off the tray. */
-  jokerCut?: number
-  /** Whether a blind cleared without the word being found pays nothing at all. */
+  /** Relic slots this rule takes off the tray. */
+  relicCut?: number
+  /** Whether a round cleared without the word being found pays nothing at all. */
   unpaidIfUnsolved?: true
 }
 
@@ -78,17 +78,17 @@ export const ASCENSIONS: readonly Ascension[] = [
     text: "Every guess must use the letters you have found.",
     // Wordle's hard mode, and the mildest thing here: it costs the player their
     // throwaway probing words, and nothing else.
-    validate: (word, state) => useFound(word, found(state.blind, "yellow")),
+    validate: (word, state) => useFound(word, found(state.round, "yellow")),
   },
   {
     level: 2,
     name: "Once Only",
-    text: "No word twice in the same blind.",
+    text: "No word twice in the same round.",
     // Barely a constraint on its own — nobody guesses the same word twice on
     // purpose — but it is the floor the next one is built on.
     validate: (word, state) =>
-      state.blind.guesses.some((guess) => guess.word === word)
-        ? "already guessed this blind"
+      state.round.guesses.some((guess) => guess.word === word)
+        ? "already guessed this round"
         : null,
   },
   {
@@ -96,7 +96,7 @@ export const ASCENSIONS: readonly Ascension[] = [
     name: "No Echoes",
     text: "No word twice in the whole run.",
     // The first rule that costs a build rather than a guess: the opener that
-    // scores best is gone after ante one, and a run has to keep finding new
+    // scores best is gone after stage one, and a run has to keep finding new
     // words that pay. This is why the run keeps a history at all.
     validate: (word, state) => (state.history?.includes(word) ? "already used this run" : null),
   },
@@ -107,7 +107,7 @@ export const ASCENSIONS: readonly Ascension[] = [
     // Greens, unpositioned — the step between hard mode and The Tyrant. Once
     // level 5 lands this can no longer fire on its own, since a letter kept in
     // its place is by definition still in the word.
-    validate: (word, state) => useFound(word, found(state.blind, "green")),
+    validate: (word, state) => useFound(word, found(state.round, "green")),
   },
   {
     level: 5,
@@ -115,13 +115,13 @@ export const ASCENSIONS: readonly Ascension[] = [
     text: "Letters you have placed must stay where you placed them.",
     // The Tyrant, permanently. Shares its implementation with the boss rather
     // than restating it, so the run-long version cannot drift from the one the
-    // player met on ante 4.
-    validate: (word, state) => keepGreens(word, state.blind),
+    // player met on stage 4.
+    validate: (word, state) => keepGreens(word, state.round),
   },
   {
     level: 6,
     name: "Lean Years",
-    text: "Every blind pays $1 less.",
+    text: "Every round pays $1 less.",
     /*
      * Where the ladder stops asking about words and starts asking about money.
      *
@@ -141,7 +141,7 @@ export const ASCENSIONS: readonly Ascension[] = [
      * A dollar sounds small and is a quarter of the base: $12 a lap becomes $9.
      * Measured against everything a run actually earns — unused-guess dollars and
      * interest included, which is why the headline number overstates it — income
-     * falls 12%, from $9.29 a blind to $8.20, and the win rate from 24.8% to
+     * falls 12%, from $9.29 a round to $8.20, and the win rate from 24.8% to
      * 21.2% over 250 seeds. Interest is capped at $5 and so cushions almost none
      * of it; what the run loses is close to one shop visit in eight.
      */
@@ -155,10 +155,10 @@ export const ASCENSIONS: readonly Ascension[] = [
      * The curve itself, and the shape every rung above 10 repeats at a gentler
      * angle — see `ENDLESS_STEP`.
      *
-     * 15% is picked against the ante growth rather than in the abstract. Targets
-     * multiply by 2.2 an ante, so a notch this size is worth about a fifth of an
-     * ante of standing pressure: enough to feel on the blind it lands on, not
-     * enough to end a run by itself. It measures at 21.2% to 17.2%, final ante
+     * 15% is picked against the stage growth rather than in the abstract. Targets
+     * multiply by 2.2 an stage, so a notch this size is worth about a fifth of an
+     * stage of standing pressure: enough to feel on the round it lands on, not
+     * enough to end a run by itself. It measures at 21.2% to 17.2%, final stage
      * 6.56 to 6.34, over 250 seeds — and it is the only authored rung that takes
      * nothing away, which is why it can sit this high while costing this little.
      * Every other rung removes a resource; this one just moves the finish line.
@@ -168,11 +168,11 @@ export const ASCENSIONS: readonly Ascension[] = [
   {
     level: 8,
     name: "Crowded",
-    text: "Four joker slots, not five.",
+    text: "Four relic slots, not five.",
     /*
      * The build, capped.
      *
-     * This was written first as a cut to the *shelf* — the shop dealing one joker
+     * This was written first as a cut to the *shelf* — the shop dealing one relic
      * instead of two — and 250 seeds said that rule does nothing at all: win rate
      * 17.2% either way, tray value $32.1 to $31.1, and the same 4.97 cards held at
      * the end. Which makes sense in hindsight. A run visits the shop around
@@ -182,21 +182,21 @@ export const ASCENSIONS: readonly Ascension[] = [
      *
      * Taking the slot instead bites: 17.2% to 12.4%, tray value $32.1 to $26.0,
      * 4.97 cards held to 3.98. The difference is that this one cannot be waited
-     * out. Every joker bought past the fourth now has to displace one already
+     * out. Every relic bought past the fourth now has to displace one already
      * earning, so the rung asks a question the shelf-cut never did — not "did you
      * find it" but "is it better than what you have" — and it asks it in every
      * shop for the rest of the run.
      *
      * The −19% of tray value is the honest measure of the cost, and it is worth
      * noting that a bot understates it: this player has no preference among
-     * jokers, so it loses an average slot where a human loses their fifth-best.
+     * relics, so it loses an average slot where a human loses their fifth-best.
      */
-    jokerCut: 1,
+    relicCut: 1,
   },
   {
     level: 9,
     name: "Dead Weight",
-    text: "A blind you did not solve pays nothing.",
+    text: "A round you did not solve pays nothing.",
     /*
      * The hedge, priced in money before rung 10 prices it in the run.
      *
@@ -207,9 +207,9 @@ export const ASCENSIONS: readonly Ascension[] = [
      * line loses its biggest chip contributor, and the unused-guess dollars are
      * capped one lower on top of Lean Years having already taken a dollar off
      * the base. Measured against a bot that has to actually find the word it
-     * cost 1.22 of a mean final ante in a single step — against 0.84 for rungs 1
+     * cost 1.22 of a mean final stage in a single step — against 0.84 for rungs 1
      * through 8 put together. One rung outweighed the first eight, and it landed
-     * on players who had just been handed the joker-slot cut. The first boss
+     * on players who had just been handed the relic-slot cut. The first boss
      * killed 26% of runs at A9 and 43% at A10.
      *
      * It only ever looked reasonable because the bot that priced it reads the
@@ -217,8 +217,8 @@ export const ASCENSIONS: readonly Ascension[] = [
      * once in a word it failed to find. That bot put the rung at 0.36.
      *
      * This asks the same question Finish It asks, in money first: clear the
-     * target off five wrong words and the blind is survived and pays nothing —
-     * no base, no unused-guess dollars, no interest. 3.95 to 3.92 by the ante,
+     * target off five wrong words and the round is survived and pays nothing —
+     * no base, no unused-guess dollars, no interest. 3.95 to 3.92 by the stage,
      * which is a cheap rung and is meant to be. What it takes is a habit, one
      * rung before the capstone starts taking runs for the same habit.
      */
@@ -230,7 +230,7 @@ export const ASCENSIONS: readonly Ascension[] = [
     text: "Reaching the target is not enough. You have to solve the word.",
     /*
      * The sharpest rule in the game, and the reason it is the last authored one.
-     * Every other blind can be won by farming chips off five wrong guesses and
+     * Every other round can be won by farming chips off five wrong guesses and
      * never finding the answer; this deletes that line, and with it the whole
      * deduction-versus-greed hedge. The word is the point again. Everything above
      * it is pressure rather than rule, so this is the last thing the ladder ever
@@ -238,20 +238,20 @@ export const ASCENSIONS: readonly Ascension[] = [
      * to have buried in the middle of it.
      *
      * It is also the rung the old harness scored at exactly zero — identical win
-     * rate, final ante, blinds cleared and gold per blind at A9 and A10 — because
-     * a bot that solves every blind it can already obeys this rule and never
+     * rate, final stage, rounds cleared and gold per round at A9 and A10 — because
+     * a bot that solves every round it can already obeys this rule and never
      * noticed it arrive. That was never evidence the rung is free; it is evidence
      * of what the rung taxes. A bot that deduces honestly and hedges prices it at
-     * 3.92 mean final ante down to 3.26, two thirds of an ante and the largest
+     * 3.92 mean final stage down to 3.26, two thirds of an stage and the largest
      * single step on the ladder. What it costs is the hedge, and the hedge is a
-     * human move: the blind where the word will not come, the pile is nearly
+     * human move: the round where the word will not come, the pile is nearly
      * there, and two more wrong guesses would bank it anyway. Under this rule
-     * that blind is lost.
+     * that round is lost.
      *
      * It swallows rung 9 whole, and the measurement says so to the decimal: a
      * ladder carrying both rules scores identically at A10 — every column, not
-     * merely the ante — to a ladder carrying only this one. There is nothing left
-     * to withhold from a blind that has already ended the run, so the capstone is
+     * merely the stage — to a ladder carrying only this one. There is nothing left
+     * to withhold from a round that has already ended the run, so the capstone is
      * the last two rungs at once. That is escalation along one axis rather than a
      * rung going to waste: lose the money for not finding the word, then lose the
      * run for it. Whoever arrives here has met the idea once already, which is the
@@ -272,11 +272,11 @@ export const AUTHORED_ASCENSIONS = ASCENSIONS.length
  * It was written at 15% first — the same notch, on the theory that a repeated
  * rung repeating something *else* would be a new rule wearing a number, and the
  * ladder cannot owe the player ninety explanations. Compounding settled it. At
- * 1.15 the climb ran out in about five rungs: 5.7 antes cleared at A10, 2.2 at
+ * 1.15 the climb ran out in about five rungs: 5.7 stages cleared at A10, 2.2 at
  * A15, nothing alive by A22 — a scoreboard with five marks on it. At 1.08 the
- * same bot spans sixteen: 5.54 antes at A10, 4.75 at A14, 3.28 at A18, 2.48 at
+ * same bot spans sixteen: 5.54 stages at A10, 4.75 at A14, 3.28 at A18, 2.48 at
  * A20, 1.10 by A26, with wins still turning up as high as A20. About a quarter
- * of an ante a rung.
+ * of an stage a rung.
  *
  * Which is the property being bought. A rung has to be small enough that taking
  * the next one is a decision rather than a coin flip, and a ladder meant to be
@@ -337,17 +337,17 @@ export const clampAscension = (level: number): number =>
  * inventing ninety `Ascension` records to iterate over.
  */
 export type Difficulty = {
-  /** Multiplier on every blind's target. */
+  /** Multiplier on every round's target. */
   targets: number
-  /** Gold off every blind's base payout. */
+  /** Gold off every round's base payout. */
   payoutCut: number
-  /** Jokers the tray holds. */
-  jokerSlots: number
-  /** The blind's guess allowance, before a boss tightens it. */
+  /** Relics the tray holds. */
+  relicSlots: number
+  /** The round's guess allowance, before a boss tightens it. */
   guesses: number
-  /** Whether a blind at target but unsolved pays nothing. */
+  /** Whether a round at target but unsolved pays nothing. */
   unpaidIfUnsolved: boolean
-  /** Whether a blind at target but unsolved is still a loss. */
+  /** Whether a round at target but unsolved is still a loss. */
   mustSolve: boolean
 }
 
@@ -357,7 +357,7 @@ export function difficultyAt(level: number): Difficulty {
   const difficulty: Difficulty = {
     targets: 1,
     payoutCut: 0,
-    jokerSlots: JOKER_SLOTS,
+    relicSlots: RELIC_SLOTS,
     guesses: BASE_GUESSES,
     unpaidIfUnsolved: false,
     mustSolve: false,
@@ -366,7 +366,7 @@ export function difficultyAt(level: number): Difficulty {
     if (rule.level > at) break
     difficulty.targets *= rule.targets ?? 1
     difficulty.payoutCut += rule.payoutCut ?? 0
-    difficulty.jokerSlots -= rule.jokerCut ?? 0
+    difficulty.relicSlots -= rule.relicCut ?? 0
     difficulty.unpaidIfUnsolved ||= rule.unpaidIfUnsolved ?? false
     difficulty.mustSolve ||= rule.solveRequired ?? false
   }
@@ -380,7 +380,7 @@ export const difficultyOf = (state: RunState): Difficulty => difficultyAt(state.
 /**
  * A scaled target, rounded to a readable number.
  *
- * To the nearest ten rather than the nearest hundred `blindTargets` uses,
+ * To the nearest ten rather than the nearest hundred `roundTargets` uses,
  * because 15% of the first target is 45 and rounding that to 0 or 100 would make
  * the first rung of the endless half either free or twice what it says. Ten is
  * fine enough to keep every rung distinct and coarse enough that the number on
@@ -402,15 +402,15 @@ export function rulesFor(state: RunState): readonly Ascension[] {
   return level > 0 ? ASCENSIONS.filter((rule) => rule.level <= level) : []
 }
 
-/** Ascension 10: a blind at target but unsolved is still a loss. */
+/** Ascension 10: a round at target but unsolved is still a loss. */
 export const mustSolve = (state: RunState): boolean => difficultyOf(state).mustSolve
 
 /**
  * Every rule the guess has to survive, in one place and one order.
  *
- * The order is by scope: the run's rules before the blind's, and within the
+ * The order is by scope: the run's rules before the round's, and within the
  * run's, the order they were learned. A player who breaks two rules at once
- * gets told about the one that holds every blind of the run rather than the one
+ * gets told about the one that holds every round of the run rather than the one
  * that expires with this boss, and — the part that actually matters — gets told
  * the *same* thing every time, because the sequence never depends on which rule
  * happened to be checked first.
@@ -420,9 +420,9 @@ export function validateGuess(word: string, state: RunState): string | null {
     const refusal = rule.validate?.(word, state)
     if (refusal) return refusal
   }
-  return getBoss(state.blind.bossId)?.validate?.(word, state.blind) ?? null
+  return getBoss(state.round.bossId)?.validate?.(word, state.round) ?? null
 }
 
-/** Whether anything at all is restricting what may be typed this blind. */
+/** Whether anything at all is restricting what may be typed this round. */
 export const guessRestricted = (state: RunState): boolean =>
-  Boolean(getBoss(state.blind.bossId)?.validate) || rulesFor(state).some((rule) => rule.validate)
+  Boolean(getBoss(state.round.bossId)?.validate) || rulesFor(state).some((rule) => rule.validate)

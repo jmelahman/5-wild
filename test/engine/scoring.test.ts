@@ -25,7 +25,7 @@ describe("guess scoring", () => {
   })
 
   it("draws the answer from the supplied list", () => {
-    expect(start.blind.answer).toBe("braid")
+    expect(start.round.answer).toBe("braid")
   })
 
   /**
@@ -43,17 +43,17 @@ describe("guess scoring", () => {
    */
   it("reproduces the design doc's worked example", () => {
     let state = play(start, "quazy")
-    expect(state.blind.guesses[0]).toMatchObject({ chips: 26, mult: 4, score: 104 })
+    expect(state.round.guesses[0]).toMatchObject({ chips: 26, mult: 4, score: 104 })
 
     state = play(state, "crane")
-    expect(state.blind.guesses[1]).toMatchObject({ chips: 7, mult: 7, score: 49 })
+    expect(state.round.guesses[1]).toMatchObject({ chips: 7, mult: 7, score: 49 })
 
     // The guess records its own arithmetic; the bonus is the round's, not its.
     state = play(state, "braid")
-    expect(state.blind.guesses[2]).toMatchObject({ chips: 8, mult: 16, solveBonus: 4, score: 128 })
+    expect(state.round.guesses[2]).toMatchObject({ chips: 8, mult: 16, solveBonus: 4, score: 128 })
 
-    expect(state.blind.score).toBe((104 + 49 + 128) * 4)
-    expect(state.blind.solved).toBe(true)
+    expect(state.round.score).toBe((104 + 49 + 128) * 4)
+    expect(state.round.solved).toBe(true)
   })
 
   /*
@@ -61,34 +61,34 @@ describe("guess scoring", () => {
    * solving early on an empty one, but only up to the point where the shrinking
    * multiplier eats the gain. Both lines below solve — one banks first.
    */
-  it("multiplies everything banked this blind, not just the solving guess", () => {
+  it("multiplies everything banked this round, not just the solving guess", () => {
     const early = play(start, "braid")
     const late = play(play(start, "quazy"), "braid")
 
-    expect(early.blind.score).toBe(128 * 6)
-    expect(late.blind.score).toBe((104 + 128) * 5)
-    expect(late.blind.score).toBeGreaterThan(early.blind.score)
+    expect(early.round.score).toBe(128 * 6)
+    expect(late.round.score).toBe((104 + 128) * 5)
+    expect(late.round.score).toBeGreaterThan(early.round.score)
   })
 
   it("builds mult from the feedback: 1 + 3 per green + 1 per yellow", () => {
     const state = play(start, "dairy")
     // Four yellows, no greens.
-    expect(state.blind.guesses[0]?.mult).toBe(5)
+    expect(state.round.guesses[0]?.mult).toBe(5)
   })
 
   it("values rare letters far above common ones", () => {
     // The tension in one assertion: QUAZY banks five times the chips of AROSE
     // while telling you almost nothing, and AROSE is the better probe.
-    expect(play(start, "quazy").blind.guesses[0]?.chips).toBe(26)
-    expect(play(start, "arose").blind.guesses[0]?.chips).toBe(5)
+    expect(play(start, "quazy").round.guesses[0]?.chips).toBe(26)
+    expect(play(start, "arose").round.guesses[0]?.chips).toBe(5)
   })
 
-  it("ends the blind the moment the word is solved, forfeiting the rest", () => {
+  it("ends the round the moment the word is solved, forfeiting the rest", () => {
     const state = play(start, "braid")
-    expect(state.blind.done).toBe(true)
-    expect(state.blind.guesses).toHaveLength(1)
+    expect(state.round.done).toBe(true)
+    expect(state.round.guesses).toHaveLength(1)
     // Solved on guess 1 of 6: five guesses remain, so the bonus is x6.
-    expect(state.blind.guesses[0]?.solveBonus).toBe(6)
+    expect(state.round.guesses[0]?.solveBonus).toBe(6)
   })
 
   it("shrinks the solve bonus the longer you take", () => {
@@ -97,7 +97,7 @@ describe("guess scoring", () => {
       for (let i = 0; i < index; i++) {
         state = play(state, ["quazy", "crane", "dairy", "arose", "aloes"][i] as string)
       }
-      return play(state, "braid").blind.guesses[index]?.solveBonus
+      return play(state, "braid").round.guesses[index]?.solveBonus
     })
     expect(bonuses).toEqual([6, 5, 4, 3, 2])
   })
@@ -130,7 +130,7 @@ describe("guess scoring", () => {
       for (const word of ["quazy", "crane", "arose", "jazzy"]) {
         const drafting = typed(start, word)
         const shown = draftChips(drafting, word)
-        const paid = reduce(drafting, { type: "submit" }, words).state.blind.guesses[0]?.chips ?? 0
+        const paid = reduce(drafting, { type: "submit" }, words).state.round.guesses[0]?.chips ?? 0
         expect(paid).toBeGreaterThanOrEqual(shown)
       }
     })
@@ -139,10 +139,10 @@ describe("guess scoring", () => {
       // The Drought pays nothing for vowels, and says so before the guess is
       // spent rather than after — which is the whole reason the boss hook is
       // consulted here instead of the raw letter values being summed.
-      const drought = { ...start, blind: { ...start.blind, bossId: "drought" } }
+      const drought = { ...start, round: { ...start.round, bossId: "drought" } }
       expect(draftChips(drought, "quazy")).toBe(24)
       expect(
-        reduce(typed(drought, "quazy"), { type: "submit" }, words).state.blind.guesses[0],
+        reduce(typed(drought, "quazy"), { type: "submit" }, words).state.round.guesses[0],
       ).toMatchObject({ chips: 24 })
     })
   })
@@ -154,7 +154,7 @@ describe("guess scoring", () => {
     }
     const { state: after, events } = reduce(state, { type: "submit" }, words)
     expect(events).toEqual([{ type: "rejected", reason: "not in word list" }])
-    expect(after.blind.guesses).toHaveLength(0)
-    expect(after.blind.draft).toBe("zzzzz")
+    expect(after.round.guesses).toHaveLength(0)
+    expect(after.round.draft).toBe("zzzzz")
   })
 })

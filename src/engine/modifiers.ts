@@ -15,9 +15,9 @@ import type { Rarity, RunState, Tile } from "./state"
  * enhancement does, so a letter is a slot rather than a stack. Etchings are the
  * separate, stacking upgrade and survive being modified.
  *
- * Effects get real code and a narrow context, for the same reason jokers do.
+ * Effects get real code and a narrow context, for the same reason relics do.
  * They fire per scored tile, after the tile's own chips and colour land and
- * before any joker sees it: the letter is what was played, the jokers are what
+ * before any relic sees it: the letter is what was played, the relics are what
  * watched.
  *
  * Per tile means per tile for the ×mult ones too: a steel letter multiplies the
@@ -43,7 +43,7 @@ export type ModCtx = ScoreCtx & {
    * Retire a letter from the alphabet once the guess has finished scoring.
    * Refused if it would leave too little alphabet to spell with.
    *
-   * The only thing a modifier gets that a joker does not — `roll` lives on
+   * The only thing a modifier gets that a relic does not — `roll` lives on
    * `ScoreCtx` now, since both need seeded chance and neither may reach for
    * anything else.
    */
@@ -97,7 +97,7 @@ export type Modifier = {
    * layer is built on, and it does not need protecting from.
    */
   letters?: string
-  /** Fires once per tile carrying it, before any joker sees that tile. */
+  /** Fires once per tile carrying it, before any relic sees that tile. */
   onTile: (ctx: ModCtx, tile: Tile) => void
 }
 
@@ -138,7 +138,7 @@ export const MODIFIERS: readonly Modifier[] = [
     rarity: "uncommon",
     cost: 6,
     choiceCost: 9,
-    // Income priced against Scavenger, which pays $1 a yellow from a joker slot.
+    // Income priced against Scavenger, which pays $1 a yellow from a relic slot.
     // This takes no slot and fires on any colour, but only on one letter, so
     // what it is really worth is decided by the letter the shop offered.
     onTile: (ctx) => ctx.addGold(2),
@@ -213,7 +213,7 @@ export const MODIFIERS: readonly Modifier[] = [
     // went worst, this pays only on the letter you have already nailed. Both
     // sides of the colour line are now purchasable.
     //
-    // Back-loaded by nature, since greens accumulate through a blind, and it
+    // Back-loaded by nature, since greens accumulate through a round, and it
     // rewards re-typing a letter you have locked — which The Tyrant compels and
     // The Miser forbids, so the same card swings hard either way.
     //
@@ -251,12 +251,12 @@ export const MODIFIERS: readonly Modifier[] = [
       // Only a gray tile can break it, and only when the letter is genuinely
       // absent from the answer. Gray is not proof of absence — a second E is
       // gray when the answer holds one — and burning a letter the answer needs
-      // would leave a blind that cannot be solved by anyone.
+      // would leave a round that cannot be solved by anyone.
       //
       // That the break itself proves absence is the compensation for the risk:
       // a shattered letter is a deduction you did not have to spend a guess on.
       if (tile.color !== "gray") return
-      if (ctx.state.blind.answer.includes(tile.letter)) return
+      if (ctx.state.round.answer.includes(tile.letter)) return
       if (ctx.roll() >= GLASS_BREAK) return
       ctx.burn(tile.letter)
     },

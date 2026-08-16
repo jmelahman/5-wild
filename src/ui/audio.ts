@@ -124,8 +124,8 @@ export class Sound {
     this.play({ freq: step(root, index), ms: 90, gain: 0.05 })
   }
 
-  /** Jokers get a brighter voice so they read as a different kind of event. */
-  joker(): void {
+  /** Relics get a brighter voice so they read as a different kind of event. */
+  relic(): void {
     this.play({ freq: step(C5, 7), to: step(C5, 12), ms: 130, type: "sawtooth", gain: 0.045 })
   }
 

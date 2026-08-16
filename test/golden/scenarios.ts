@@ -54,7 +54,7 @@ function accepted(state: RunState, words: WordSource, actions: Action[]): boolea
  * The first candidate the engine will actually take. Boss rules refuse whole
  * classes of word — two vowels, no repeats — and a destroyed letter cannot be
  * typed at all, so a bot that assumes its guess lands would stall the recorder
- * on a blind it can never submit to.
+ * on a round it can never submit to.
  */
 function firstPlayable(
   state: RunState,
@@ -75,7 +75,7 @@ function firstPlayable(
  * guaranteed to accept it and the erase leaves the guess exactly as it was.
  */
 function withCorrection(state: RunState, guess: Action[] | null): Action[] | null {
-  const letter = state.blind.answer[0]
+  const letter = state.round.answer[0]
   if (!guess || !letter) return guess
   return [{ type: "type_letter", letter }, { type: "backspace" }, ...guess]
 }
@@ -86,7 +86,7 @@ function decoys(state: RunState, words: WordSource, offset: number): string[] {
   const out: string[] = []
   for (let i = 0; i < 40; i++) {
     const word = list[(offset + i * 97) % list.length]
-    if (word && word !== state.blind.answer) out.push(word)
+    if (word && word !== state.round.answer) out.push(word)
   }
   return out
 }
@@ -133,7 +133,7 @@ function wordChips(state: RunState, word: string): number {
 /** Bank the reward, then leave the shop without spending. */
 function passThrough(state: RunState): Action[] | null {
   if (state.phase === "reward") return [{ type: "collect" }]
-  if (state.phase === "shop") return [{ type: "next_blind" }]
+  if (state.phase === "shop") return [{ type: "next_round" }]
   return null
 }
 
@@ -143,14 +143,14 @@ export const SCENARIOS: readonly Scenario[] = [
     covers: "the solve bonus at its largest, and a shop purchase every time one is affordable",
     seed: 1,
     next: (state, words) => {
-      if (state.phase === "blind") return firstPlayable(state, words, [state.blind.answer])
+      if (state.phase === "round") return firstPlayable(state, words, [state.round.answer])
       if (state.phase === "reward") return [{ type: "collect" }]
       if (state.phase === "shop") {
         const index = state.shop?.items.findIndex((item) => item && item.cost <= state.gold) ?? -1
         if (index >= 0 && accepted(state, words, [{ type: "buy", index }])) {
           return [{ type: "buy", index }]
         }
-        return [{ type: "next_blind" }]
+        return [{ type: "next_round" }]
       }
       return null
     },
@@ -161,14 +161,14 @@ export const SCENARIOS: readonly Scenario[] = [
       "grays scoring, the guess budget spent down to one, and the solve bonus at its smallest",
     seed: 7,
     next: (state, words) => {
-      if (state.phase === "blind") {
-        const spent = state.blind.guesses.length
+      if (state.phase === "round") {
+        const spent = state.round.guesses.length
         // Burn every guess but the last on decoys, then solve. This is the
         // income line: more tiles scored, a far smaller solve multiplier.
         const candidates =
-          spent >= state.blind.maxGuesses - 1
-            ? [state.blind.answer]
-            : [...decoys(state, words, spent * 13), state.blind.answer]
+          spent >= state.round.maxGuesses - 1
+            ? [state.round.answer]
+            : [...decoys(state, words, spent * 13), state.round.answer]
         return firstPlayable(state, words, candidates)
       }
       return passThrough(state)
@@ -179,16 +179,16 @@ export const SCENARIOS: readonly Scenario[] = [
     covers: "a pile banked and then multiplied — the line the scoring rule exists for",
     seed: 2024,
     next: (state, words) => {
-      if (state.phase === "blind") {
+      if (state.phase === "round") {
         // Farm two guesses, then cash in while the multiplier is still large.
         // Solving instantly multiplies nothing and solving on the last guess
         // multiplies by one, so without this scenario the vectors would record
         // the same totals whether the bonus applied to the round or the guess.
-        const spent = state.blind.guesses.length
+        const spent = state.round.guesses.length
         const candidates =
           spent < 2
-            ? [...decoys(state, words, spent * 29), state.blind.answer]
-            : [state.blind.answer]
+            ? [...decoys(state, words, spent * 29), state.round.answer]
+            : [state.round.answer]
         return firstPlayable(state, words, candidates)
       }
       return passThrough(state)
@@ -196,10 +196,10 @@ export const SCENARIOS: readonly Scenario[] = [
   },
   {
     name: "never-solves",
-    covers: "running a blind out of guesses, and the run ending in defeat",
+    covers: "running a round out of guesses, and the run ending in defeat",
     seed: 42,
     next: (state, words) => {
-      if (state.phase === "blind") return firstPlayable(state, words, decoys(state, words, 5))
+      if (state.phase === "round") return firstPlayable(state, words, decoys(state, words, 5))
       return passThrough(state)
     },
   },
@@ -208,16 +208,16 @@ export const SCENARIOS: readonly Scenario[] = [
     covers: "reroll, sell, consumables used rather than hoarded, and a corrected draft",
     seed: 1234,
     next: (state, words) => {
-      if (state.phase === "blind") {
+      if (state.phase === "round") {
         // Spend a consumable the moment there is one: the Oracle and the
         // Hermit change what a later guess scores, which is exactly the kind of
         // cross-turn effect a per-guess score list is there to pin down.
-        if (state.blind.guesses.length === 0 && state.consumables.length > 0) {
+        if (state.round.guesses.length === 0 && state.consumables.length > 0) {
           if (accepted(state, words, [{ type: "use_consumable", index: 0 }])) {
             return [{ type: "use_consumable", index: 0 }]
           }
         }
-        return withCorrection(state, firstPlayable(state, words, [state.blind.answer]))
+        return withCorrection(state, firstPlayable(state, words, [state.round.answer]))
       }
       if (state.phase === "reward") return [{ type: "collect" }]
       if (state.phase === "shop") {
@@ -228,15 +228,15 @@ export const SCENARIOS: readonly Scenario[] = [
         if (index >= 0 && accepted(state, words, [{ type: "buy", index }])) {
           return [{ type: "buy", index }]
         }
-        // Selling back is the only way the joker slots ever empty, and it is
+        // Selling back is the only way the relic slots ever empty, and it is
         // priced — a vector that never sells cannot catch that price moving.
         if (
-          state.jokers.length >= 2 &&
-          accepted(state, words, [{ type: "sell_joker", index: 0 }])
+          state.relics.length >= 2 &&
+          accepted(state, words, [{ type: "sell_relic", index: 0 }])
         ) {
-          return [{ type: "sell_joker", index: 0 }]
+          return [{ type: "sell_relic", index: 0 }]
         }
-        return [{ type: "next_blind" }]
+        return [{ type: "next_round" }]
       }
       return null
     },
@@ -246,15 +246,15 @@ export const SCENARIOS: readonly Scenario[] = [
     covers: "letter modifiers bought, and then landed on tiles often enough to score",
     seed: 9,
     next: (state, words) => {
-      if (state.phase === "blind") {
+      if (state.phase === "round") {
         // One probe chosen for the modifiers it would fire, then the answer. A
         // modifier that is only ever bought is a shop test; what these vectors
         // are for is the mult it multiplies and the gold it pays.
         const probes =
-          state.blind.guesses.length === 0
+          state.round.guesses.length === 0
             ? [...decoys(state, words, 7)].sort((a, b) => modTiles(state, b) - modTiles(state, a))
             : []
-        return firstPlayable(state, words, [...probes, state.blind.answer])
+        return firstPlayable(state, words, [...probes, state.round.answer])
       }
       if (state.phase === "reward") return [{ type: "collect" }]
       if (state.phase === "shop") {
@@ -272,7 +272,7 @@ export const SCENARIOS: readonly Scenario[] = [
         if (index >= 0 && accepted(state, words, [{ type: "buy", index }])) {
           return [{ type: "buy", index }]
         }
-        return [{ type: "next_blind" }]
+        return [{ type: "next_round" }]
       }
       return null
     },
@@ -282,19 +282,19 @@ export const SCENARIOS: readonly Scenario[] = [
     covers: "category levels bought, stacked, and paid out on the guesses that match them",
     seed: 77,
     next: (state, words) => {
-      if (state.phase === "blind") {
+      if (state.phase === "round") {
         // One probe chosen for the level bonus it would collect, then the
         // answer. The sort is what makes this vector worth recording: it pins
         // that levels land on the base *and* that `categoryOf` picked the same
         // shape the shop charged for, because a mismatch would show up as a
         // probe that scored like an unlevelled word.
         const probes =
-          state.blind.guesses.length === 0
+          state.round.guesses.length === 0
             ? [...decoys(state, words, 3)].sort(
                 (a, b) => levelValue(state, b) - levelValue(state, a),
               )
             : []
-        return firstPlayable(state, words, [...probes, state.blind.answer])
+        return firstPlayable(state, words, [...probes, state.round.answer])
       }
       if (state.phase === "reward") return [{ type: "collect" }]
       if (state.phase === "shop") {
@@ -307,12 +307,12 @@ export const SCENARIOS: readonly Scenario[] = [
         if (wanted >= 0 && accepted(state, words, [{ type: "buy", index: wanted }])) {
           return [{ type: "buy", index: wanted }]
         }
-        // Jokers otherwise, so the run has ×mult for the levels to pass through.
-        const joker = items.findIndex((item) => item?.kind === "joker" && item.cost <= state.gold)
-        if (joker >= 0 && accepted(state, words, [{ type: "buy", index: joker }])) {
-          return [{ type: "buy", index: joker }]
+        // Relics otherwise, so the run has ×mult for the levels to pass through.
+        const relic = items.findIndex((item) => item?.kind === "relic" && item.cost <= state.gold)
+        if (relic >= 0 && accepted(state, words, [{ type: "buy", index: relic }])) {
+          return [{ type: "buy", index: relic }]
         }
-        return [{ type: "next_blind" }]
+        return [{ type: "next_round" }]
       }
       return null
     },
@@ -322,39 +322,39 @@ export const SCENARIOS: readonly Scenario[] = [
     covers: "alphabet range levels and etchings stacking on the same letters",
     seed: 21,
     next: (state, words) => {
-      if (state.phase === "blind") {
+      if (state.phase === "round") {
         // One probe picked for what its letters are worth right now, then the
         // answer. The sort is what makes this vector worth recording: it reads
         // `baseChips`, so if a range level ever stopped reaching a letter — or
         // stopped adding to the etching already on it — the probe would score
         // like an un-upgraded word and every number after it would move.
         const probes =
-          state.blind.guesses.length === 0
+          state.round.guesses.length === 0
             ? [...decoys(state, words, 5)].sort((a, b) => wordChips(state, b) - wordChips(state, a))
             : []
-        return firstPlayable(state, words, [...probes, state.blind.answer])
+        return firstPlayable(state, words, [...probes, state.round.answer])
       }
       if (state.phase === "reward") return [{ type: "collect" }]
       if (state.phase === "shop") {
         const items = state.shop?.items ?? []
-        // Two jokers first, then both letter lines, ranges ahead of etchings.
-        // The joker floor is not a flourish: chips are only ever half of a
-        // score, and a bot that spent its whole run raising them stalled in ante
+        // Two relics first, then both letter lines, ranges ahead of etchings.
+        // The relic floor is not a flourish: chips are only ever half of a
+        // score, and a bot that spent its whole run raising them stalled in stage
         // two with nothing to multiply them by. Once it has some mult, buying in
         // this order is what gets the two lines stacked on one letter — the
         // ranges partition the alphabet, so whichever etching lands afterwards
         // is guaranteed to overlap one that has already been levelled.
         const order =
-          state.jokers.length < 2
-            ? (["joker", "range", "etch"] as const)
-            : (["range", "etch", "joker"] as const)
+          state.relics.length < 2
+            ? (["relic", "range", "etch"] as const)
+            : (["range", "etch", "relic"] as const)
         for (const kind of order) {
           const index = items.findIndex((item) => item?.kind === kind && item.cost <= state.gold)
           if (index >= 0 && accepted(state, words, [{ type: "buy", index }])) {
             return [{ type: "buy", index }]
           }
         }
-        return [{ type: "next_blind" }]
+        return [{ type: "next_round" }]
       }
       return null
     },
@@ -364,20 +364,20 @@ export const SCENARIOS: readonly Scenario[] = [
     covers: "packs bought, held open across the shop, and chosen from",
     seed: 5,
     next: (state, words) => {
-      if (state.phase === "blind") {
+      if (state.phase === "round") {
         // One probe, then the answer. Packs deal all three card lines, so the
         // sort keys off modifiers first and levels second rather than off any
         // single one — whichever the packs happened to hand this run, the probe
         // is the word that collects the most of it.
         const probes =
-          state.blind.guesses.length === 0
+          state.round.guesses.length === 0
             ? [...decoys(state, words, 11)].sort(
                 (a, b) =>
                   modTiles(state, b) - modTiles(state, a) ||
                   levelValue(state, b) - levelValue(state, a),
               )
             : []
-        return firstPlayable(state, words, [...probes, state.blind.answer])
+        return firstPlayable(state, words, [...probes, state.round.answer])
       }
       if (state.phase === "reward") return [{ type: "collect" }]
       if (state.phase === "shop") {
@@ -387,30 +387,30 @@ export const SCENARIOS: readonly Scenario[] = [
         // and a vector that only ever *bought* one could not tell whether the
         // card that came out of it ever landed.
         if (state.pack) {
-          // Ante one is walked away from on purpose, for the same reason the
+          // Stage one is walked away from on purpose, for the same reason the
           // shopkeeper's backspace is there: the shelf no longer sells a pack
           // that cannot be opened, so nothing these bots do would otherwise
           // ever produce a skip — and a forfeit that quietly handed the gold
           // back would then be outside the contract entirely.
-          if (state.ante === 1) return [{ type: "skip_pack" }]
+          if (state.stage === 1) return [{ type: "skip_pack" }]
           const index = state.pack.options.findIndex(
             (item, slot) => item && accepted(state, words, [{ type: "pick_pack", index: slot }]),
           )
           return index >= 0 ? [{ type: "pick_pack", index }] : [{ type: "skip_pack" }]
         }
         const items = state.shop?.items ?? []
-        // Two jokers before the packs, for the same reason the etcher wants
+        // Two relics before the packs, for the same reason the etcher wants
         // them: packs deal cards that add to a score, and a run with nothing to
-        // multiply by stalls in ante two no matter how good the cards were.
+        // multiply by stalls in stage two no matter how good the cards were.
         const order =
-          state.jokers.length < 2 ? (["joker", "pack"] as const) : (["pack", "joker"] as const)
+          state.relics.length < 2 ? (["relic", "pack"] as const) : (["pack", "relic"] as const)
         for (const kind of order) {
           const index = items.findIndex((item) => item?.kind === kind && item.cost <= state.gold)
           if (index >= 0 && accepted(state, words, [{ type: "buy", index }])) {
             return [{ type: "buy", index }]
           }
         }
-        return [{ type: "next_blind" }]
+        return [{ type: "next_round" }]
       }
       return null
     },
@@ -419,7 +419,7 @@ export const SCENARIOS: readonly Scenario[] = [
     name: "ascendant",
     covers:
       "the whole written ascension ladder: guesses filtered by the run's rules, targets and " +
-      "payouts bent by them, every blind solved",
+      "payouts bent by them, every round solved",
     seed: 13,
     ascension: AUTHORED_ASCENSIONS,
     next: climb,
@@ -428,21 +428,21 @@ export const SCENARIOS: readonly Scenario[] = [
    * The half of the ladder that has no rules left to add. Its targets are the
    * only thing this pins that the rung below does not — the endless step is a
    * pure multiplication, and a port that compounded it wrongly, or rounded it
-   * to the hundred `blindTargets` rounds to, would clear a different first
-   * blind and diverge on the very first score.
+   * to the hundred `roundTargets` rounds to, would clear a different first
+   * round and diverge on the very first score.
    *
    * It records a short run and that is the honest outcome, not a shortfall: at
-   * ×1.56 targets with a thinned shelf and a blind that has to be solved, the
+   * ×1.56 targets with a thinned shelf and a round that has to be solved, the
    * climber's line does not last, and a vector that pretended otherwise would be
    * a vector of a bot rather than of the rules. Across 40 seeds it clears 0 to 14
-   * blinds, mean 2.75, so a run of about four is this scenario at its typical.
+   * rounds, mean 2.75, so a run of about four is this scenario at its typical.
    *
    * Seed 20 rather than 21, and the reason is worth stating because reseeding a
    * vector is normally the wrong repair. Replacing rung 9 handed this level back
    * its sixth guess, which changed nothing about what the scenario covers and
    * everything about where its decoy walk lands — seed 21 diverged onto a line
-   * that dies on the first blind, taking the run from four rewards and three
-   * jokers to one and one. Nothing was pinned any better for it. The seed moved
+   * that dies on the first round, taking the run from four rewards and three
+   * relics to one and one. Nothing was pinned any better for it. The seed moved
    * to hold the coverage the scenario was written to have, not to hold a number.
    */
   {
@@ -462,21 +462,21 @@ export const SCENARIOS: readonly Scenario[] = [
  * ones is what makes the pair of vectors a comparison rather than two runs.
  */
 function climb(state: RunState, words: WordSource): Action[] | null {
-  if (state.phase === "blind") {
-    const blind = state.blind
-    const left = blind.maxGuesses - blind.guesses.length - 1
+  if (state.phase === "round") {
+    const round = state.round
+    const left = round.maxGuesses - round.guesses.length - 1
     // Cash in the moment solving would clear the target, and on the last
-    // guess whatever the pile is worth: at the top of the ladder a blind
-    // that is never solved is a blind that is lost, target met or not.
+    // guess whatever the pile is worth: at the top of the ladder a round
+    // that is never solved is a round that is lost, target met or not.
     //
     // The probes are where the rules bite. `firstPlayable` walks past every
     // decoy the engine refuses, so what lands in this vector is the first
     // word the ladder actually allowed — a port that filtered guesses
     // differently would record a different word and every score after it.
-    const cashOut = left <= 0 || blind.score * solveBonusFor(state, left) >= blind.target
+    const cashOut = left <= 0 || round.score * solveBonusFor(state, left) >= round.target
     const candidates = cashOut
-      ? [blind.answer]
-      : [...decoys(state, words, blind.guesses.length * 17), blind.answer]
+      ? [round.answer]
+      : [...decoys(state, words, round.guesses.length * 17), round.answer]
     return firstPlayable(state, words, candidates)
   }
   if (state.phase === "reward") return [{ type: "collect" }]
@@ -490,10 +490,10 @@ function climb(state: RunState, words: WordSource): Action[] | null {
       return picked >= 0 ? [{ type: "pick_pack", index: picked }] : [{ type: "skip_pack" }]
     }
     const items = state.shop?.items ?? []
-    // Jokers before anything else, then whatever is affordable. A bot that
-    // spent nothing would die in ante one and this vector would cover three
-    // blinds of a ladder meant to be climbed for eight antes.
-    for (const kind of ["joker", null] as const) {
+    // Relics before anything else, then whatever is affordable. A bot that
+    // spent nothing would die in stage one and this vector would cover three
+    // rounds of a ladder meant to be climbed for eight stages.
+    for (const kind of ["relic", null] as const) {
       const index = items.findIndex(
         (item) => item && (kind === null || item.kind === kind) && item.cost <= state.gold,
       )
@@ -501,7 +501,7 @@ function climb(state: RunState, words: WordSource): Action[] | null {
         return [{ type: "buy", index }]
       }
     }
-    return [{ type: "next_blind" }]
+    return [{ type: "next_round" }]
   }
   return null
 }

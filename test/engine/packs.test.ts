@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { Action, RunState } from "../../src/engine"
-import { derive, JOKER_SLOTS, JOKERS, PACK_BY_ID, PACKS, reduce, startRun } from "../../src/engine"
+import { derive, PACK_BY_ID, PACKS, RELIC_SLOTS, RELICS, reduce, startRun } from "../../src/engine"
 import { rollShop } from "../../src/engine/shop"
 import { realWords } from "../helpers/words"
 
@@ -10,8 +10,8 @@ import { realWords } from "../helpers/words"
  * underneath one — and skipping has to be something you did on purpose.
  */
 
-const shopAt = (seed: number, ante = 1) =>
-  rollShop(startRun(seed, realWords).state, derive(seed, "shop", ante, 0, 0), 0)
+const shopAt = (seed: number, stage = 1) =>
+  rollShop(startRun(seed, realWords).state, derive(seed, "shop", stage, 0, 0), 0)
 
 /** A run parked in the shop with plenty of gold, so buying is never rejected. */
 function inShop(seed: number): RunState {
@@ -42,35 +42,35 @@ describe("the pack slot", () => {
     }
   })
 
-  it("stops offering the joker pack once every joker is owned", () => {
+  it("stops offering the relic pack once every relic is owned", () => {
     const base = startRun(3, realWords).state
-    const state: RunState = { ...base, jokers: JOKERS.map((joker) => ({ id: joker.id })) }
-    for (let ante = 1; ante <= 40; ante++) {
-      const item = rollShop(state, derive(3, "shop", ante, 0, 0), 0).items[4]
-      if (item?.kind === "pack") expect(item.id).not.toBe("joker")
+    const state: RunState = { ...base, relics: RELICS.map((relic) => ({ id: relic.id })) }
+    for (let stage = 1; stage <= 40; stage++) {
+      const item = rollShop(state, derive(3, "shop", stage, 0, 0), 0).items[4]
+      if (item?.kind === "pack") expect(item.id).not.toBe("relic")
     }
   })
 
-  it("stops offering the joker pack once the slots are full", () => {
+  it("stops offering the relic pack once the slots are full", () => {
     const base = startRun(3, realWords).state
     const state: RunState = {
       ...base,
-      jokers: JOKERS.slice(0, JOKER_SLOTS).map(({ id }) => ({ id })),
+      relics: RELICS.slice(0, RELIC_SLOTS).map(({ id }) => ({ id })),
     }
-    for (let ante = 1; ante <= 40; ante++) {
-      const item = rollShop(state, derive(3, "shop", ante, 0, 0), 0).items[4]
-      if (item?.kind === "pack") expect(item.id).not.toBe("joker")
+    for (let stage = 1; stage <= 40; stage++) {
+      const item = rollShop(state, derive(3, "shop", stage, 0, 0), 0).items[4]
+      if (item?.kind === "pack") expect(item.id).not.toBe("relic")
     }
   })
 
-  it("refuses to open a joker pack off a stale shelf, without taking the gold", () => {
-    // The shelf rolled the pack while a slot was free; the joker in the slot
+  it("refuses to open a relic pack off a stale shelf, without taking the gold", () => {
+    // The shelf rolled the pack while a slot was free; the relic in the slot
     // next to it filled that slot before the pack was opened. Paying $9 for
     // three cards none of which can land is worse than not being sold it.
     const base = inShop(1)
     const state: RunState = {
-      ...offering(base, "joker"),
-      jokers: JOKERS.slice(0, JOKER_SLOTS).map(({ id }) => ({ id })),
+      ...offering(base, "relic"),
+      relics: RELICS.slice(0, RELIC_SLOTS).map(({ id }) => ({ id })),
     }
     const { state: after, events } = act(state, { type: "buy", index: 0 })
     expect(events).toContainEqual({ type: "rejected", reason: "nothing left to put in that pack" })
@@ -103,7 +103,7 @@ describe("opening a pack", () => {
   })
 
   it("lays out no card twice", () => {
-    for (const id of ["alphabet", "joker", "category"]) {
+    for (const id of ["alphabet", "relic", "category"]) {
       for (let seed = 1; seed <= 30; seed++) {
         const options = opened(seed, id).pack?.options ?? []
         const keys = options.map((item) =>
@@ -118,7 +118,7 @@ describe("opening a pack", () => {
     for (let seed = 1; seed <= 20; seed++) {
       for (const item of opened(seed, "alphabet").pack?.options ?? [])
         expect(item?.kind).toBe("mod")
-      for (const item of opened(seed, "joker").pack?.options ?? []) expect(item?.kind).toBe("joker")
+      for (const item of opened(seed, "relic").pack?.options ?? []) expect(item?.kind).toBe("relic")
       for (const item of opened(seed, "category").pack?.options ?? [])
         expect(item?.kind).toBe("level")
     }
@@ -165,16 +165,16 @@ describe("choosing from a pack", () => {
   })
 
   it("keeps the pack open when a card cannot be taken", () => {
-    // Every joker slot full, so no card in a joker pack can land. The pack stays
+    // Every relic slot full, so no card in a relic pack can land. The pack stays
     // up rather than swallowing the pick, because the gold is already spent and
     // the player still has a decision to make.
-    const base = opened(2, "joker")
+    const base = opened(2, "relic")
     const full: RunState = {
       ...base,
-      jokers: JOKERS.slice(0, 5).map((joker) => ({ id: joker.id })),
+      relics: RELICS.slice(0, 5).map((relic) => ({ id: relic.id })),
     }
     const { state, events } = act(full, { type: "pick_pack", index: 0 })
-    expect(events).toContainEqual({ type: "rejected", reason: "no joker slots free" })
+    expect(events).toContainEqual({ type: "rejected", reason: "no relic slots free" })
     expect(state.pack?.options[0]).not.toBeNull()
   })
 
@@ -193,7 +193,7 @@ describe("a pack holds the shop", () => {
   it("refuses another purchase until it is resolved", () => {
     const state = {
       ...held(),
-      shop: { items: [{ kind: "joker" as const, id: "gambler", cost: 4 }], rerolls: 0 },
+      shop: { items: [{ kind: "relic" as const, id: "gambler", cost: 4 }], rerolls: 0 },
     }
     expect(act(state, { type: "buy", index: 0 }).events).toContainEqual({
       type: "rejected",
@@ -201,12 +201,12 @@ describe("a pack holds the shop", () => {
     })
   })
 
-  it("refuses a reroll, a sale and the next blind until it is resolved", () => {
+  it("refuses a reroll, a sale and the next round until it is resolved", () => {
     const state = held()
     for (const action of [
       { type: "reroll" },
-      { type: "next_blind" },
-      { type: "sell_joker", index: 0 },
+      { type: "next_round" },
+      { type: "sell_relic", index: 0 },
     ] satisfies Action[]) {
       expect(act(state, action).events).toContainEqual({
         type: "rejected",

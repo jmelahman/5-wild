@@ -19,10 +19,10 @@ import { reduce, startRun } from "../../src/engine"
 import type { Scenario } from "./scenarios"
 import { placeMod } from "./scenarios"
 
-/** One scored guess, with the blind it belonged to so a failure can be placed. */
+/** One scored guess, with the round it belonged to so a failure can be placed. */
 export type GuessVector = {
-  ante: number
-  blind: number
+  stage: number
+  round: number
   word: string
   chips: number
   mult: number
@@ -55,13 +55,13 @@ export type Vector = {
   expected: {
     guesses: GuessVector[]
     gold: GoldVector[]
-    /** Itemised per blind cleared — the gold event only carries the total. */
+    /** Itemised per round cleared — the gold event only carries the total. */
     rewards: RewardBreakdown[]
     outcome: Phase
-    ante: number
-    blind: number
+    stage: number
+    round: number
     finalGold: number
-    jokers: string[]
+    relics: string[]
     /** "A+2" — letter and the chips its etching adds. */
     etched: string[]
     /** "e:steel" — letter and the modifier stuck to it. */
@@ -70,7 +70,7 @@ export type Vector = {
     levels: string[]
     /** "range_ae:2" — alphabet slice and the level it was bought up to. */
     ranges: string[]
-    /** "snowball:mult=310" — what each growing joker has banked. */
+    /** "snowball:mult=310" — what each growing relic has banked. */
     grown: string[]
     destroyed: string[]
   }
@@ -89,10 +89,10 @@ function summarise(
     gold,
     rewards,
     outcome: state.phase,
-    ante: state.ante,
-    blind: state.blindIndex,
+    stage: state.stage,
+    round: state.roundIndex,
     finalGold: state.gold,
-    jokers: state.jokers.map((joker) => joker.id),
+    relics: state.relics.map((relic) => relic.id),
     etched: letters
       .filter(([, value]) => value.etch > 0)
       .map(([letter, value]) => `${letter}+${value.etch}`)
@@ -114,13 +114,13 @@ function summarise(
     ranges: Object.entries(state.ranges ?? {})
       .map(([id, level]) => `${id}:${level}`)
       .sort(),
-    // The fourth line that outlives a blind. Recorded for the same reason as
-    // `levels`: a joker that banks the wrong amount is a bug even on the runs
+    // The fourth line that outlives a round. Recorded for the same reason as
+    // `levels`: a relic that banks the wrong amount is a bug even on the runs
     // where the wrong amount happens to score the same, and this is the only
     // place the number is ever written down.
-    grown: state.jokers
-      .flatMap((joker) =>
-        Object.entries(joker.data ?? {}).map(([key, value]) => `${joker.id}:${key}=${value}`),
+    grown: state.relics
+      .flatMap((relic) =>
+        Object.entries(relic.data ?? {}).map(([key, value]) => `${relic.id}:${key}=${value}`),
       )
       .sort(),
     destroyed: letters
@@ -147,12 +147,12 @@ export function replay(
   const rewards: RewardBreakdown[] = []
 
   for (const action of actions) {
-    // The blind is read *before* the action, because clearing one swaps the
-    // blind out and a guess scored on the way belongs to the blind it was
+    // The round is read *before* the action, because clearing one swaps the
+    // round out and a guess scored on the way belongs to the round it was
     // played in, not the one that replaced it.
-    const ante = state.ante
-    const blind = state.blindIndex
-    const before = state.blind.guesses.length
+    const stage = state.stage
+    const round = state.roundIndex
+    const before = state.round.guesses.length
     const wasRewarding = state.phase === "reward"
 
     const result = reduce(state, action, words)
@@ -160,11 +160,11 @@ export function replay(
     collectGold(result.events, gold)
     if (!wasRewarding && state.phase === "reward" && state.reward) rewards.push(state.reward)
 
-    const scored = state.blind.guesses[before]
-    if (state.blind.guesses.length > before && scored) {
+    const scored = state.round.guesses[before]
+    if (state.round.guesses.length > before && scored) {
       guesses.push({
-        ante,
-        blind,
+        stage,
+        round,
         word: scored.word,
         chips: scored.chips,
         mult: scored.mult,

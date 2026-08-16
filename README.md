@@ -1,12 +1,12 @@
 # 5 Wild
 
 A word-guessing roguelike. Every guess is a hand played: letters carry chip
-values, feedback colours carry multipliers, jokers bend the arithmetic, and
+values, feedback colours carry multipliers, relics bend the arithmetic, and
 modifiers bought onto a letter follow it for the rest of the run. Beat a score
-target per blind, shop between blinds, survive eight antes.
+target per round, shop between rounds, survive eight stages.
 
 Guesses are one currency spent on two competing goals — information or income —
-and solving pays a tempo bonus but ends the blind on the spot. That tension is
+and solving pays a tempo bonus but ends the round on the spot. That tension is
 the game.
 
 ## Running it
@@ -65,7 +65,7 @@ npm run apk        # build + cap sync + gradlew assembleDebug
 
 ```
 src/engine/     pure TypeScript rules engine — no DOM, no clocks, no ambient RNG
-src/content/    letter tables and blind curves
+src/content/    letter tables and round curves
 src/ui/         DOM rendering and the scoring animation
 public/words/   answer and allowed-guess lists
 test/           unit tests, golden vectors, and the engine-purity guard
@@ -92,7 +92,7 @@ test replays the recorded actions, never the bots, so a scenario can be rewritte
 without moving the baseline.
 
 They exist to make a balance change legible. Edit a letter's chips, a target
-curve, a joker's arithmetic, and a hundred numbers move at once; the vectors turn
+curve, a relic's arithmetic, and a hundred numbers move at once; the vectors turn
 that into a diff you can read. So a deliberate change is three steps:
 
 ```sh

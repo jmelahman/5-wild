@@ -27,7 +27,7 @@ const record = (over: Partial<MetaState>): MetaState => {
 describe("the streak, in a sentence", () => {
   it("says nothing has been found before anything has", () => {
     expect(streakLine(record({}))).toBe("No answer found yet.")
-    // Blinds played and every one of them missed is still no answer found — the
+    // Rounds played and every one of them missed is still no answer found — the
     // line is about solves, and there are none to report.
     expect(streakLine(record({ missed: 9 }))).toBe("No answer found yet.")
   })

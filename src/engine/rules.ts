@@ -1,4 +1,4 @@
-import type { BlindState } from "./state"
+import type { RoundState } from "./state"
 
 /**
  * The primitives that guess rules are built out of.
@@ -12,7 +12,7 @@ import type { BlindState } from "./state"
  * Every one of these reads `tile.color`, what actually happened, rather than
  * `tile.shown`, what the board displayed. That is load-bearing rather than
  * incidental: a rule derived from real feedback is one the answer itself always
- * satisfies, so the answer is always a legal guess and no blind can be argued
+ * satisfies, so the answer is always a legal guess and no round can be argued
  * into being unwinnable. Built on `shown` instead, The Mirror — which moves
  * feedback to positions it did not come from — could demand a letter that is in
  * no word at all, and the player would simply be unable to submit anything.
@@ -23,9 +23,9 @@ import type { BlindState } from "./state"
  */
 
 /** Positions the player has already locked in green. */
-export function knownGreens(blind: BlindState): Map<number, string> {
+export function knownGreens(round: RoundState): Map<number, string> {
   const found = new Map<number, string>()
-  for (const guess of blind.guesses) {
+  for (const guess of round.guesses) {
     guess.tiles.forEach((tile, i) => {
       if (tile.color === "green") found.set(i, tile.letter)
     })
@@ -41,9 +41,9 @@ export function knownGreens(blind: BlindState): Map<number, string> {
  * Insertion order is guess order, then tile order, which is what makes the
  * refusal a player sees for a given board the same one every time.
  */
-export function found(blind: BlindState, only?: "green" | "yellow"): Set<string> {
+export function found(round: RoundState, only?: "green" | "yellow"): Set<string> {
   const letters = new Set<string>()
-  for (const guess of blind.guesses) {
+  for (const guess of round.guesses) {
     for (const tile of guess.tiles) {
       if (tile.color === "gray") continue
       if (!only || tile.color === only) letters.add(tile.letter)
@@ -61,8 +61,8 @@ export function useFound(word: string, letters: Iterable<string>): string | null
 }
 
 /** Every green has to stay exactly where it was found. The Tyrant, and ascension 5. */
-export function keepGreens(word: string, blind: BlindState): string | null {
-  for (const [i, letter] of knownGreens(blind)) {
+export function keepGreens(word: string, round: RoundState): string | null {
+  for (const [i, letter] of knownGreens(round)) {
     if (word[i] !== letter) return `must keep ${letter.toUpperCase()} in position ${i + 1}`
   }
   return null

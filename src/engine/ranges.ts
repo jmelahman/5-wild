@@ -59,7 +59,7 @@ export type Range = {
  * +2 chips on 1.71 letters a word for $5, so about 0.68 chips a guess per gold;
  * a range level lands +4 on roughly 1.25 letters a word for $7, so about 0.71.
  * Near parity, with the edge to the range, because the range is the line that is
- * meant to still be worth buying on ante 7.
+ * meant to still be worth buying on stage 7.
  */
 export const CHIPS_PER_LEVEL = 4
 

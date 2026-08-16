@@ -1,9 +1,9 @@
 /**
  * How a score is written down.
  *
- * The targets are geometric — ante 1 asks for 300 and each one after it asks
- * for a little over twice the last — so by ante 8 the ask is in the millions and
- * an endless run, which has no last ante, has no last target either. Ten digits
+ * The targets are geometric — stage 1 asks for 300 and each one after it asks
+ * for a little over twice the last — so by stage 8 the ask is in the millions and
+ * an endless run, which has no last stage, has no last target either. Ten digits
  * do not fit on a phone beside the number chasing them, and past a point they
  * stop being read anyway: nobody compares 148,392,110 to 151,000,000 digit by
  * digit, they compare "148M" to "151M".

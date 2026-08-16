@@ -4,21 +4,21 @@ import {
   ASCENSIONS,
   AUTHORED_ASCENSIONS,
   ascensionAt,
-  BLIND_PAYOUT,
-  blindTargets,
   clampAscension,
   difficultyAt,
   getBoss,
-  JOKER_SLOTS,
-  JOKERS,
   MAX_ASCENSION,
   mustSolve,
+  RELIC_SLOTS,
+  RELICS,
+  ROUND_PAYOUT,
   reduce,
+  roundTargets,
   rulesFor,
   startRun,
 } from "../../src/engine"
 // The combined rule check is an internal seam: the reducer calls it, and this
-// test needs to ask it things without playing a whole blind to get there.
+// test needs to ask it things without playing a whole round to get there.
 import { validateGuess } from "../../src/engine/ascensions"
 
 const words: WordSource = {
@@ -83,7 +83,7 @@ describe("the ladder", () => {
   /*
    * The half of the ladder nobody wrote. It exists so the dial keeps being a
    * thing to optimise against after the tenth rung has been beaten — the run's
-   * own scoreboard, which "how many antes" and "final score" both fail at
+   * own scoreboard, which "how many stages" and "final score" both fail at
    * because a won run can be farmed for either.
    */
   it("keeps going past the written rungs, one notch of target at a time", () => {
@@ -130,19 +130,19 @@ describe("the rules themselves", () => {
     expect(why(apply(at(0), type("arose")), "guild")).toBeUndefined()
   })
 
-  it("2 — refuses a word already used this blind", () => {
+  it("2 — refuses a word already used this round", () => {
     const played = apply(at(2), type("crane"))
-    expect(why(played, "crane")).toBe("already guessed this blind")
+    expect(why(played, "crane")).toBe("already guessed this round")
     expect(why(played, "ghost")).toBeUndefined()
   })
 
   it("3 — refuses a word used anywhere in the run", () => {
     const played = apply(at(3), type("crane"))
     expect(played.history).toEqual(["crane"])
-    // Carried across a blind, which is the whole difference from rule 2: the
-    // blind's own guesses are gone, the run's memory is not.
-    const nextBlind: RunState = { ...played, blind: { ...at(3).blind } }
-    expect(why(nextBlind, "crane")).toBe("already used this run")
+    // Carried across a round, which is the whole difference from rule 2: the
+    // round's own guesses are gone, the run's memory is not.
+    const nextRound: RunState = { ...played, round: { ...at(3).round } }
+    expect(why(nextRound, "crane")).toBe("already used this run")
   })
 
   it("4 — makes you keep the letters you have placed, wherever you like", () => {
@@ -162,11 +162,11 @@ describe("the rules themselves", () => {
     expect(why(played, "braid")).toBeUndefined()
   })
 
-  it("6 — takes a dollar off every blind, and leaves the unused guesses alone", () => {
+  it("6 — takes a dollar off every round, and leaves the unused guesses alone", () => {
     const lean = apply(at(6), type("braid")).reward
     const plain = apply(at(5), type("braid")).reward
     expect(lean?.base).toBe((plain?.base ?? 0) - 1)
-    expect(lean?.base).toBe(BLIND_PAYOUT[0] - 1)
+    expect(lean?.base).toBe(ROUND_PAYOUT[0] - 1)
     // The whole reason the cut lands on the base: the unused-guess dollars are
     // the one reward that pays for solving early rather than farming, so the
     // rung that squeezes the economy has to leave them untouched — and by
@@ -175,33 +175,33 @@ describe("the rules themselves", () => {
   })
 
   it("7 — raises every target, and rounds the result to something readable", () => {
-    const [small] = blindTargets(1)
-    expect(at(6).blind.target).toBe(small)
-    expect(at(7).blind.target).toBe(Math.round((small * 1.15) / 10) * 10)
+    const [small] = roundTargets(1)
+    expect(at(6).round.target).toBe(small)
+    expect(at(7).round.target).toBe(Math.round((small * 1.15) / 10) * 10)
     // Ten, not a hundred: 15% of the first target is 45, and rounding that to
     // the nearest hundred would make the first Steeper either free or double.
-    expect(at(7).blind.target % 10).toBe(0)
+    expect(at(7).round.target % 10).toBe(0)
   })
 
-  it("8 — holds four jokers instead of five, and says so when the fifth is offered", () => {
-    expect(difficultyAt(7).jokerSlots).toBe(JOKER_SLOTS)
-    expect(difficultyAt(8).jokerSlots).toBe(JOKER_SLOTS - 1)
+  it("8 — holds four relics instead of five, and says so when the fifth is offered", () => {
+    expect(difficultyAt(7).relicSlots).toBe(RELIC_SLOTS)
+    expect(difficultyAt(8).relicSlots).toBe(RELIC_SLOTS - 1)
 
-    // The shelf is untouched — it still lays out its five cards, jokers included.
+    // The shelf is untouched — it still lays out its five cards, relics included.
     // What the rung takes is the room to keep them, so the offer still arrives
     // and now has to displace something: the decision a shelf-cut never asks for.
     const shelf = apply(apply(at(8), type("braid")), [{ type: "collect" }])
     expect(shelf.shop?.items).toHaveLength(5)
 
-    // Four bought jokers is a full tray here and a tray with a seat left one rung
+    // Four bought relics is a full tray here and a tray with a seat left one rung
     // down, which is the whole of the rule as the player meets it.
     const offered: RunState = {
       ...shelf,
       gold: 99,
-      jokers: JOKERS.slice(0, 4).map((joker) => ({ id: joker.id })),
+      relics: RELICS.slice(0, 4).map((relic) => ({ id: relic.id })),
       shop: {
         rerolls: 0,
-        items: [{ kind: "joker", id: JOKERS[4]?.id ?? "", cost: 4 }],
+        items: [{ kind: "relic", id: RELICS[4]?.id ?? "", cost: 4 }],
       },
     }
     const refused = (state: RunState) =>
@@ -212,14 +212,14 @@ describe("the rules themselves", () => {
     expect(refused({ ...offered, ascension: 7 })).toBe(false)
   })
 
-  it("9 — pays nothing for a blind cleared without the word", () => {
+  it("9 — pays nothing for a round cleared without the word", () => {
     expect(difficultyAt(8).unpaidIfUnsolved).toBe(false)
     expect(difficultyAt(9).unpaidIfUnsolved).toBe(true)
     // No rung takes a guess any more, at the top of the ladder or anywhere else.
     // The Clock's four still has to be the tighter of the two, which is the part
     // of the old rung 9 worth keeping a test on — a run-level allowance that
-    // made a boss blind *easier* would be a rung nobody could reason about.
-    expect(at(9).blind.maxGuesses).toBe(difficultyAt(0).guesses)
+    // made a boss round *easier* would be a rung nobody could reason about.
+    expect(at(9).round.maxGuesses).toBe(difficultyAt(0).guesses)
     const clock = getBoss("clock")?.maxGuesses ?? 0
     expect(Math.min(clock, difficultyAt(9).guesses)).toBe(clock)
   })
@@ -238,18 +238,18 @@ describe("finishing the word", () => {
     // line, which is a win everywhere except the top of the ladder.
     return {
       ...base,
-      blind: { ...base.blind, target: 1, score: 500, done: false, guesses: [], maxGuesses: 1 },
+      round: { ...base.round, target: 1, score: 500, done: false, guesses: [], maxGuesses: 1 },
     }
   }
 
-  it("pays out a farmed blind at every level below the last", () => {
+  it("pays out a farmed round at every level below the last", () => {
     expect(apply(farmed(AUTHORED_ASCENSIONS - 1), type("ghost")).phase).toBe("reward")
   })
 
   it("takes the run at the last, however big the pile is", () => {
     const dead = apply(farmed(AUTHORED_ASCENSIONS), type("ghost"))
     expect(dead.phase).toBe("game_over")
-    expect(dead.blind.score).toBeGreaterThan(dead.blind.target)
+    expect(dead.round.score).toBeGreaterThan(dead.round.target)
   })
 
   it("still pays out when the word was actually solved", () => {
@@ -260,18 +260,18 @@ describe("finishing the word", () => {
 describe("the order of refusals", () => {
   const underGlutton = (ascension: number): RunState => {
     const base = startRun(1, words, ascension).state
-    return { ...base, blind: { ...base.blind, bossId: "glutton" } }
+    return { ...base, round: { ...base.round, bossId: "glutton" } }
   }
 
-  it("answers with the run's rule before the blind's", () => {
+  it("answers with the run's rule before the round's", () => {
     // GHOST breaks both at once: one vowel, and neither of the letters AROSE
     // just found. The player has to hear the same thing every time, and the
-    // rule that holds every blind of the run is the one to hear about.
+    // rule that holds every round of the run is the one to hear about.
     const played = apply(underGlutton(1), type("arose"))
     expect(why(played, "ghost")).toBe("must use A")
   })
 
-  it("still answers with the blind's rule when that is the only one broken", () => {
+  it("still answers with the round's rule when that is the only one broken", () => {
     expect(why(underGlutton(1), "ghost")).toBe("needs at least two vowels")
   })
 
@@ -280,10 +280,10 @@ describe("the order of refusals", () => {
     // on the board could demand a letter that is in no word at all; built on the
     // real colours, it can only ever demand letters the answer really has.
     const base = startRun(1, words, 1).state
-    const under: RunState = { ...base, blind: { ...base.blind, bossId: "mirror" } }
+    const under: RunState = { ...base, round: { ...base.round, bossId: "mirror" } }
     const played = apply(under, type("arose"))
-    const shown = played.blind.guesses[0]?.tiles.map((tile) => tile.shown)
-    const real = played.blind.guesses[0]?.tiles.map((tile) => tile.color)
+    const shown = played.round.guesses[0]?.tiles.map((tile) => tile.shown)
+    const real = played.round.guesses[0]?.tiles.map((tile) => tile.color)
     expect(shown).not.toEqual(real)
     // BRAID is the answer, so it satisfies a rule drawn from its own feedback —
     // whatever the board claimed.
@@ -298,30 +298,30 @@ describe("the answer is always reachable", () => {
   }
 
   it("never deals a word the run is forbidden to type", () => {
-    // Ascension 3 forbids repeating a word, so a blind whose answer has already
-    // been guessed is a blind that cannot be solved — and at ascension 10 that is
-    // a blind that cannot be won at all. The pool has to know that.
+    // Ascension 3 forbids repeating a word, so a round whose answer has already
+    // been guessed is a round that cannot be solved — and at ascension 10 that is
+    // a round that cannot be won at all. The pool has to know that.
     const base = startRun(4, many, AUTHORED_ASCENSIONS).state
     const used = many.answers.filter((word) => word !== "guild")
-    const state: RunState = { ...base, history: used, ante: 1, blindIndex: 1 }
-    // Dealt through the real path — the shop left behind and the next blind
+    const state: RunState = { ...base, history: used, stage: 1, roundIndex: 1 }
+    // Dealt through the real path — the shop left behind and the next round
     // begun, which is the only route that redraws an answer.
-    const played = reduce({ ...state, phase: "shop", shop: null }, { type: "next_blind" }, many)
-    expect(used).not.toContain(played.state.blind.answer)
-    expect(played.state.blind.answer).toBe("guild")
+    const played = reduce({ ...state, phase: "shop", shop: null }, { type: "next_round" }, many)
+    expect(used).not.toContain(played.state.round.answer)
+    expect(played.state.round.answer).toBe("guild")
   })
 
   it("hands every rule a board its own answer satisfies", () => {
     // The property the whole design rests on: rules read real feedback, so the
-    // answer always passes them. Played out over a full blind at the top of the
+    // answer always passes them. Played out over a full round at the top of the
     // ladder rather than argued about.
     let state = startRun(9, many, AUTHORED_ASCENSIONS).state
-    const answer = state.blind.answer
+    const answer = state.round.answer
     for (const guess of ["crane", "ghost", "arose"]) {
       if (guess === answer) continue
       expect(validateGuess(answer, state), `after ${guess}`).toBeNull()
       const next = apply(state, type(guess))
-      if (next.phase !== "blind") break
+      if (next.phase !== "round") break
       state = next
     }
     expect(validateGuess(answer, state)).toBeNull()

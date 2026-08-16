@@ -2,21 +2,21 @@ import { describe, expect, it } from "vitest"
 import type { Action, ModId, Rarity, RunState } from "../../src/engine"
 import {
   ALPHABET,
-  ANTES,
   derive,
   ETCHING_BY_ID,
   ETCHINGS,
-  JOKER_BY_ID,
-  JOKERS,
   MODIFIER_BY_ID,
+  RELIC_BY_ID,
+  RELICS,
   reduce,
+  STAGES,
   startRun,
 } from "../../src/engine"
 import { rollShop } from "../../src/engine/shop"
 import { realWords } from "../helpers/words"
 
-const shopAt = (seed: number, ante = 1) =>
-  rollShop(startRun(seed, realWords).state, derive(seed, "shop", ante, 0, 0), 0)
+const shopAt = (seed: number, stage = 1) =>
+  rollShop(startRun(seed, realWords).state, derive(seed, "shop", stage, 0, 0), 0)
 
 /** A run parked in the shop with plenty of gold, so buying is never rejected. */
 function inShop(seed: number): RunState {
@@ -38,18 +38,18 @@ function offering(state: RunState, id: string): RunState {
 }
 
 describe("the shop layout", () => {
-  it("always deals two jokers and never a third", () => {
+  it("always deals two relics and never a third", () => {
     for (let seed = 1; seed <= 50; seed++) {
       const kinds = shopAt(seed).items.map((item) => item?.kind)
-      expect(kinds.slice(0, 2)).toEqual(["joker", "joker"])
-      expect(kinds.filter((kind) => kind === "joker")).toHaveLength(2)
+      expect(kinds.slice(0, 2)).toEqual(["relic", "relic"])
+      expect(kinds.filter((kind) => kind === "relic")).toHaveLength(2)
     }
   })
 
-  it("never deals the same joker twice", () => {
+  it("never deals the same relic twice", () => {
     for (let seed = 1; seed <= 50; seed++) {
       const [first, second] = shopAt(seed).items
-      expect(first?.kind === "joker" && second?.kind === "joker" && first.id === second.id).toBe(
+      expect(first?.kind === "relic" && second?.kind === "relic" && first.id === second.id).toBe(
         false,
       )
     }
@@ -63,12 +63,12 @@ describe("the shop layout", () => {
     }
   })
 
-  it("fills the joker slots with ordinary stock once every joker is owned", () => {
+  it("fills the relic slots with ordinary stock once every relic is owned", () => {
     const base = startRun(3, realWords).state
-    const state: RunState = { ...base, jokers: JOKERS.map((joker) => ({ id: joker.id })) }
+    const state: RunState = { ...base, relics: RELICS.map((relic) => ({ id: relic.id })) }
     const items = rollShop(state, derive(3, "shop", 1, 0, 0), 0).items
     expect(items).toHaveLength(5)
-    expect(items.map((item) => item?.kind)).not.toContain("joker")
+    expect(items.map((item) => item?.kind)).not.toContain("relic")
     for (const item of items) expect(item).not.toBeNull()
   })
 
@@ -96,8 +96,8 @@ describe("the shop layout", () => {
     const letters = { ...base.letters }
     for (const letter of "aelost") letters[letter] = { etch: 0, destroyed: true, mod: null }
     const state: RunState = { ...base, letters }
-    for (let ante = 1; ante <= 60; ante++) {
-      const item = rollShop(state, derive(5, "shop", ante, 0, 0), 0).items[3]
+    for (let stage = 1; stage <= 60; stage++) {
+      const item = rollShop(state, derive(5, "shop", stage, 0, 0), 0).items[3]
       if (item?.kind === "mod") expect(item.id).not.toBe("echo")
     }
   })
@@ -109,8 +109,8 @@ describe("the shop layout", () => {
     const state: RunState = { ...base, letters }
     // Every roll of the upgrade slot, across many streams: Heavy is unsellable
     // because there is nothing left in it to etch.
-    for (let ante = 1; ante <= 40; ante++) {
-      const item = rollShop(state, derive(5, "shop", ante, 0, 0), 0).items[2]
+    for (let stage = 1; stage <= 40; stage++) {
+      const item = rollShop(state, derive(5, "shop", stage, 0, 0), 0).items[2]
       if (item?.kind === "etch") expect(item.id).not.toBe("etch_heavy")
     }
   })
@@ -199,8 +199,8 @@ describe("placing a bought modifier", () => {
     for (const action of [
       { type: "buy", index: 0 },
       { type: "reroll" },
-      { type: "next_blind" },
-      { type: "sell_joker", index: 0 },
+      { type: "next_round" },
+      { type: "sell_relic", index: 0 },
     ] satisfies Action[]) {
       expect(act(state, action).events).toContainEqual({
         type: "rejected",
@@ -268,17 +268,17 @@ describe("placing a bought modifier", () => {
   })
 })
 
-/** The shelf as it is rolled at a given ante, which is what the odds read. */
-const shelfAt = (seed: number, ante: number) => {
+/** The shelf as it is rolled at a given stage, which is what the odds read. */
+const shelfAt = (seed: number, stage: number) => {
   const base = startRun(seed, realWords).state
-  return rollShop({ ...base, ante }, derive(seed, "shop", ante, 0, 0), 0).items
+  return rollShop({ ...base, stage }, derive(seed, "shop", stage, 0, 0), 0).items
 }
 
-function jokerRarities(ante: number, seeds = 200): Rarity[] {
+function relicRarities(stage: number, seeds = 200): Rarity[] {
   const out: Rarity[] = []
   for (let seed = 1; seed <= seeds; seed++) {
-    for (const item of shelfAt(seed, ante)) {
-      if (item?.kind === "joker") out.push(JOKER_BY_ID.get(item.id)?.rarity ?? "common")
+    for (const item of shelfAt(seed, stage)) {
+      if (item?.kind === "relic") out.push(RELIC_BY_ID.get(item.id)?.rarity ?? "common")
     }
   }
   return out
@@ -287,25 +287,25 @@ function jokerRarities(ante: number, seeds = 200): Rarity[] {
 const shareOf = (list: readonly Rarity[], ...of: Rarity[]) =>
   list.filter((rarity) => of.includes(rarity)).length / list.length
 
-describe("what rarity the joker slots deal", () => {
+describe("what rarity the relic slots deal", () => {
   it("starts at the shelf the catalogue was already dealing", () => {
-    // The first ante is deliberately the neutral point: the same mix a uniform
+    // The first stage is deliberately the neutral point: the same mix a uniform
     // draw over the whole catalogue gives. Tilting it toward cheap cards was
-    // tried three ways and every one of them cost the bots a tenth of an ante
-    // and a quarter of their wins, because five joker slots fill by ante 2 and
+    // tried three ways and every one of them cost the bots a tenth of an stage
+    // and a quarter of their wins, because five relic slots fill by stage 2 and
     // a cheaper shelf is a permanently weaker tray.
-    const early = jokerRarities(1)
-    const catalogue = JOKERS.map((joker) => joker.rarity)
+    const early = relicRarities(1)
+    const catalogue = RELICS.map((relic) => relic.rarity)
     for (const rarity of ["common", "uncommon", "rare", "legendary"] satisfies Rarity[]) {
       expect(shareOf(early, rarity)).toBeCloseTo(shareOf(catalogue, rarity), 1)
     }
   })
 
   it("opens up the expensive ones as the run gets rich", () => {
-    // Gold compounds through interest while joker prices never move, so a shelf
-    // still reading mostly common at ante 7 is one the run has outgrown.
-    const early = jokerRarities(1)
-    const late = jokerRarities(ANTES)
+    // Gold compounds through interest while relic prices never move, so a shelf
+    // still reading mostly common at stage 7 is one the run has outgrown.
+    const early = relicRarities(1)
+    const late = relicRarities(STAGES)
     expect(shareOf(late, "rare", "legendary")).toBeGreaterThan(
       shareOf(early, "rare", "legendary") * 1.5,
     )
@@ -314,27 +314,27 @@ describe("what rarity the joker slots deal", () => {
     expect(shareOf(late, "common")).toBeLessThan(shareOf(early, "common") / 1.6)
   })
 
-  it("holds the odds steady past the last authored ante", () => {
-    // `blindTargets` keeps climbing out there but the odds have nowhere left to
+  it("holds the odds steady past the last authored stage", () => {
+    // `roundTargets` keeps climbing out there but the odds have nowhere left to
     // go, so an endless run should not drift toward an all-legendary shelf.
-    expect(shareOf(jokerRarities(40), "legendary")).toBeLessThan(0.3)
+    expect(shareOf(relicRarities(40), "legendary")).toBeLessThan(0.3)
   })
 
-  it("keeps dealing jokers when a rarity has been bought out", () => {
-    // Owning every cheap joker must not make the slot fail four times in five —
+  it("keeps dealing relics when a rarity has been bought out", () => {
+    // Owning every cheap relic must not make the slot fail four times in five —
     // the odds are a shape for the shelf, not a promise to leave it empty.
     const base = startRun(3, realWords).state
-    const cheap = JOKERS.filter((joker) => joker.rarity !== "rare")
-    const state: RunState = { ...base, ante: 1, jokers: cheap.map((joker) => ({ id: joker.id })) }
+    const cheap = RELICS.filter((relic) => relic.rarity !== "rare")
+    const state: RunState = { ...base, stage: 1, relics: cheap.map((relic) => ({ id: relic.id })) }
     const items = rollShop(state, derive(3, "shop", 1, 0, 0), 0).items
-    expect(items.slice(0, 2).map((item) => item?.kind)).toEqual(["joker", "joker"])
+    expect(items.slice(0, 2).map((item) => item?.kind)).toEqual(["relic", "relic"])
   })
 
-  it("deals the whole catalogue at some ante or other", () => {
+  it("deals the whole catalogue at some stage or other", () => {
     // Every rarity has to be reachable at both ends of the ramp, or a column
     // that reads as a weight is really a card the shop never sells.
-    for (const ante of [1, ANTES]) {
-      const dealt = new Set(jokerRarities(ante))
+    for (const stage of [1, STAGES]) {
+      const dealt = new Set(relicRarities(stage))
       expect([...dealt].sort()).toEqual(["common", "legendary", "rare", "uncommon"])
     }
   })

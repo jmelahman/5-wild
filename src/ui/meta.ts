@@ -26,7 +26,7 @@ const META_KEY = "5wild:meta:v2"
 /**
  * What outlives a run.
  *
- * A run is a closed world: it starts at ante 1 with four gold and ends when it
+ * A run is a closed world: it starts at stage 1 with four gold and ends when it
  * ends, and `RunState` is complete on its own. This is the other thing — the
  * player, across all of them. It lives in the UI layer for the same reason the
  * save does: `src/engine` must not know a browser exists. An ascension is an
@@ -38,8 +38,8 @@ export type MetaState = {
   runs: number
   /** Runs that reached the win. */
   wins: number
-  /** The deepest ante any run has stood on, including the endless ones. */
-  bestAnte: number
+  /** The deepest stage any run has stood on, including the endless ones. */
+  bestStage: number
   /**
    * The highest ascension a run has been won at, or -1 when none has.
    *
@@ -57,24 +57,24 @@ export type MetaState = {
   /** Guesses submitted, ever. The denominator the word tally is read against. */
   guesses: number
   /**
-   * Blinds whose answer was found, counted by which guess found it — so
+   * Rounds whose answer was found, counted by which guess found it — so
    * `solves[4]` is "cracked it on the fourth". Index 0 is always zero and index
    * 1 is the lucky ones; the array is indexed by guess number rather than by
    * `n - 1` so that a glance at the stored JSON reads straight.
    */
   solves: number[]
-  /** Blinds that ended with the answer still hidden, won on score or lost. */
+  /** Rounds that ended with the answer still hidden, won on score or lost. */
   missed: number
   /**
-   * Blinds solved back to back, right now.
+   * Rounds solved back to back, right now.
    *
    * Counted across runs rather than inside one, which is the whole reason it is
    * interesting: a run ends every few minutes and takes its own numbers with it,
    * so a streak scoped to a run would top out around fifteen and reset on
-   * something the player did not choose. This one is only ever broken by a blind
+   * something the player did not choose. This one is only ever broken by a round
    * where the word did not come, which is the thing it is asking about.
    *
-   * A blind solved and then lost on score keeps the streak alive. The question
+   * A round solved and then lost on score keeps the streak alive. The question
    * is whether the word was found, and it was.
    */
   streak: number
@@ -94,14 +94,14 @@ export type MetaState = {
    * How often the most-played words have been played. Capped — see `tally`.
    */
   words: Record<string, number>
-  /** How often each joker has been taken. Bounded by the catalogue. */
-  jokers: Record<string, number>
+  /** How often each relic has been taken. Bounded by the catalogue. */
+  relics: Record<string, number>
 }
 
 const FRESH: MetaState = {
   runs: 0,
   wins: 0,
-  bestAnte: 0,
+  bestStage: 0,
   cleared: -1,
   ascension: 0,
   guesses: 0,
@@ -111,7 +111,7 @@ const FRESH: MetaState = {
   bestStreak: 0,
   cracked: [],
   words: {},
-  jokers: {},
+  relics: {},
 }
 
 /**
@@ -124,7 +124,7 @@ const FRESH: MetaState = {
  */
 const WORD_SLOTS = 24
 
-/** The most guesses a blind could ever take, as a ceiling on `solves`. */
+/** The most guesses a round could ever take, as a ceiling on `solves`. */
 const GUESS_CAP = 12
 
 /**
@@ -151,12 +151,12 @@ export const isLocked = (meta: MetaState, level: number): boolean => level > unl
  */
 export const chosenAscension = (meta: MetaState): number => clampAscension(meta.ascension)
 
-/** Blinds whose word was found, on whichever guess found it. */
+/** Rounds whose word was found, on whichever guess found it. */
 export const wordsFound = (meta: MetaState): number =>
   meta.solves.reduce((sum, count) => sum + count, 0)
 
-/** Blinds that reached an ending, which is what the breakdown is a breakdown of. */
-export const blindsPlayed = (meta: MetaState): number => meta.missed + wordsFound(meta)
+/** Rounds that reached an ending, which is what the breakdown is a breakdown of. */
+export const roundsPlayed = (meta: MetaState): number => meta.missed + wordsFound(meta)
 
 /**
  * Which guess a solve lands on on average, or null before one has.
@@ -166,7 +166,7 @@ export const blindsPlayed = (meta: MetaState): number => meta.missed + wordsFoun
  * figure, and it is the one that moves when they get better at the game — the
  * bars can look much the same while the weight shifts a column to the left.
  *
- * Averaged over solves and not over blinds, so a blind where the word never came
+ * Averaged over solves and not over rounds, so a round where the word never came
  * is not a sixth guess dragging the mean up. Never found is its own row, and
  * folding it in here would make one number answer two questions badly.
  */
@@ -197,9 +197,9 @@ export function favouriteWord(meta: MetaState): { word: string; count: number } 
   return best
 }
 
-/** Jokers by how often they have been taken, most-taken first. */
-export const favouriteJokers = (meta: MetaState): { id: string; count: number }[] =>
-  Object.entries(meta.jokers)
+/** Relics by how often they have been taken, most-taken first. */
+export const favouriteRelics = (meta: MetaState): { id: string; count: number }[] =>
+  Object.entries(meta.relics)
     .map(([id, count]) => ({ id, count }))
     .sort((a, b) => b.count - a.count || a.id.localeCompare(b.id))
 
@@ -257,8 +257,8 @@ export class Profile {
   }
 
   /** The high-water mark. Idempotent, so it can be called on every save. */
-  reached(ante: number): void {
-    if (ante > this.state.bestAnte) this.write({ bestAnte: ante })
+  reached(stage: number): void {
+    if (stage > this.state.bestStage) this.write({ bestStage: stage })
   }
 
   /** The level picked for the next run. Written straight through: it is a choice. */
@@ -272,9 +272,9 @@ export class Profile {
   }
 
   /**
-   * A blind's answer found, on the `guesses`th try.
+   * A round's answer found, on the `guesses`th try.
    *
-   * The word goes in the collection whether or not the blind was then won on
+   * The word goes in the collection whether or not the round was then won on
    * score — cracking it is the thing being remembered, and a player who found
    * the word and still fell short of the target found the word.
    */
@@ -293,14 +293,14 @@ export class Profile {
     })
   }
 
-  /** A blind that ended with the answer never found. The one thing that breaks a streak. */
+  /** A round that ended with the answer never found. The one thing that breaks a streak. */
   missed(): void {
     this.write({ missed: this.state.missed + 1, streak: 0 })
   }
 
-  /** A joker joining the tray, however it got there. */
+  /** A relic joining the tray, however it got there. */
   took(id: string): void {
-    this.write({ jokers: { ...this.state.jokers, [id]: (this.state.jokers[id] ?? 0) + 1 } })
+    this.write({ relics: { ...this.state.relics, [id]: (this.state.relics[id] ?? 0) + 1 } })
   }
 
   /** Banked at the offer, not at the ending: playing on cannot lose the win. */
@@ -338,10 +338,18 @@ export function loadMeta(): MetaState {
     const parsed: unknown = JSON.parse(raw)
     if (typeof parsed !== "object" || parsed === null) return { ...FRESH }
     const meta = parsed as Partial<Record<keyof MetaState, unknown>>
+    // Two fields changed spelling when antes became stages and jokers relics.
+    // Nothing changed *meaning*, so this is the one case the key does not move
+    // for: a bump would be honest about the schema and would throw away every
+    // counter in the file to say it, including the `cleared` that gates the
+    // ascension ladder. Reading the old name where the new one is absent costs
+    // two lines and keeps the record whole; the next write puts it back under
+    // the new spelling, and the dead key is ignored from then on.
+    const legacy = parsed as Partial<Record<"bestAnte" | "jokers", unknown>>
     return {
       runs: count(meta.runs),
       wins: count(meta.wins),
-      bestAnte: count(meta.bestAnte),
+      bestStage: count(meta.bestStage ?? legacy.bestAnte),
       cleared: count(meta.cleared, -1),
       ascension: count(meta.ascension),
       guesses: count(meta.guesses),
@@ -354,7 +362,7 @@ export function loadMeta(): MetaState {
       bestStreak: count(meta.bestStreak),
       cracked: collection(meta.cracked),
       words: table(meta.words, WORD_SLOTS),
-      jokers: table(meta.jokers),
+      relics: table(meta.relics ?? legacy.jokers),
     }
   } catch {
     return { ...FRESH }
@@ -374,8 +382,8 @@ const counts = (value: unknown): number[] =>
  *
  * The trim is what stops a record hand-edited or written by a build with a
  * bigger cap from reintroducing the unbounded map this was built to avoid.
- * Nothing is trimmed when `slots` is left off, which is right for the joker
- * map: it is bounded by the catalogue, and a joker retired from the game should
+ * Nothing is trimmed when `slots` is left off, which is right for the relic
+ * map: it is bounded by the catalogue, and a relic retired from the game should
  * still be able to say it was somebody's favourite.
  */
 function table(value: unknown, slots?: number): Record<string, number> {

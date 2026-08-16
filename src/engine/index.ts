@@ -5,20 +5,20 @@
  * to be replaceable, and this is the seam it gets replaced along.
  */
 
+export { ALPHABET, LETTER_CHIPS, MULT_FOR_COLOR } from "../content/letters"
 export {
-  ANTES,
   BASE_GUESSES,
-  BLIND_NAMES,
-  BLIND_PAYOUT,
-  BLINDS_PER_ANTE,
-  blindTargets,
   CONSUMABLE_SLOTS,
   GOLD_PER_UNUSED_GUESS,
   INTEREST_CAP,
   INTEREST_PER,
-  JOKER_SLOTS,
-} from "../content/blinds"
-export { ALPHABET, LETTER_CHIPS, MULT_FOR_COLOR } from "../content/letters"
+  RELIC_SLOTS,
+  ROUND_NAMES,
+  ROUND_PAYOUT,
+  ROUNDS_PER_STAGE,
+  roundTargets,
+  STAGES,
+} from "../content/rounds"
 export { CONTENT_VERSION } from "../content/version"
 export type { Ascension, Difficulty } from "./ascensions"
 export {
@@ -33,7 +33,7 @@ export {
   rulesFor,
 } from "./ascensions"
 export type { Boss, BossTier } from "./bosses"
-export { BOSS_TIERS, BOSSES, bossesIn, getBoss, TIER_ANTES, tierForAnte } from "./bosses"
+export { BOSS_TIERS, BOSSES, bossesIn, getBoss, TIER_STAGES, tierForStage } from "./bosses"
 export type { Category } from "./categories"
 export {
   CATEGORIES,
@@ -47,8 +47,6 @@ export type { Consumable } from "./consumables"
 export { CONSUMABLE_BY_ID, CONSUMABLES } from "./consumables"
 export type { Etching } from "./etchings"
 export { ETCHING_BY_ID, ETCHINGS } from "./etchings"
-export type { Joker, JokerCtx } from "./jokers"
-export { JOKER_BY_ID, JOKERS } from "./jokers"
 export type { ModId, Modifier } from "./modifiers"
 export { MODIFIER_BY_ID, MODIFIERS, modifierOf } from "./modifiers"
 export type { Pack, PackId } from "./packs"
@@ -65,6 +63,8 @@ export {
   rangeOf,
 } from "./ranges"
 export { reduce, startRun } from "./reduce"
+export type { Relic, RelicCtx } from "./relics"
+export { RELIC_BY_ID, RELICS } from "./relics"
 export { derive } from "./rng"
 export { baseChips, draftChips, solveBonusFor } from "./scoring"
 export { placeableLetters, rerollCost, sellValue } from "./shop"

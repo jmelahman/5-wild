@@ -9,7 +9,6 @@ import { Music } from "./music"
 import type { Chrome, Handlers } from "./views"
 import {
   ascendView,
-  blindView,
   codexView,
   endView,
   fillCategory,
@@ -22,6 +21,7 @@ import {
   placeView,
   quitView,
   rewardView,
+  roundView,
   shapesView,
   shopView,
   statsView,
@@ -29,8 +29,18 @@ import {
   wordInPlay,
 } from "./views"
 
-/** Bumping the suffix orphans every save in the wild — treat it as a migration. */
-const SAVE_KEY = "5wild:run:v1"
+/**
+ * Bumping the suffix orphans every save in the wild — treat it as a migration.
+ *
+ * v2 because the vocabulary moved under it. A v1 save spells the same run
+ * `ante`, `blindIndex`, `blind`, `jokers`, and `{type:"next_blind"}`; `loadSave`
+ * would read it as a run missing half its fields and hand back something that
+ * looks playable and is not. Renaming the key is how that save gets refused
+ * cleanly rather than half-understood. It costs whoever was mid-run at the
+ * upgrade exactly one run — the record survives, which is where the things worth
+ * keeping live.
+ */
+const SAVE_KEY = "5wild:run:v2"
 
 /** Set the first time the rules have been shown, so they only interrupt once. */
 const HELP_KEY = "5wild:seen-help"
@@ -45,7 +55,7 @@ const PLAIN_KEY = "5wild:plain"
  * takes the board away, and it has to outlast `COUNT_UP` by enough that the pile's
  * new total is legible standing still rather than glimpsed mid-climb.
  */
-const PACE = { tile: 170, joker: 150, solve: 900, total: 400 }
+const PACE = { tile: 170, relic: 150, solve: 900, total: 400 }
 
 /**
  * The tile turn. It runs longer than the gap between tiles on purpose, so the
@@ -81,7 +91,7 @@ export class App {
   private busy = false
   /** Set when the player taps mid-animation: the rest of it plays instantly. */
   private skipping = false
-  /** True while the blind's intro card is up, before the board is dealt. */
+  /** True while the round's intro card is up, before the board is dealt. */
   private intro = false
   /** True when there is no run to return to and the front door is showing. */
   private atTitle: boolean
@@ -136,7 +146,7 @@ export class App {
     if (this.atTitle) return "title"
     if (this.state.phase === "game_over" || this.state.phase === "victory") return "over"
     if (this.state.phase === "shop" || this.state.phase === "reward") return "shop"
-    return this.state.blind.bossId ? "boss" : "blind"
+    return this.state.round.bossId ? "boss" : "round"
   }
 
   start(): void {
@@ -150,10 +160,10 @@ export class App {
       this.render()
       return
     }
-    // A resumed run mid-blind goes straight back to the board — the player was
-    // in the middle of a thought, and a card announcing the blind they are
+    // A resumed run mid-round goes straight back to the board — the player was
+    // in the middle of a thought, and a card announcing the round they are
     // already playing would be in the way.
-    this.intro = this.state.blind.guesses.length === 0 && this.state.phase === "blind"
+    this.intro = this.state.round.guesses.length === 0 && this.state.phase === "round"
     this.render()
   }
 
@@ -173,14 +183,14 @@ export class App {
 
     this.state = state
     this.tally(before)
-    // Every arrival at a blind from elsewhere gets the intro card, which is the
+    // Every arrival at a round from elsewhere gets the intro card, which is the
     // only thing that makes the shop and the board feel like separate places.
-    if (this.state.phase === "blind" && wasPhase !== "blind") this.intro = true
+    if (this.state.phase === "round" && wasPhase !== "round") this.intro = true
     this.save()
 
     // The win is recorded where it is offered rather than where the run ends,
     // because those are no longer the same moment: a run can take the win and
-    // then go looking for ante 20. The engine fires this once per run.
+    // then go looking for stage 20. The engine fires this once per run.
     //
     // The level comes off the run rather than off the record, so a win is banked
     // at the difficulty it was actually played at whatever has been chosen since.
@@ -203,7 +213,7 @@ export class App {
     // instead of re-rendering. Everything the guard checks is a reason the
     // screen might not be the board this assumes.
     const quiet = !paid && !label && !this.intro && !this.overlay && !this.atTitle
-    if (typing && quiet && this.state.phase === "blind" && this.patchDraft(typing)) return
+    if (typing && quiet && this.state.phase === "round" && this.patchDraft(typing)) return
 
     this.render()
     // After the render, not before: the node the bump lands on is built by it.
@@ -237,21 +247,21 @@ export class App {
    * caller to fall back to a full render.
    */
   private patchDraft(letter: "arriving" | "leaving"): boolean {
-    const blind = this.state.blind
+    const round = this.state.round
     // `done` is the same condition the view uses to stop drawing a draft at all;
     // it cannot be reached by typing, but the two must not be allowed to disagree.
-    if (blind.done) return false
-    const row = this.root.querySelector(`.grid .row[data-row="${blind.guesses.length}"]`)
-    if (!row || row.children.length !== blind.answer.length) return false
+    if (round.done) return false
+    const row = this.root.querySelector(`.grid .row[data-row="${round.guesses.length}"]`)
+    if (!row || row.children.length !== round.answer.length) return false
 
     for (const [column, tile] of Array.from(row.children).entries()) {
-      const typed = blind.draft[column]
-      const revealed = blind.revealed[column]
+      const typed = round.draft[column]
+      const revealed = round.revealed[column]
       // Only the letter that just arrived lands. Backspace passes "leaving" and
       // nothing animates: a letter being taken away used to hand the animation
       // to the letter before it, which reads as the board twitching at a tile
       // the player did not touch.
-      const lands = letter === "arriving" && column === blind.draft.length - 1
+      const lands = letter === "arriving" && column === round.draft.length - 1
       tile.className = typed
         ? `tile filled ${lands ? "land" : ""}`
         : revealed
@@ -291,7 +301,7 @@ export class App {
 
     this.busy = true
     this.skipping = false
-    this.render("blind")
+    this.render("round")
     await this.animate(events)
     this.busy = false
     this.render()
@@ -311,7 +321,7 @@ export class App {
     }
     screen.addEventListener("pointerdown", onSkip)
 
-    const row = screen.querySelector(`.row[data-row="${this.state.blind.guesses.length - 1}"]`)
+    const row = screen.querySelector(`.row[data-row="${this.state.round.guesses.length - 1}"]`)
     const tiles = [...(row?.querySelectorAll(".tile") ?? [])]
     for (const tile of tiles) tile.classList.add("pending")
     // Held back the same way the colours are, and released with the last of
@@ -352,7 +362,7 @@ export class App {
     // through, so it fills in step with the digits instead of trailing them.
     const meterEl = screen.querySelector<HTMLElement>(".hud .meter-fill")
     const scoreBox = screen.querySelector(".hud-score")
-    const target = this.state.blind.target
+    const target = this.state.round.target
     const meter = (value: number) => {
       meterEl?.style.setProperty("--fill", String(meterFill(value, target)))
       scoreBox?.classList.toggle("met", value >= target)
@@ -364,7 +374,7 @@ export class App {
     const scored = events.find((event) => event.type === "guess_scored")
     if (scoreEl && scored) scoreEl.textContent = num(scored.total - scored.score)
     /** The figure on screen, so the solve bonus knows what it is multiplying. */
-    let onScreen = scored ? scored.total - scored.score : this.state.blind.score
+    let onScreen = scored ? scored.total - scored.score : this.state.round.score
     meter(onScreen)
 
     for (const event of events) {
@@ -387,19 +397,19 @@ export class App {
           const tile = tiles[event.index]
           tile?.classList.add("fired")
           this.floater(screen, event.label)
-          this.sound.joker()
+          this.sound.relic()
           readout(event.chips, event.mult)
-          await this.pace(PACE.joker)
+          await this.pace(PACE.relic)
           tile?.classList.remove("fired")
           break
         }
-        case "joker": {
-          const slot = screen.querySelector(`.joker[data-slot="${event.slot}"]`)
+        case "relic": {
+          const slot = screen.querySelector(`.relic[data-slot="${event.slot}"]`)
           slot?.classList.add("fired")
           this.floater(screen, event.label)
-          this.sound.joker()
+          this.sound.relic()
           readout(event.chips, event.mult)
-          await this.pace(PACE.joker)
+          await this.pace(PACE.relic)
           slot?.classList.remove("fired")
           break
         }
@@ -409,22 +419,22 @@ export class App {
           const line = screen.querySelector(".category")
           line?.classList.add("fired")
           this.floater(screen, `${event.name} Lv ${event.level}`)
-          this.sound.joker()
+          this.sound.relic()
           readout(event.chips, event.mult)
-          await this.pace(PACE.joker)
+          await this.pace(PACE.relic)
           line?.classList.remove("fired")
           break
         }
-        case "joker_grew": {
+        case "relic_grew": {
           // Lands after the guess has finished scoring, because that is when it
-          // happens: the blind ended, and this card is worth more next time. No
+          // happens: the round ended, and this card is worth more next time. No
           // readout — nothing about this guess's chips or mult moved, which is
           // exactly what distinguishes growing from firing.
-          const slot = screen.querySelector(`.joker[data-slot="${event.slot}"]`)
+          const slot = screen.querySelector(`.relic[data-slot="${event.slot}"]`)
           slot?.classList.add("fired")
           this.floater(screen, event.label)
-          this.sound.joker()
-          await this.pace(PACE.joker)
+          this.sound.relic()
+          await this.pace(PACE.relic)
           slot?.classList.remove("fired")
           break
         }
@@ -436,7 +446,7 @@ export class App {
           screen.querySelector(".readout")?.classList.add("solved")
           this.sound.solve()
           this.countUp(scoreEl, onScreen, event.total, meter)
-          this.emphasise(screen, event.total / Math.max(1, this.state.blind.target))
+          this.emphasise(screen, event.total / Math.max(1, this.state.round.target))
           onScreen = event.total
           await this.pace(PACE.solve)
           break
@@ -446,8 +456,8 @@ export class App {
           // thing that animates its value rather than snapping to it.
           const from = event.total - event.score
           this.countUp(scoreEl, from, event.total, meter)
-          this.emphasise(screen, event.score / Math.max(1, this.state.blind.target))
-          this.sound.score(event.score / Math.max(1, this.state.blind.target))
+          this.emphasise(screen, event.score / Math.max(1, this.state.round.target))
+          this.sound.score(event.score / Math.max(1, this.state.round.target))
           onScreen = event.total
           await this.pace(PACE.total)
           break
@@ -455,7 +465,7 @@ export class App {
         case "letter_destroyed":
           this.floater(screen, `${event.letter.toUpperCase()} burnt out`)
           this.sound.burn()
-          await this.pace(PACE.joker)
+          await this.pace(PACE.relic)
           break
         default:
           break
@@ -511,7 +521,7 @@ export class App {
   /**
    * What a tile just paid, said at the tile.
    *
-   * Every other effect in the game announces itself — a joker lights up and
+   * Every other effect in the game announces itself — a relic lights up and
    * floats its number, a modifier lights the letter it rode in on — and the
    * tiles, which are where most of a guess actually comes from, said nothing.
    * The readout moved and the player was left to infer which of the five
@@ -595,7 +605,7 @@ export class App {
 
   /**
    * Weight of the reaction, scaled by what the guess was worth against the
-   * target. A chip guess twitches; a guess that clears the blind on its own
+   * target. A chip guess twitches; a guess that clears the round on its own
    * shakes the screen.
    */
   private emphasise(screen: HTMLElement, ratio: number): void {
@@ -635,8 +645,8 @@ export class App {
    */
   private refuse(reason: string): void {
     this.toast(reason)
-    if (this.state.phase !== "blind") return
-    const row = this.root.querySelector(`.row[data-row="${this.state.blind.guesses.length}"]`)
+    if (this.state.phase !== "round") return
+    const row = this.root.querySelector(`.row[data-row="${this.state.round.guesses.length}"]`)
     this.replay(row, "rejected", 420)
   }
 
@@ -660,10 +670,10 @@ export class App {
    * Read what a thing does without committing to it.
    *
    * Delegated from the root because the screen is thrown away and rebuilt on
-   * every render, and keyed on `data-tip` rather than on the joker class,
+   * every render, and keyed on `data-tip` rather than on the relic class,
    * because a letter needs the same panel as a card: the pips on a key say
    * `+3` and `?` and stop there, and the arithmetic behind them belongs
-   * somewhere a player can reach mid-blind.
+   * somewhere a player can reach mid-round.
    *
    * Hover is the desktop half. Touch gets `bindHeldTips`, because there is no
    * hovering a phone and because the keys — unlike the tray — do something when
@@ -744,7 +754,7 @@ export class App {
   private showTip(host: HTMLElement | null): void {
     if (host === this.hovered) return
     this.hovered = host
-    const tip = this.root.querySelector<HTMLElement>(".joker-tip")
+    const tip = this.root.querySelector<HTMLElement>(".relic-tip")
     if (!tip) return
     if (!host) {
       tip.classList.remove("show")
@@ -755,7 +765,7 @@ export class App {
     // Borrowing the card's rarity keeps the two reading as one object, which a
     // sibling of the tray cannot do by inheritance. A key has no rarity and
     // takes the common edge, which is the neutral one.
-    tip.className = `joker-tip rarity-${host.dataset.rarity ?? "common"}`
+    tip.className = `relic-tip rarity-${host.dataset.rarity ?? "common"}`
 
     // Measured before it is shown, which `visibility: hidden` allows and
     // `display: none` would not: the height decides which side it goes on.
@@ -763,8 +773,8 @@ export class App {
     const box = tip.getBoundingClientRect()
     const gap = 6
     const edge = 8
-    // Below by preference — in a blind the tray sits under the HUD with the
-    // whole board beneath it. The shop keeps its jokers at the foot of the
+    // Below by preference — in a round the tray sits under the HUD with the
+    // whole board beneath it. The shop keeps its relics at the foot of the
     // screen, and there this flips.
     const below = card.bottom + gap + box.height + edge <= window.innerHeight
     const centred = card.left + card.width / 2 - box.width / 2
@@ -798,9 +808,9 @@ export class App {
     useConsumable: (index) => this.dispatch({ type: "use_consumable", index }),
     collect: () => this.dispatch({ type: "collect" }),
     buy: (index) => this.dispatch({ type: "buy", index }),
-    sell: (index) => this.dispatch({ type: "sell_joker", index }),
+    sell: (index) => this.dispatch({ type: "sell_relic", index }),
     reroll: () => this.dispatch({ type: "reroll" }),
-    nextBlind: () => this.dispatch({ type: "next_blind" }),
+    nextRound: () => this.dispatch({ type: "next_round" }),
     continueRun: () => this.dispatch({ type: "continue_run" }),
     pickPack: (index) => this.dispatch({ type: "pick_pack", index }),
     skipPack: () => this.dispatch({ type: "skip_pack" }),
@@ -915,8 +925,8 @@ export class App {
     return { muted: this.sound.isMuted, musicOff: this.music.isOff, plain: this.plain }
   }
 
-  /** `as` forces the blind board to stay on screen while its scoring plays out. */
-  private render(as?: "blind"): void {
+  /** `as` forces the round board to stay on screen while its scoring plays out. */
+  private render(as?: "round"): void {
     const phase = as ?? this.state.phase
     this.music.set(this.mood)
     // The card the pointer was over is about to stop existing, and a stale node
@@ -924,7 +934,7 @@ export class App {
     this.hovered = null
     const view = this.atTitle
       ? titleView(this.handlers, this.chrome, this.profile.stats)
-      : phase === "blind" && this.intro && !as
+      : phase === "round" && this.intro && !as
         ? introView(this.state, this.handlers, this.chrome)
         : phase === "reward"
           ? rewardView(this.state, this.handlers)
@@ -932,7 +942,7 @@ export class App {
             ? shopView(this.state, this.handlers)
             : phase === "game_over" || phase === "victory"
               ? endView(this.state, this.handlers)
-              : blindView(this.state, this.handlers, this.chrome)
+              : roundView(this.state, this.handlers, this.chrome)
 
     // Overlays sit beside the screen rather than replacing it, so the board is
     // still visible behind the sheet and the player keeps their bearings.
@@ -946,7 +956,7 @@ export class App {
         : this.overlay === "codex"
           ? codexView(this.handlers)
           : this.overlay === "shapes"
-            ? shapesView(this.state, this.handlers, phase === "blind" ? wordInPlay(this.state) : "")
+            ? shapesView(this.state, this.handlers, phase === "round" ? wordInPlay(this.state) : "")
             : this.overlay === "stats"
               ? statsView(this.profile.stats, this.words.answers.length, this.handlers)
               : this.overlay === "menu"
@@ -996,26 +1006,26 @@ export class App {
    * Off the states rather than off the events, because none of these have an
    * event of their own and inventing four would be putting the profile's
    * questions into the engine's vocabulary. What the record wants to know —
-   * which guess found the word, whether a joker is new to the tray — is a
+   * which guess found the word, whether a relic is new to the tray — is a
    * difference between two runs, and both runs are right here.
    */
   private tally(before: RunState): void {
-    const blind = this.state.blind
-    // The blind survives into the reward screen, so "same blind, one more
-    // guess" is a real comparison right up to the moment `next_blind` swaps it.
-    const played = blind.guesses[before.blind.guesses.length]
+    const round = this.state.round
+    // The round survives into the reward screen, so "same round, one more
+    // guess" is a real comparison right up to the moment `next_round` swaps it.
+    const played = round.guesses[before.round.guesses.length]
     if (played) this.profile.guessed(played.word)
-    if (blind.solved && !before.blind.solved) {
-      this.profile.solved(blind.answer, blind.guesses.length)
-    } else if (blind.done && !before.blind.done) {
+    if (round.solved && !before.round.solved) {
+      this.profile.solved(round.answer, round.guesses.length)
+    } else if (round.done && !before.round.done) {
       this.profile.missed()
     }
-    // A joker can arrive from the shop or out of a pack, and the tray is the one
+    // A relic can arrive from the shop or out of a pack, and the tray is the one
     // place both routes end. Held ids rather than an index, because selling one
     // renumbers the rest.
-    const held = new Set(before.jokers.map((joker) => joker.id))
-    for (const joker of this.state.jokers) {
-      if (!held.has(joker.id)) this.profile.took(joker.id)
+    const held = new Set(before.relics.map((relic) => relic.id))
+    for (const relic of this.state.relics) {
+      if (!held.has(relic.id)) this.profile.took(relic.id)
     }
   }
 
@@ -1025,10 +1035,10 @@ export class App {
     } catch {
       // A full or disabled store costs the player their resume, not their run.
     }
-    // Every moment the run is worth persisting is a moment its ante may have
+    // Every moment the run is worth persisting is a moment its stage may have
     // moved, so the record rides along here rather than keeping its own watch.
     // It writes only when the mark actually moves.
-    this.profile.reached(this.state.ante)
+    this.profile.reached(this.state.stage)
   }
 
   private bindPhysicalKeyboard(): void {
@@ -1068,13 +1078,13 @@ export class App {
       }
       if (this.atTitle) return
       // A modifier in hand asks a letter question, and this is where letters
-      // come from — the one thing outside a blind a keypress can answer.
+      // come from — the one thing outside a round a keypress can answer.
       if (this.state.placing && /^[a-zA-Z]$/.test(event.key)) {
         this.handlers.placeMod(event.key.toLowerCase())
         event.preventDefault()
         return
       }
-      if (this.state.phase !== "blind") return
+      if (this.state.phase !== "round") return
       if (this.intro) {
         this.handlers.play()
         event.preventDefault()
@@ -1195,7 +1205,7 @@ export function loadSave(): RunState | null {
     // Just enough of a shape check to survive a save from an older build.
     if (typeof parsed !== "object" || parsed === null) return null
     const state = parsed as RunState
-    return typeof state.seed === "number" && typeof state.phase === "string" && state.blind
+    return typeof state.seed === "number" && typeof state.phase === "string" && state.round
       ? state
       : null
   } catch {

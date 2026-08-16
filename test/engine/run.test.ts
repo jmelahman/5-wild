@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { Action, RunState, WordSource } from "../../src/engine"
-import { blindTargets, JOKER_SLOTS, reduce, startRun } from "../../src/engine"
+import { RELIC_SLOTS, reduce, roundTargets, startRun } from "../../src/engine"
 import { realWords } from "../helpers/words"
 
 const apply = (state: RunState, actions: Action[], words: WordSource): RunState =>
@@ -11,36 +11,36 @@ const type = (word: string): Action[] => [
   { type: "submit" },
 ]
 
-const solve = (state: RunState, words: WordSource) => apply(state, type(state.blind.answer), words)
+const solve = (state: RunState, words: WordSource) => apply(state, type(state.round.answer), words)
 
 describe("run structure", () => {
-  it("opens on ante 1, small blind, with the first target", () => {
+  it("opens on stage 1, small round, with the first target", () => {
     const state = startRun(7, realWords).state
-    expect(state.ante).toBe(1)
-    expect(state.blindIndex).toBe(0)
-    expect(state.blind.target).toBe(blindTargets(1)[0])
-    expect(state.phase).toBe("blind")
+    expect(state.stage).toBe(1)
+    expect(state.roundIndex).toBe(0)
+    expect(state.round.target).toBe(roundTargets(1)[0])
+    expect(state.phase).toBe("round")
   })
 
-  it("escalates targets across antes", () => {
-    expect(blindTargets(1)).toEqual([300, 450, 600])
-    expect(blindTargets(3)).toEqual([2000, 3000, 4000])
+  it("escalates targets across stages", () => {
+    expect(roundTargets(1)).toEqual([300, 450, 600])
+    expect(roundTargets(3)).toEqual([2000, 3000, 4000])
     // Geometric beyond the authored curve, and always increasing.
-    for (let ante = 2; ante <= 8; ante++) {
-      expect(blindTargets(ante)[0]).toBeGreaterThan(blindTargets(ante - 1)[2])
+    for (let stage = 2; stage <= 8; stage++) {
+      expect(roundTargets(stage)[0]).toBeGreaterThan(roundTargets(stage - 1)[2])
     }
   })
 
-  it("puts a boss on the third blind only", () => {
+  it("puts a boss on the third round only", () => {
     let state = startRun(11, realWords).state
-    expect(state.blind.bossId).toBeNull()
-    state = apply(solve(state, realWords), [{ type: "collect" }, { type: "next_blind" }], realWords)
-    expect(state.blind.bossId).toBeNull()
-    state = apply(solve(state, realWords), [{ type: "collect" }, { type: "next_blind" }], realWords)
-    expect(state.blind.bossId).not.toBeNull()
+    expect(state.round.bossId).toBeNull()
+    state = apply(solve(state, realWords), [{ type: "collect" }, { type: "next_round" }], realWords)
+    expect(state.round.bossId).toBeNull()
+    state = apply(solve(state, realWords), [{ type: "collect" }, { type: "next_round" }], realWords)
+    expect(state.round.bossId).not.toBeNull()
   })
 
-  it("ends the run when a blind closes below its target", () => {
+  it("ends the run when a round closes below its target", () => {
     // Six guesses that never solve, against a target no plain word can reach.
     const words: WordSource = {
       answers: ["braid"],
@@ -49,8 +49,8 @@ describe("run structure", () => {
     let state = startRun(1, words).state
     for (let i = 0; i < 6; i++) state = apply(state, type("arose"), words)
 
-    expect(state.blind.done).toBe(true)
-    expect(state.blind.score).toBeLessThan(state.blind.target)
+    expect(state.round.done).toBe(true)
+    expect(state.round.score).toBeLessThan(state.round.target)
     expect(state.phase).toBe("game_over")
   })
 
@@ -61,7 +61,7 @@ describe("run structure", () => {
     const c = startRun(4243, realWords).state
 
     expect(a).toEqual(b)
-    expect(a.blind.answer).not.toBe(c.blind.answer)
+    expect(a.round.answer).not.toBe(c.round.answer)
   })
 
   it("survives a round trip through JSON, because saves depend on it", () => {
@@ -78,12 +78,12 @@ describe("run structure", () => {
 })
 
 describe("economy", () => {
-  it("pays the blind, every unused guess, and interest", () => {
+  it("pays the round, every unused guess, and interest", () => {
     const words: WordSource = { answers: ["braid"], allowed: new Set(["braid"]) }
     const state = solve(startRun(1, words).state, words)
 
     expect(state.phase).toBe("reward")
-    // Small blind pays $3; solving on guess 1 leaves 5 guesses unused; the run
+    // Small round pays $3; solving on guess 1 leaves 5 guesses unused; the run
     // opens with $4, which is one $5 bracket short of any interest.
     expect(state.reward).toEqual({ base: 3, unusedGuesses: 5, interest: 0, total: 8 })
   })
@@ -133,22 +133,22 @@ describe("shop", () => {
     expect(state.gold).toBe(0)
   })
 
-  it("refuses a sixth joker", () => {
+  it("refuses a sixth relic", () => {
     let state = enterShop(500)
     // Fill every slot, rerolling for fresh stock as needed.
-    for (let guard = 0; guard < 40 && state.jokers.length < JOKER_SLOTS; guard++) {
-      const index = state.shop?.items.findIndex((item) => item?.kind === "joker") ?? -1
+    for (let guard = 0; guard < 40 && state.relics.length < RELIC_SLOTS; guard++) {
+      const index = state.shop?.items.findIndex((item) => item?.kind === "relic") ?? -1
       state =
         index >= 0
           ? apply(state, [{ type: "buy", index }], words)
           : apply(state, [{ type: "reroll" }], words)
     }
-    expect(state.jokers).toHaveLength(JOKER_SLOTS)
+    expect(state.relics).toHaveLength(RELIC_SLOTS)
 
-    const index = state.shop?.items.findIndex((item) => item?.kind === "joker") ?? -1
+    const index = state.shop?.items.findIndex((item) => item?.kind === "relic") ?? -1
     if (index >= 0) {
       const { events } = reduce(state, { type: "buy", index }, words)
-      expect(events).toEqual([{ type: "rejected", reason: "no joker slots free" }])
+      expect(events).toEqual([{ type: "rejected", reason: "no relic slots free" }])
     }
   })
 

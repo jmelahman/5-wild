@@ -1,10 +1,10 @@
-import { CONSUMABLE_SLOTS, INTEREST_PER } from "../content/blinds"
 import { ALPHABET, isVowel, MIN_LIVE_LETTERS } from "../content/letters"
+import { CONSUMABLE_SLOTS, INTEREST_PER } from "../content/rounds"
 import { isCategory } from "./categories"
 import type { Rng } from "./rng"
 import { shuffled } from "./rng"
 import type { ScoreCtx } from "./scoring"
-import type { BlindState, GameEvent, JokerInstance, Rarity, RunState, Tile } from "./state"
+import type { GameEvent, Rarity, RelicInstance, RoundState, RunState, Tile } from "./state"
 
 /**
  * What a run-level hook gets.
@@ -14,17 +14,17 @@ import type { BlindState, GameEvent, JokerInstance, Rarity, RunState, Tile } fro
  * handing back a patch. Growth is `ctx.instance.data`, and `slot` is here so a
  * card that grows can emit an event pointing at itself.
  */
-export type JokerCtx = {
+export type RelicCtx = {
   state: RunState
-  /** This copy's row in `state.jokers`. Write `data` to grow. */
-  instance: JokerInstance
+  /** This copy's row in `state.relics`. Write `data` to grow. */
+  instance: RelicInstance
   /** This copy's slot, for events that point at the card. */
   slot: number
   rng: Rng
   events: GameEvent[]
 }
 
-export type Joker = {
+export type Relic = {
   id: string
   name: string
   text: string
@@ -34,33 +34,33 @@ export type Joker = {
   onTile?: (ctx: ScoreCtx, tile: Tile, index: number, base: number) => void
   /** Fires once after all tiles, in slot order. */
   onGuess?: (ctx: ScoreCtx) => void
-  /** Fires when a blind begins — before the answer is chosen. */
-  onBlindStart?: (ctx: JokerCtx) => void
+  /** Fires when a round begins — before the answer is chosen. */
+  onRoundStart?: (ctx: RelicCtx) => void
   /**
-   * Fires when a blind ends, win or lose, with the finished blind to read —
+   * Fires when a round ends, win or lose, with the finished round to read —
    * `solved`, the guess list, the final score. The home for growth that is
    * earned over a round rather than over a guess.
    */
-  onBlindEnd?: (ctx: JokerCtx, blind: BlindState) => void
+  onRoundEnd?: (ctx: RelicCtx, round: RoundState) => void
   /**
-   * Fires on entering the shop, before its stock is rolled — so a joker that
+   * Fires on entering the shop, before its stock is rolled — so a relic that
    * bends what the shop offers bends the shop it is about to be shown.
    */
-  onShopEnter?: (ctx: JokerCtx) => void
+  onShopEnter?: (ctx: RelicCtx) => void
   /**
    * What this copy has grown to, for the card to wear: "+12 mult". Only scaling
-   * jokers define it — a joker whose value never moves has nothing to report
+   * relics define it — a relic whose value never moves has nothing to report
    * that its `text` does not already say.
    */
-  detail?: (instance: JokerInstance) => string
+  detail?: (instance: RelicInstance) => string
   /**
-   * Added to the blind's solve multiplier. Separate from `onGuess` because the
+   * Added to the round's solve multiplier. Separate from `onGuess` because the
    * board quotes this figure before the guess exists, so it has to be knowable
    * from the state alone.
    */
   solveBonus?: (state: RunState) => number
   /**
-   * Rewrites the interest a cleared blind pays, in slot order. Shaped like
+   * Rewrites the interest a cleared round pays, in slot order. Shaped like
    * `solveBonus` — a run-level number a card is allowed to bend — rather than a
    * flag, because the interesting version of this is a card that *takes the
    * interest away* in exchange for something, and a boolean could only ever say
@@ -69,19 +69,19 @@ export type Joker = {
   interest?: (base: number, state: RunState) => number
 }
 
-/** What a growing joker has banked, and the key every one of them stores it under. */
-const grown = (instance: JokerInstance, key: string): number => instance.data?.[key] ?? 0
+/** What a growing relic has banked, and the key every one of them stores it under. */
+const grown = (instance: RelicInstance, key: string): number => instance.data?.[key] ?? 0
 
 /**
  * Bank a step of growth and announce it. Shared because all three growing
- * jokers do exactly this and the announcement is the part worth keeping
+ * relics do exactly this and the announcement is the part worth keeping
  * identical: the player learns "this card just got bigger" from one animation,
  * whatever earned it.
  */
-function grow(ctx: JokerCtx, id: string, key: string, step: number, unit: string): void {
+function grow(ctx: RelicCtx, id: string, key: string, step: number, unit: string): void {
   const total = grown(ctx.instance, key) + step
   ctx.instance.data = { ...ctx.instance.data, [key]: total }
-  ctx.events.push({ type: "joker_grew", slot: ctx.slot, id, label: `+${total} ${unit}` })
+  ctx.events.push({ type: "relic_grew", slot: ctx.slot, id, label: `+${total} ${unit}` })
 }
 
 const RARITY_COST: Record<Rarity, number> = {
@@ -92,12 +92,12 @@ const RARITY_COST: Record<Rarity, number> = {
 }
 
 /**
- * Twenty-eight jokers, spread deliberately across archetypes so a build identity
+ * Twenty-eight relics, spread deliberately across archetypes so a build identity
  * shows up within the first shop. Note that scoring always reads `tile.color`,
  * never `tile.shown` — The Fog lies to the player, not to the math.
  *
  * The axis most of these sit on is the one the solve bonus creates: farming a
- * blind grows the pile the bonus will multiply, and costs a point of that
+ * round grows the pile the bonus will multiply, and costs a point of that
  * multiplier per guess. Slow Burn and The Vault pay for staying; Sunk Cost and
  * Speedrunner pay for leaving. Owning a pair from opposite ends is a real
  * dilemma rather than a stack, which is the point.
@@ -105,7 +105,7 @@ const RARITY_COST: Record<Rarity, number> = {
  * The last five arrived together, and each answers something the build rubric
  * found missing: a terminal for the money build, a payoff that makes burning
  * the alphabet a plan rather than a tax, and three cards that *grow* — one on a
- * guess condition, one on a blind condition, one on a shop condition — so that
+ * guess condition, one on a round condition, one on a shop condition — so that
  * scaling reads as a class of card and not as one oddity.
  *
  * The five after those are word-shape and position cards, and they are priced
@@ -116,13 +116,13 @@ const RARITY_COST: Record<Rarity, number> = {
  * is the exception and pays for variance instead of for a shape.
  *
  * All five were then re-priced against the shipped set by simulation — one card
- * equipped, no shopping, 250 seeds, mean blind score against an empty tray —
+ * equipped, no shopping, 250 seeds, mean round score against an empty tray —
  * and three of them moved: Lexicographer +4 to +3, Loaded Dice 0–30 to 0–20,
  * Keystone ×2 to ×3. Each card's comment carries the pair of numbers that
  * settled it. What the harness cannot see is a player *steering*, so for the
  * two cards that want a shape it reads as a floor rather than as a price.
  */
-export const JOKERS: readonly Joker[] = [
+export const RELICS: readonly Relic[] = [
   {
     id: "green_thumb",
     name: "Green Thumb",
@@ -156,7 +156,7 @@ export const JOKERS: readonly Joker[] = [
   {
     id: "slow_burn",
     name: "Slow Burn",
-    text: "+5 mult for each guess already made this blind",
+    text: "+5 mult for each guess already made this round",
     rarity: "common",
     cost: RARITY_COST.common,
     // Pays you to stall, which is the exact opposite of what the solve bonus
@@ -178,7 +178,7 @@ export const JOKERS: readonly Joker[] = [
   {
     id: "cold_open",
     name: "Cold Open",
-    text: "+30 chips on the first guess of a blind",
+    text: "+30 chips on the first guess of a round",
     rarity: "common",
     cost: RARITY_COST.common,
     // The opening probe is the guess with the least information behind it and
@@ -194,7 +194,7 @@ export const JOKERS: readonly Joker[] = [
     rarity: "common",
     cost: RARITY_COST.common,
     // Yellow is the colour that actually teaches you something, so this is the
-    // rare joker that pays for playing well rather than for playing wide.
+    // rare relic that pays for playing well rather than for playing wide.
     onTile: (ctx, tile) => {
       if (tile.color === "yellow") ctx.addChips(6)
     },
@@ -218,7 +218,7 @@ export const JOKERS: readonly Joker[] = [
      * a good player was going to type anyway. It only starts costing something
      * later, once the greens are dictating the shape.
      *
-     * ×2.55 on the mean blind score over 250 seeds, which is the middle of the
+     * ×2.55 on the mean round score over 250 seeds, which is the middle of the
      * common band — Green Thumb ×3.88, Slow Burn ×3.02, Cold Open ×2.81, Vowel
      * Hoarder ×2.76, this, Consonant Cluster ×1.13.
      */
@@ -245,9 +245,9 @@ export const JOKERS: readonly Joker[] = [
      * that want something in return.
      *
      * The roll comes from `ctx.roll()` and therefore from the seed, keyed to the
-     * ante, the blind, the guess and the slot — so it is the same dice however
+     * stage, the round, the guess and the slot — so it is the same dice however
      * the run reaches that guess. Rerolling by retyping is not available, and a
-     * save resumed mid-blind scores what it would have scored.
+     * save resumed mid-round scores what it would have scored.
      */
     onGuess: (ctx) => ctx.addMult(Math.floor(ctx.roll() * 21)),
   },
@@ -278,7 +278,7 @@ export const JOKERS: readonly Joker[] = [
      *
      * The middle column because it is the one deduction reaches last: the edges
      * fall out of a probe, the centre usually takes a commitment. So this pays
-     * late in a blind, which is when a farming build wants its multiplier, and
+     * late in a round, which is when a farming build wants its multiplier, and
      * asks for a green the player would have had to work for anyway.
      *
      * Written as ×2 and measured at ×1.40 over 250 seeds, which was the weakest
@@ -295,7 +295,7 @@ export const JOKERS: readonly Joker[] = [
   {
     id: "lexicographer",
     name: "Lexicographer",
-    text: "+3 chips for each different letter in your earlier guesses this blind",
+    text: "+3 chips for each different letter in your earlier guesses this round",
     rarity: "uncommon",
     cost: RARITY_COST.uncommon,
     /*
@@ -312,7 +312,7 @@ export const JOKERS: readonly Joker[] = [
      * eight fixed words chosen to cover the alphabet, which is the play this
      * card most wants and more discipline than a real run manages.
      *
-     * `state.blind.guesses` holds only submitted guesses, so this reads prior
+     * `state.round.guesses` holds only submitted guesses, so this reads prior
      * ones and never itself — the same rule Slow Burn and The Vault follow.
      *
      * Ascension 1 works directly against it: Hunted forces found letters to be
@@ -322,7 +322,7 @@ export const JOKERS: readonly Joker[] = [
      */
     onGuess: (ctx) => {
       const seen = new Set<string>()
-      for (const guess of ctx.state.blind.guesses) for (const letter of guess.word) seen.add(letter)
+      for (const guess of ctx.state.round.guesses) for (const letter of guess.word) seen.add(letter)
       if (seen.size > 0) ctx.addChips(3 * seen.size)
     },
   },
@@ -385,7 +385,7 @@ export const JOKERS: readonly Joker[] = [
   {
     id: "hot_streak",
     name: "Hot Streak",
-    text: "Permanently gains +30 chips each blind you clear in 3 guesses or fewer",
+    text: "Permanently gains +30 chips each round you clear in 3 guesses or fewer",
     rarity: "uncommon",
     cost: RARITY_COST.uncommon,
     // The growth counterpart to Speedrunner, on the chip axis: both pull toward
@@ -395,8 +395,8 @@ export const JOKERS: readonly Joker[] = [
       const banked = ctx.getData("chips")
       if (banked > 0) ctx.addChips(banked)
     },
-    onBlindEnd: (ctx, blind) => {
-      if (blind.solved && blind.guesses.length <= 3) grow(ctx, "hot_streak", "chips", 30, "chips")
+    onRoundEnd: (ctx, round) => {
+      if (round.solved && round.guesses.length <= 3) grow(ctx, "hot_streak", "chips", 30, "chips")
     },
     detail: (instance) => `+${grown(instance, "chips")} chips`,
   },
@@ -471,7 +471,7 @@ export const JOKERS: readonly Joker[] = [
   {
     id: "vault",
     name: "The Vault",
-    text: "+25 chips for each guess already made this blind",
+    text: "+25 chips for each guess already made this round",
     rarity: "rare",
     cost: RARITY_COST.rare,
     // Slow Burn's chip half, so a farming build can grow both halves of the
@@ -530,7 +530,7 @@ export const JOKERS: readonly Joker[] = [
     // ceiling at +2 landed near +200, which is where a growing card *should*
     // finish, and it still read as an auto-buy. The reason is that it asks for
     // nothing. Its two siblings both name a condition — Hot Streak wants the
-    // blind cleared in three, The Hoarder wants both slots full at the shop —
+    // round cleared in three, The Hoarder wants both slots full at the shop —
     // and every word ever typed has green tiles in it. An unconditional card at
     // $6 that ends the run as the biggest number on the board is not a build,
     // it is a tax on not buying it.
@@ -540,13 +540,13 @@ export const JOKERS: readonly Joker[] = [
     // +154 at the ending (median 170, peak 230) to a mean +61 (median 60, peak
     // 115) — still the strongest rare on the mult axis, no longer three times
     // the field. The number that matters most is the one that did *not* move:
-    // the win rate held at 10.0% against 10.3% and the mean final ante at 4.90
+    // the win rate held at 10.0% against 10.3% and the mean final stage at 4.90
     // against 4.89. Sixty points came off the best card in the game and the
     // game did not get harder, which is what it looks like when a card was
     // crowding builds out rather than carrying them.
     //
     // Being rare also self-corrects on the axis that matters, since the shelf
-    // tilts *toward* rare as the antes go by and a Snowball found at ante 7 has
+    // tilts *toward* rare as the stages go by and a Snowball found at stage 7 has
     // almost nothing left to eat.
     onGuess: (ctx) => {
       const banked = ctx.getData("mult")
@@ -570,13 +570,13 @@ export const JOKERS: readonly Joker[] = [
   {
     id: "pyromaniac",
     name: "Pyromaniac",
-    text: "+40 mult. Burns a random letter out of the alphabet each blind",
+    text: "+40 mult. Burns a random letter out of the alphabet each round",
     rarity: "legendary",
     cost: RARITY_COST.legendary,
     onGuess: (ctx) => ctx.addMult(40),
     // Runs before the answer is drawn, so a burnt letter genuinely cannot
     // appear in the word — the search space shrinks along with your keyboard.
-    onBlindStart: ({ state, rng, events }) => {
+    onRoundStart: ({ state, rng, events }) => {
       const alive = [...ALPHABET].filter((letter) => !state.letters[letter]?.destroyed)
       // Leave enough alphabet to still form words; refuse to burn past that.
       // The same floor a shattering letter stops at — one rule, two ways in.
@@ -591,4 +591,4 @@ export const JOKERS: readonly Joker[] = [
   },
 ]
 
-export const JOKER_BY_ID = new Map(JOKERS.map((joker) => [joker.id, joker]))
+export const RELIC_BY_ID = new Map(RELICS.map((relic) => [relic.id, relic]))

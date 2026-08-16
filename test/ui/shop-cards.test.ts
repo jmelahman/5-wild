@@ -14,13 +14,13 @@ const fresh = (): RunState => startRun(1, words).state
  * which is the only moment anyone is thinking about the card that draws it.
  */
 const ONE_OF_EACH: Record<ShopItem["kind"], ShopItem> = {
-  joker: { kind: "joker", id: "snowball", cost: 6 },
+  relic: { kind: "relic", id: "snowball", cost: 6 },
   consumable: { kind: "consumable", id: "oracle", cost: 4 },
   etch: { kind: "etch", id: "etch_vowels", cost: 5 },
   level: { kind: "level", id: "twinned", cost: 8 },
   range: { kind: "range", id: "range_ae", cost: 7 },
   mod: { kind: "mod", id: "steel", cost: 6 },
-  pack: { kind: "pack", id: "joker", cost: 10 },
+  pack: { kind: "pack", id: "relic", cost: 10 },
 }
 
 describe("what a shop card says it is", () => {
@@ -34,29 +34,29 @@ describe("what a shop card says it is", () => {
     }
   })
 
-  it("names a joker's rarity but leaves common unremarked", () => {
+  it("names a relic's rarity but leaves common unremarked", () => {
     const state = fresh()
     // Snowball is rare, Keystone uncommon, Head Start common. Commons are most
-    // of what the shelf deals, and a tag that said "Common Joker" three times a
+    // of what the shelf deals, and a tag that said "Common Relic" three times a
     // visit would be teaching the player to stop reading tags.
-    expect(describeItem(ONE_OF_EACH.joker, state).tag).toBe("Rare Joker")
-    expect(describeItem({ kind: "joker", id: "keystone", cost: 6 }, state).tag).toBe(
-      "Uncommon Joker",
+    expect(describeItem(ONE_OF_EACH.relic, state).tag).toBe("Rare Relic")
+    expect(describeItem({ kind: "relic", id: "keystone", cost: 6 }, state).tag).toBe(
+      "Uncommon Relic",
     )
-    expect(describeItem({ kind: "joker", id: "head_start", cost: 4 }, state).tag).toBe("Joker")
+    expect(describeItem({ kind: "relic", id: "head_start", cost: 4 }, state).tag).toBe("Relic")
   })
 
   it("turns the tag into a warning when there is nowhere to put the card", () => {
     const state = fresh()
     const full: RunState = {
       ...state,
-      jokers: Array.from({ length: difficultyOf(state).jokerSlots }, () => ({ id: "snowball" })),
+      relics: Array.from({ length: difficultyOf(state).relicSlots }, () => ({ id: "snowball" })),
       consumables: Array.from({ length: CONSUMABLE_SLOTS }, () => ({ id: "oracle" })),
     }
 
-    const joker = describeItem(ONE_OF_EACH.joker, full)
-    expect(joker.tag).toBe("Joker · tray full")
-    expect(joker.blocked).toBe(true)
+    const relic = describeItem(ONE_OF_EACH.relic, full)
+    expect(relic.tag).toBe("Relic · tray full")
+    expect(relic.blocked).toBe(true)
 
     const card = describeItem(ONE_OF_EACH.consumable, full)
     expect(card.tag).toBe("Card · slots full")

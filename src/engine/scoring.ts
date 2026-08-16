@@ -1,10 +1,10 @@
 import { ALPHABET, LETTER_CHIPS, MIN_LIVE_LETTERS, MULT_FOR_COLOR } from "../content/letters"
 import { getBoss } from "./bosses"
 import { categoryOf, levelBonus } from "./categories"
-import { JOKER_BY_ID } from "./jokers"
 import type { ModCtx } from "./modifiers"
 import { modifierOf } from "./modifiers"
 import { rangeChips } from "./ranges"
+import { RELIC_BY_ID } from "./relics"
 import type { Rng } from "./rng"
 import { derive } from "./rng"
 import type { GameEvent, RunState, Tile } from "./state"
@@ -13,18 +13,18 @@ import type { GameEvent, RunState, Tile } from "./state"
  * The scoring pipeline.
  *
  *   per tile, left to right:  base chips + colour mult, then the letter's own
- *                             modifier, then every joker's onTile hook in slot
+ *                             modifier, then every relic's onTile hook in slot
  *                             order
  *   after the tiles:          the word's category, at whatever level it holds
- *   then:                     every joker's onGuess hook in slot order
+ *   then:                     every relic's onGuess hook in slot order
  *   finally:                  the solve bonus
  *
- * The modifier goes before the jokers because the letter is what was played and
- * the jokers are what watched it — and because a ×mult modifier landing before
- * the jokers' flat mult is the weaker, more governable half of that ordering.
+ * The modifier goes before the relics because the letter is what was played and
+ * the relics are what watched it — and because a ×mult modifier landing before
+ * the relics' flat mult is the weaker, more governable half of that ordering.
  *
- * Jokers get real code rather than a data-driven effect DSL, because a DSL
- * always hits a wall around the tenth joker. What they get instead is a narrow
+ * Relics get real code rather than a data-driven effect DSL, because a DSL
+ * always hits a wall around the tenth relic. What they get instead is a narrow
  * mutable context and a fixed firing order, which keeps them deterministic and
  * individually testable.
  *
@@ -36,7 +36,7 @@ export type ScoreCtx = {
   readonly state: RunState
   readonly word: string
   readonly tiles: readonly Tile[]
-  /** 0-based index of this guess within the blind. */
+  /** 0-based index of this guess within the round. */
   readonly guessIndex: number
   /** Guesses that would remain after this one. */
   readonly guessesLeft: number
@@ -58,13 +58,13 @@ export type ScoreCtx = {
    */
   roll(): number
   /**
-   * This joker's own persistent counter, 0 if it has never written one. Reads
-   * what the joker has grown to *including* anything written earlier in this
+   * This relic's own persistent counter, 0 if it has never written one. Reads
+   * what the relic has grown to *including* anything written earlier in this
    * same guess.
    */
   getData(key: string): number
   /**
-   * Grow this joker. Collected rather than applied: scoring prices a guess, it
+   * Grow this relic. Collected rather than applied: scoring prices a guess, it
    * does not edit the run — the same rule that puts `burned` in the result
    * instead of mutating `state.letters` here. The caller commits it.
    */
@@ -83,11 +83,11 @@ export type ScoreResult = {
    */
   burned: string[]
   /**
-   * Jokers that grew this guess, by slot. Same discipline as `burned` — only
+   * Relics that grew this guess, by slot. Same discipline as `burned` — only
    * the slots that actually wrote appear, so committing this never plants an
-   * empty `data` on a joker that does not scale.
+   * empty `data` on a relic that does not scale.
    */
-  jokerData: Array<{ slot: number; data: Record<string, number> }>
+  relicData: Array<{ slot: number; data: Record<string, number> }>
 }
 
 /**
@@ -118,7 +118,7 @@ export function baseChips(state: RunState, letter: string): number {
  * why this returns chips rather than a score, and why the board shows a
  * placeholder there instead of a number.
  *
- * Modifiers, joker `onTile` hooks and the category bonus are left out because
+ * Modifiers, relic `onTile` hooks and the category bonus are left out because
  * knowing them costs more than it pays. Most read the tile's colour, so a dry
  * run would have to invent one; the chance-based ones draw from a stream keyed
  * to the position they will really fire at, so a dry run would not merely guess
@@ -144,24 +144,24 @@ export function baseChips(state: RunState, letter: string): number {
  * it exists, which is the honest reading of a word that is not finished.
  */
 export function draftChips(state: RunState, draft: string): number {
-  const boss = getBoss(state.blind.bossId)
+  const boss = getBoss(state.round.bossId)
   let chips = 0
   for (const [index, letter] of [...draft].entries()) {
     const base = baseChips(state, letter)
     chips += boss?.tileChips
-      ? boss.tileChips(base, { letter, color: "gray", shown: "gray" }, state.blind, index)
+      ? boss.tileChips(base, { letter, color: "gray", shown: "gray" }, state.round, index)
       : base
   }
   return chips
 }
 
 /**
- * What solving right now would multiply the blind's pile by.
+ * What solving right now would multiply the round's pile by.
  *
  * Deliberately a pure function of the state rather than something assembled
  * mid-pipeline: the board shows this figure *before* the guess is submitted, and
  * a readout that disagreed with the rule would be worse than no readout at all.
- * So jokers touch it through their own hook instead of through `ScoreCtx` — a
+ * So relics touch it through their own hook instead of through `ScoreCtx` — a
  * bonus that could only be known by scoring a guess could not be predicted.
  *
  * The boss goes last so a cap really caps.
@@ -170,11 +170,11 @@ export function draftChips(state: RunState, draft: string): number {
  */
 export function solveBonusFor(state: RunState, guessesLeft: number): number {
   let bonus = 1 + guessesLeft
-  for (const instance of state.jokers) {
-    bonus += JOKER_BY_ID.get(instance.id)?.solveBonus?.(state) ?? 0
+  for (const instance of state.relics) {
+    bonus += RELIC_BY_ID.get(instance.id)?.solveBonus?.(state) ?? 0
   }
-  const boss = getBoss(state.blind.bossId)
-  return boss?.solveBonus ? boss.solveBonus(bonus, state.blind) : bonus
+  const boss = getBoss(state.round.bossId)
+  return boss?.solveBonus ? boss.solveBonus(bonus, state.round) : bonus
 }
 
 export function scoreGuess(params: {
@@ -187,13 +187,13 @@ export function scoreGuess(params: {
   events: GameEvent[]
 }): ScoreResult {
   const { state, tiles, word, guessIndex, guessesLeft, solved, events } = params
-  const blind = state.blind
-  const boss = getBoss(blind.bossId)
+  const round = state.round
+  const boss = getBoss(round.bossId)
 
   /**
    * Whoever is currently firing gets to narrate what it did. Set around each
    * hook call, so an effect only has to say `+4 mult` and the event it lands in
-   * — a joker card lighting up, or the tile whose letter carried a modifier —
+   * — a relic card lighting up, or the tile whose letter carried a modifier —
    * is decided by the caller.
    */
   let firing: ((label: string) => void) | null = null
@@ -208,7 +208,7 @@ export function scoreGuess(params: {
   const burned: string[] = []
 
   /**
-   * Which joker slot is firing, so `setData` knows whose counter it is writing.
+   * Which relic slot is firing, so `setData` knows whose counter it is writing.
    * Null while a modifier or the tile loop itself is running — a letter has no
    * slot to grow in.
    */
@@ -219,7 +219,7 @@ export function scoreGuess(params: {
   const bucketFor = (slot: number): Record<string, number> => {
     const existing = grown.get(slot)
     if (existing) return existing
-    const fresh = { ...(state.jokers[slot]?.data ?? {}) }
+    const fresh = { ...(state.relics[slot]?.data ?? {}) }
     grown.set(slot, fresh)
     return fresh
   }
@@ -245,12 +245,12 @@ export function scoreGuess(params: {
     },
     timesMult(factor) {
       // The Plateau. Swallowed here rather than at each caller so that every
-      // multiplicative effect in the game — joker, modifier, category level —
+      // multiplicative effect in the game — relic, modifier, category level —
       // is covered by construction, including ones written after the boss was.
       //
       // It still narrates, and narrates the truth: a card that lit up saying
       // "×3 mult" while the total did not move would read as a bug, and the
-      // player needs to see *which* of their cards the blind is eating.
+      // player needs to see *which* of their cards the round is eating.
       if (blockTimesMult) {
         fire("×1 — multiplying blocked")
         return
@@ -265,12 +265,12 @@ export function scoreGuess(params: {
     roll: () => roll(),
     getData(key) {
       if (slotFiring === null) return 0
-      // Reads through to what this guess has already written, so a joker that
+      // Reads through to what this guess has already written, so a relic that
       // grows and then spends its own counter in the same guess sees the new
       // value rather than a stale one.
       const bucket = grown.get(slotFiring)
       if (bucket) return bucket[key] ?? 0
-      return state.jokers[slotFiring]?.data?.[key] ?? 0
+      return state.relics[slotFiring]?.data?.[key] ?? 0
     },
     setData(key, value) {
       if (slotFiring === null) return
@@ -288,11 +288,11 @@ export function scoreGuess(params: {
     },
   }
 
-  const jokers = state.jokers.map((instance) => JOKER_BY_ID.get(instance.id))
+  const relics = state.relics.map((instance) => RELIC_BY_ID.get(instance.id))
 
   tiles.forEach((tile, index) => {
     const base = boss?.tileChips
-      ? boss.tileChips(baseChips(state, tile.letter), tile, blind, index)
+      ? boss.tileChips(baseChips(state, tile.letter), tile, round, index)
       : baseChips(state, tile.letter)
 
     ctx.chips += base
@@ -305,10 +305,10 @@ export function scoreGuess(params: {
     // it, which is the reading the boss's one line promises.
     const modifier = boss?.noModifiers ? undefined : modifierOf(state, tile.letter)
     if (modifier) {
-      // One stream per tile of one guess of one blind, so a chance effect is a
+      // One stream per tile of one guess of one round, so a chance effect is a
       // property of the position it happened at rather than of the order things
       // were drawn in — which is what lets a run be replayed from its seed.
-      roll = derive(state.seed, "mod", state.ante, state.blindIndex, guessIndex, index)
+      roll = derive(state.seed, "mod", state.stage, state.roundIndex, guessIndex, index)
       firing = (label) => {
         events.push({
           type: "mod",
@@ -324,23 +324,26 @@ export function scoreGuess(params: {
       firing = null
     }
 
-    jokers.forEach((joker, slot) => {
-      if (!joker?.onTile) return
+    relics.forEach((relic, slot) => {
+      if (!relic?.onTile) return
       // One stream per slot per tile, so a chance effect is a property of where
       // it fired rather than of the order the slots happened to run in — the
       // same rule the modifier stream above follows.
-      roll = derive(state.seed, "joker", state.ante, state.blindIndex, guessIndex, slot, index)
+      //
+      // The salt still says "joker" on purpose: it is a coordinate, not a name,
+      // and changing it reshuffles every seed. See `derive` in `rng.ts`.
+      roll = derive(state.seed, "joker", state.stage, state.roundIndex, guessIndex, slot, index)
       slotFiring = slot
       firing = (label) =>
-        events.push({ type: "joker", slot, id: joker.id, label, chips: ctx.chips, mult: ctx.mult })
-      joker.onTile(ctx, tile, index, base)
+        events.push({ type: "relic", slot, id: relic.id, label, chips: ctx.chips, mult: ctx.mult })
+      relic.onTile(ctx, tile, index, base)
       firing = null
       slotFiring = null
     })
   })
 
-  // The word's category, after the tiles and before the jokers. That position is
-  // the whole point: a level raises the *base*, so every ×mult joker downstream
+  // The word's category, after the tiles and before the relics. That position is
+  // the whole point: a level raises the *base*, so every ×mult relic downstream
   // multiplies it. Levelling and multiplying compound instead of competing,
   // which is what makes a levelled category a build rather than a bonus.
   const category = categoryOf(word)
@@ -358,20 +361,20 @@ export function scoreGuess(params: {
     })
   }
 
-  jokers.forEach((joker, slot) => {
-    if (!joker?.onGuess) return
+  relics.forEach((relic, slot) => {
+    if (!relic?.onGuess) return
     // One coordinate shorter than the per-tile stream above, so the two cannot
-    // collide even for the same slot and guess.
-    roll = derive(state.seed, "joker", state.ante, state.blindIndex, guessIndex, slot)
+    // collide even for the same slot and guess. Same frozen salt, same reason.
+    roll = derive(state.seed, "joker", state.stage, state.roundIndex, guessIndex, slot)
     slotFiring = slot
     firing = (label) =>
-      events.push({ type: "joker", slot, id: joker.id, label, chips: ctx.chips, mult: ctx.mult })
-    joker.onGuess(ctx)
+      events.push({ type: "relic", slot, id: relic.id, label, chips: ctx.chips, mult: ctx.mult })
+    relic.onGuess(ctx)
     firing = null
     slotFiring = null
   })
 
-  // Solving pays tempo and ends the blind on the spot, and its bonus multiplies
+  // Solving pays tempo and ends the round on the spot, and its bonus multiplies
   // everything banked this round rather than the guess that happened to land it.
   // So the two lines finally compose: farm the board up, then cash the whole
   // pile in at once. Deciding *when* is the game.
@@ -387,6 +390,6 @@ export function scoreGuess(params: {
     score: Math.round(ctx.chips * ctx.mult),
     gold: ctx.gold,
     burned,
-    jokerData: [...grown].map(([slot, data]) => ({ slot, data })),
+    relicData: [...grown].map(([slot, data]) => ({ slot, data })),
   }
 }

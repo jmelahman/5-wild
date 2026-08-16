@@ -17,7 +17,7 @@ describe("score formatting", () => {
     expect(formatNumber(12_400)).toBe("12.4K")
     expect(formatNumber(148_392)).toBe("148K")
     expect(formatNumber(1_352_000)).toBe("1.35M")
-    // Ante 20, roughly, which is the number that made this worth writing.
+    // Stage 20, roughly, which is the number that made this worth writing.
     expect(formatNumber(2_200_000_000)).toBe("2.2B")
     expect(formatNumber(4.5e12)).toBe("4.5T")
   })

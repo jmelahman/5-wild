@@ -27,15 +27,15 @@ export const CONSUMABLES: readonly Consumable[] = [
     text: "Reveal one letter of the answer, in place",
     cost: CONSUMABLE_COST,
     apply: (state, rng, events) => {
-      const blind = state.blind
-      const hidden = blind.revealed
+      const round = state.round
+      const hidden = round.revealed
         .map((value, index) => (value === null ? index : -1))
         .filter((index) => index >= 0)
       const position = shuffled(rng, hidden)[0]
       if (position === undefined) return "the whole word is already revealed"
-      const letter = blind.answer[position]
+      const letter = round.answer[position]
       if (letter === undefined) return "nothing to reveal"
-      blind.revealed[position] = letter
+      round.revealed[position] = letter
       events.push({
         type: "consumable",
         id: "oracle",
@@ -50,17 +50,17 @@ export const CONSUMABLES: readonly Consumable[] = [
     text: "Rule a letter out of the answer without spending a guess",
     cost: CONSUMABLE_COST,
     apply: (state, rng, events) => {
-      const blind = state.blind
-      const known = new Set(blind.eliminated)
-      for (const guess of blind.guesses) for (const letter of guess.word) known.add(letter)
+      const round = state.round
+      const known = new Set(round.eliminated)
+      for (const guess of round.guesses) for (const letter of guess.word) known.add(letter)
 
       const candidates = [...ALPHABET].filter(
         (letter) =>
-          !blind.answer.includes(letter) && !known.has(letter) && !state.letters[letter]?.destroyed,
+          !round.answer.includes(letter) && !known.has(letter) && !state.letters[letter]?.destroyed,
       )
       const letter = shuffled(rng, candidates)[0]
       if (letter === undefined) return "nothing left to rule out"
-      blind.eliminated.push(letter)
+      round.eliminated.push(letter)
       events.push({ type: "consumable", id: "hermit", label: `no ${letter.toUpperCase()}` })
       return null
     },
@@ -73,8 +73,8 @@ export const CONSUMABLES: readonly Consumable[] = [
     // Applied after the boss rewrites feedback, so this is a real counter to
     // The Silence rather than something it quietly erases.
     apply: (state, _rng, events) => {
-      if (state.blind.promote) return "already prepared"
-      state.blind.promote = true
+      if (state.round.promote) return "already prepared"
+      state.round.promote = true
       events.push({ type: "consumable", id: "magician", label: "next gray becomes yellow" })
       return null
     },
@@ -85,10 +85,10 @@ export const CONSUMABLES: readonly Consumable[] = [
     text: "Score your previous guess a second time",
     cost: CONSUMABLE_COST,
     apply: (state, _rng, events) => {
-      const blind = state.blind
-      const last = blind.guesses[blind.guesses.length - 1]
+      const round = state.round
+      const last = round.guesses[round.guesses.length - 1]
       if (!last) return "no guess to repeat"
-      blind.score += last.score
+      round.score += last.score
       events.push({ type: "consumable", id: "fool", label: `+${last.score}` })
       return null
     },

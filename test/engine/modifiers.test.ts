@@ -4,7 +4,7 @@ import { MODIFIERS, reduce, startRun } from "../../src/engine"
 
 /**
  * Letter modifiers. The baselines these read against are the same two words the
- * joker tests use: against BRAID, CRANE is 7 chips × 7 mult and QUAZY is 26 × 4.
+ * relic tests use: against BRAID, CRANE is 7 chips × 7 mult and QUAZY is 26 × 4.
  * Every expectation below is a delta from one of those.
  */
 
@@ -37,7 +37,7 @@ function play(
   seed = 1,
 ): { last: GuessRecord; state: RunState } {
   const state = apply(withMod(letter, mod, seed), type(word))
-  const last = state.blind.guesses[state.blind.guesses.length - 1]
+  const last = state.round.guesses[state.round.guesses.length - 1]
   if (!last) throw new Error("no guess was scored")
   return { last, state }
 }
@@ -45,7 +45,7 @@ function play(
 describe("letter modifiers", () => {
   it("leaves an unmodified letter alone", () => {
     const state = apply(startRun(1, words).state, type("crane"))
-    expect(state.blind.guesses[0]).toMatchObject({ chips: 7, mult: 7 })
+    expect(state.round.guesses[0]).toMatchObject({ chips: 7, mult: 7 })
   })
 
   it("Chip pays flat chips wherever the letter lands", () => {
@@ -109,18 +109,18 @@ describe("letter modifiers", () => {
 
   it("Glass never shatters a letter the answer needs", () => {
     // AAHED's second A is gray — BRAID's only A is spoken for by the first —
-    // and its roll would break. Burning it would leave a blind nobody could
+    // and its roll would break. Burning it would leave a round nobody could
     // solve, so the answer is checked before the dice are.
     const { state } = play("a", "glass", "aahed")
     expect(state.letters.a?.destroyed).toBe(false)
   })
 
-  it("fires before the jokers see the tile", () => {
+  it("fires before the relics see the tile", () => {
     // Both land on CRANE's A: 4 mult standing, +3 for the green, ×1.5 from steel
     // is 10.5, and only then Vowel Hoarder's +4 — twice over, counting the E.
-    // The other order would have multiplied the joker's mult too, for 20.5.
-    const state = { ...withMod("a", "steel"), jokers: [{ id: "vowel_hoarder" }] }
-    expect(apply(state, type("crane")).blind.guesses[0]?.mult).toBe(18.5)
+    // The other order would have multiplied the relic's mult too, for 20.5.
+    const state = { ...withMod("a", "steel"), relics: [{ id: "vowel_hoarder" }] }
+    expect(apply(state, type("crane")).round.guesses[0]?.mult).toBe(18.5)
   })
 
   it("gives every modifier a distinct id, name and price", () => {
@@ -182,7 +182,7 @@ describe("buying a modifier", () => {
   it("Echo pays on every copy of a letter the word repeats", () => {
     // AAHED carries two As, so Echo fires twice — the card is bought for the
     // words that double it, and is worth nothing in the ones that do not.
-    const plain = apply(startRun(1, words).state, type("aahed")).blind.guesses[0]
+    const plain = apply(startRun(1, words).state, type("aahed")).round.guesses[0]
     if (!plain) throw new Error("no guess was scored")
     expect(play("a", "echo", "aahed").last.chips - plain.chips).toBe(120)
     // And nothing at all in a word that holds only one of it.

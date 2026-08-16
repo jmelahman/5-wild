@@ -1,15 +1,15 @@
+import { ALPHABET } from "../content/letters"
 import {
-  ANTES,
   BASE_GUESSES,
-  BLIND_PAYOUT,
-  blindTargets,
   CONSUMABLE_SLOTS,
   GOLD_PER_UNUSED_GUESS,
   INTEREST_CAP,
   INTEREST_PER,
+  ROUND_PAYOUT,
+  roundTargets,
+  STAGES,
   STARTING_GOLD,
-} from "../content/blinds"
-import { ALPHABET } from "../content/letters"
+} from "../content/rounds"
 import {
   clampAscension,
   difficultyOf,
@@ -17,26 +17,26 @@ import {
   scaleTarget,
   validateGuess,
 } from "./ascensions"
-import { bossForAnte, getBoss } from "./bosses"
+import { bossForStage, getBoss } from "./bosses"
 import { CATEGORY_BY_ID, levelOf } from "./categories"
 import { CONSUMABLE_BY_ID } from "./consumables"
 import { ETCHING_BY_ID } from "./etchings"
-import type { Joker, JokerCtx } from "./jokers"
-import { JOKER_BY_ID } from "./jokers"
 import { MODIFIER_BY_ID } from "./modifiers"
 import { PACK_BY_ID } from "./packs"
 import { RANGE_BY_ID, rangeLevelOf } from "./ranges"
+import type { Relic, RelicCtx } from "./relics"
+import { RELIC_BY_ID } from "./relics"
 import type { Rng } from "./rng"
 import { derive, pick } from "./rng"
 import { scoreGuess } from "./scoring"
 import { packContents, placeableLetters, rerollCost, rollShop, sellValue } from "./shop"
 import type {
   Action,
-  BlindIndex,
-  BlindState,
   GameEvent,
   LetterState,
   Reduced,
+  RoundIndex,
+  RoundState,
   RunState,
   ShopItem,
   WordSource,
@@ -61,20 +61,20 @@ import { computeFeedback, toTiles } from "./words"
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
 
 /**
- * Every equipped joker paired with the context its run-level hooks get.
+ * Every equipped relic paired with the context its run-level hooks get.
  *
  * One `Rng` shared across the slots rather than one each, so the draws stay in
- * slot order and a joker bought later cannot shift what an earlier one rolled.
+ * slot order and a relic bought later cannot shift what an earlier one rolled.
  */
-function jokerHooks(
+function relicHooks(
   state: RunState,
   rng: Rng,
   events: GameEvent[],
-): Array<readonly [Joker, JokerCtx]> {
-  const out: Array<readonly [Joker, JokerCtx]> = []
-  state.jokers.forEach((instance, slot) => {
-    const joker = JOKER_BY_ID.get(instance.id)
-    if (joker) out.push([joker, { state, instance, slot, rng, events }])
+): Array<readonly [Relic, RelicCtx]> {
+  const out: Array<readonly [Relic, RelicCtx]> = []
+  state.relics.forEach((instance, slot) => {
+    const relic = RELIC_BY_ID.get(instance.id)
+    if (relic) out.push([relic, { state, instance, slot, rng, events }])
   })
   return out
 }
@@ -94,11 +94,11 @@ function freshLetters(): Record<string, LetterState> {
  * The answer must also be a legal guess under every rule in force — the boss's
  * and the run's ascension both. The Glutton demands two vowels of every guess,
  * and roughly a fifth of the answer list has only one; ascension 3 forbids
- * repeating a word the run has already used, which would strand a blind on an
- * answer nobody is allowed to type. Either way the blind would be literally
+ * repeating a word the run has already used, which would strand a round on an
+ * answer nobody is allowed to type. Either way the round would be literally
  * unsolvable, so the filter is the same filter.
  *
- * It runs against the empty blind installed a moment ago, which is exactly right
+ * It runs against the empty round installed a moment ago, which is exactly right
  * for the rules that read the round's history: on a board with no guesses on it,
  * "keep the greens you found" is a rule about nothing and every word passes.
  */
@@ -116,7 +116,7 @@ function answerPool(state: RunState, words: WordSource): readonly string[] {
 
   // Nothing survives both filters, so the keyboard heals rather than dead-ends
   // the run. The guess rules do not heal with it: an answer that cannot legally
-  // be guessed is an unwinnable blind, which is worse than an easy one.
+  // be guessed is an unwinnable round, which is worse than an easy one.
   for (const letter of ALPHABET) {
     const entry = state.letters[letter]
     if (entry) entry.destroyed = false
@@ -126,24 +126,27 @@ function answerPool(state: RunState, words: WordSource): readonly string[] {
   return healed.length > 0 ? healed : words.answers
 }
 
-function beginBlind(state: RunState, words: WordSource, events: GameEvent[]): void {
-  const bossId = state.blindIndex === 2 ? bossForAnte(state) : null
+function beginRound(state: RunState, words: WordSource, events: GameEvent[]): void {
+  const bossId = state.roundIndex === 2 ? bossForStage(state) : null
 
-  // Blind-start hooks run before the answer is drawn, so a joker that shrinks
+  // Round-start hooks run before the answer is drawn, so a relic that shrinks
   // the alphabet actually shrinks the search space too.
-  const rng = derive(state.seed, "blind_start", state.ante, state.blindIndex)
-  for (const [joker, ctx] of jokerHooks(state, rng, events)) joker.onBlindStart?.(ctx)
+  //
+  // The salt keeps the old spelling: it is a coordinate, and renaming it would
+  // deal every seed a different run. See `derive` in `rng.ts`.
+  const rng = derive(state.seed, "blind_start", state.stage, state.roundIndex)
+  for (const [relic, ctx] of relicHooks(state, rng, events)) relic.onRoundStart?.(ctx)
 
   const boss = getBoss(bossId)
   const difficulty = difficultyOf(state)
 
-  // The empty blind is installed before the answer is drawn, so guess rules that
+  // The empty round is installed before the answer is drawn, so guess rules that
   // read the round's history — The Tyrant reads its greens, and so does
   // ascension 5 — judge candidate answers against this round rather than the one
   // just finished.
-  state.blind = {
+  state.round = {
     answer: "",
-    target: scaleTarget(blindTargets(state.ante)[state.blindIndex], difficulty.targets),
+    target: scaleTarget(roundTargets(state.stage)[state.roundIndex], difficulty.targets),
     // The tighter of the two wins rather than the boss's number simply winning.
     // No rung cuts the run's allowance any more — `Dead Weight` records why the
     // one that did was removed — so today this is the boss's number or the base
@@ -164,13 +167,13 @@ function beginBlind(state: RunState, words: WordSource, events: GameEvent[]): vo
   }
 
   const answer = pick(
-    derive(state.seed, "word", state.ante, state.blindIndex),
+    derive(state.seed, "word", state.stage, state.roundIndex),
     answerPool(state, words),
   )
-  state.blind.answer = answer
-  state.blind.revealed = Array.from(answer, () => null)
+  state.round.answer = answer
+  state.round.revealed = Array.from(answer, () => null)
 
-  state.phase = "blind"
+  state.phase = "round"
   state.reward = null
   state.shop = null
 }
@@ -180,75 +183,77 @@ function beginBlind(state: RunState, words: WordSource, events: GameEvent[]): vo
  *
  * Shared by the two ways in — banking a reward, and choosing to play on past the
  * win — so the endless path cannot drift from the ordinary one. The hooks run
- * before the roll, so a joker that bends the shop bends the one it is about to
+ * before the roll, so a relic that bends the shop bends the one it is about to
  * be shown rather than the next one.
  */
 function enterShop(state: RunState, events: GameEvent[]): void {
-  const rng = derive(state.seed, "shop_enter", state.ante, state.blindIndex)
-  for (const [joker, ctx] of jokerHooks(state, rng, events)) joker.onShopEnter?.(ctx)
+  const rng = derive(state.seed, "shop_enter", state.stage, state.roundIndex)
+  for (const [relic, ctx] of relicHooks(state, rng, events)) relic.onShopEnter?.(ctx)
 
-  state.shop = rollShop(state, derive(state.seed, "shop", state.ante, state.blindIndex, 0), 0)
+  state.shop = rollShop(state, derive(state.seed, "shop", state.stage, state.roundIndex, 0), 0)
   state.phase = "shop"
   events.push({ type: "shop_entered" })
 }
 
 /**
- * The fail state: score below target when the blind ends — and, at ascension 10,
- * a word left unsolved however big the pile is. One rung lower the same blind is
+ * The fail state: score below target when the round ends — and, at ascension 10,
+ * a word left unsolved however big the pile is. One rung lower the same round is
  * survived and paid nothing.
  */
-function resolveBlind(state: RunState, events: GameEvent[]): void {
-  const blind = state.blind
+function resolveRound(state: RunState, events: GameEvent[]): void {
+  const round = state.round
 
-  // Before the win/lose branch, so a joker that grows on a blind ending counts
-  // the blind that ended — including the one that ended the run. Losing makes
+  // Before the win/lose branch, so a relic that grows on a round ending counts
+  // the round that ended — including the one that ended the run. Losing makes
   // that moot rather than wrong, and the alternative is a hook whose firing
   // depends on an outcome it might itself be about to read.
-  const rng = derive(state.seed, "blind_end", state.ante, state.blindIndex)
-  for (const [joker, ctx] of jokerHooks(state, rng, events)) joker.onBlindEnd?.(ctx, blind)
+  //
+  // Frozen salt, as at round start.
+  const rng = derive(state.seed, "blind_end", state.stage, state.roundIndex)
+  for (const [relic, ctx] of relicHooks(state, rng, events)) relic.onRoundEnd?.(ctx, round)
 
   // Farming five wrong guesses to the target and never finding the word is a
   // real line in the ordinary game, and the whole of what ascension 10 takes
   // away. It is checked here rather than as a guess rule because it is not about
   // any one guess: it is about what the round had to have been.
   const difficulty = difficultyOf(state)
-  if (blind.score < blind.target || (!blind.solved && difficulty.mustSolve)) {
+  if (round.score < round.target || (!round.solved && difficulty.mustSolve)) {
     state.phase = "game_over"
-    events.push({ type: "blind_lost" })
+    events.push({ type: "round_lost" })
     return
   }
 
   // Paying for unused guesses is the counterweight to chip-farming: the economy
   // rewards exactly the restraint the scoring punishes. Which is why ascension 6
   // cuts the base and leaves this alone — see `Lean Years`.
-  const base = Math.max(0, BLIND_PAYOUT[state.blindIndex] - difficulty.payoutCut)
-  const unusedGuesses = (blind.maxGuesses - blind.guesses.length) * GOLD_PER_UNUSED_GUESS
-  // Jokers get to bend this the way they bend the solve multiplier, in slot
+  const base = Math.max(0, ROUND_PAYOUT[state.roundIndex] - difficulty.payoutCut)
+  const unusedGuesses = (round.maxGuesses - round.guesses.length) * GOLD_PER_UNUSED_GUESS
+  // Relics get to bend this the way they bend the solve multiplier, in slot
   // order and after the cap — so a card that zeroes it really zeroes it.
   let interest = Math.min(INTEREST_CAP, Math.floor(state.gold / INTEREST_PER))
-  for (const instance of state.jokers) {
-    const bend = JOKER_BY_ID.get(instance.id)?.interest
+  for (const instance of state.relics) {
+    const bend = RELIC_BY_ID.get(instance.id)?.interest
     if (bend) interest = bend(interest, state)
   }
 
-  // Dead Weight: the blind was cleared on chips alone, so it funds nothing —
+  // Dead Weight: the round was cleared on chips alone, so it funds nothing —
   // base, unused-guess dollars and interest together. Interest included on
   // purpose. Withholding only the base would leave the farming line paying most
-  // of what it used to, since a farmed blind spends every guess and so was never
+  // of what it used to, since a farmed round spends every guess and so was never
   // collecting the unused-guess dollars anyway; interest is the part a hoarding
   // run would still have banked, and it is the part that makes the rule land.
   //
   // Read after the loss branch rather than inside it, which is what makes this a
   // rung and not a duplicate: by ascension 10 the branch above has already taken
   // the run, so this can only ever fire on the single rung where an unsolved
-  // blind is still survived.
-  const unpaid = difficulty.unpaidIfUnsolved && !blind.solved
+  // round is still survived.
+  const unpaid = difficulty.unpaidIfUnsolved && !round.solved
 
   state.reward = unpaid
     ? { base: 0, unusedGuesses: 0, interest: 0, total: 0 }
     : { base, unusedGuesses, interest, total: base + unusedGuesses + interest }
   state.phase = "reward"
-  events.push({ type: "blind_won" })
+  events.push({ type: "round_won" })
 }
 
 /**
@@ -261,9 +266,9 @@ function resolveBlind(state: RunState, events: GameEvent[]): void {
  */
 function applyItem(state: RunState, item: ShopItem): string | null {
   switch (item.kind) {
-    case "joker": {
-      if (state.jokers.length >= difficultyOf(state).jokerSlots) return "no joker slots free"
-      state.jokers.push({ id: item.id })
+    case "relic": {
+      if (state.relics.length >= difficultyOf(state).relicSlots) return "no relic slots free"
+      state.relics.push({ id: item.id })
       return null
     }
     case "consumable": {
@@ -325,8 +330,8 @@ function applyItem(state: RunState, item: ShopItem): string | null {
 /** What the event log calls an item, for the one line that announces a pick. */
 function itemLabel(item: ShopItem): string {
   switch (item.kind) {
-    case "joker":
-      return JOKER_BY_ID.get(item.id)?.name ?? item.id
+    case "relic":
+      return RELIC_BY_ID.get(item.id)?.name ?? item.id
     case "consumable":
       return CONSUMABLE_BY_ID.get(item.id)?.name ?? item.id
     case "etch":
@@ -344,7 +349,7 @@ function itemLabel(item: ShopItem): string {
   }
 }
 
-const PLACEHOLDER_BLIND: BlindState = {
+const PLACEHOLDER_ROUND: RoundState = {
   answer: "",
   target: 0,
   maxGuesses: BASE_GUESSES,
@@ -369,14 +374,14 @@ const PLACEHOLDER_BLIND: BlindState = {
 export function startRun(seed: number, words: WordSource, ascension = 0): Reduced {
   const state: RunState = {
     seed,
-    ante: 1,
-    blindIndex: 0,
-    phase: "blind",
+    stage: 1,
+    roundIndex: 0,
+    phase: "round",
     gold: STARTING_GOLD,
-    jokers: [],
+    relics: [],
     consumables: [],
     letters: freshLetters(),
-    blind: clone(PLACEHOLDER_BLIND),
+    round: clone(PLACEHOLDER_ROUND),
     shop: null,
     reward: null,
   }
@@ -385,7 +390,7 @@ export function startRun(seed: number, words: WordSource, ascension = 0): Reduce
   const level = clampAscension(ascension)
   if (level > 0) state.ascension = level
   const events: GameEvent[] = []
-  beginBlind(state, words, events)
+  beginRound(state, words, events)
   return { state, events }
 }
 
@@ -401,38 +406,38 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
       return startRun(action.seed, words, action.ascension ?? 0)
 
     case "type_letter": {
-      const blind = next.blind
-      if (next.phase !== "blind" || blind.done) return reject("not your turn")
+      const round = next.round
+      if (next.phase !== "round" || round.done) return reject("not your turn")
       const letter = action.letter.toLowerCase()
       if (letter.length !== 1 || !ALPHABET.includes(letter)) return reject("not a letter")
       if (next.letters[letter]?.destroyed) return reject(`${letter.toUpperCase()} is burnt out`)
-      if (blind.draft.length >= blind.answer.length) return reject("no room")
-      blind.draft += letter
+      if (round.draft.length >= round.answer.length) return reject("no room")
+      round.draft += letter
       return { state: next, events }
     }
 
     case "backspace": {
-      const blind = next.blind
-      if (next.phase !== "blind" || blind.done) return reject("not your turn")
-      blind.draft = blind.draft.slice(0, -1)
+      const round = next.round
+      if (next.phase !== "round" || round.done) return reject("not your turn")
+      round.draft = round.draft.slice(0, -1)
       return { state: next, events }
     }
 
     case "submit": {
-      const blind = next.blind
-      if (next.phase !== "blind" || blind.done) return reject("not your turn")
+      const round = next.round
+      if (next.phase !== "round" || round.done) return reject("not your turn")
 
-      const word = blind.draft
-      if (word.length !== blind.answer.length) return reject(`${blind.answer.length} letters`)
+      const word = round.draft
+      if (word.length !== round.answer.length) return reject(`${round.answer.length} letters`)
       if (!words.allowed.has(word)) return reject("not in word list")
 
       // Every rule in force, boss and ascension alike, in one stable order.
       const refusal = validateGuess(word, next)
       if (refusal) return reject(refusal)
 
-      const boss = getBoss(blind.bossId)
+      const boss = getBoss(round.bossId)
 
-      const tiles = toTiles(word, computeFeedback(word, blind.answer))
+      const tiles = toTiles(word, computeFeedback(word, round.answer))
       // Before the transform, which is the whole point: the boss that wants to
       // say something about the feedback is the same boss about to destroy it.
       //
@@ -447,18 +452,18 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
 
       // After the boss, so The Magician is a genuine counter to The Silence
       // rather than something it quietly erases.
-      if (blind.promote) {
+      if (round.promote) {
         const gray = tiles.find((tile) => tile.color === "gray")
         if (gray) {
           gray.color = "yellow"
           gray.shown = "yellow"
         }
-        blind.promote = false
+        round.promote = false
       }
 
-      const solved = word === blind.answer
-      const guessIndex = blind.guesses.length
-      const guessesLeft = blind.maxGuesses - guessIndex - 1
+      const solved = word === round.answer
+      const guessIndex = round.guesses.length
+      const guessesLeft = round.maxGuesses - guessIndex - 1
       const result = scoreGuess({
         state: next,
         tiles,
@@ -469,7 +474,7 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
         events,
       })
 
-      blind.guesses.push({
+      round.guesses.push({
         word,
         tiles,
         chips: result.chips,
@@ -478,11 +483,11 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
         score: result.score,
         // Spread rather than assigned, so a guess under any other boss carries
         // no key at all — the same discipline `ascension` follows in a vector
-        // and `data` follows on a joker.
+        // and `data` follows on a relic.
         ...(note ? { note } : {}),
       })
-      blind.score += result.score
-      blind.draft = ""
+      round.score += result.score
+      round.draft = ""
       // The run's own record of what it has said. Kept whatever the ascension,
       // because the rule that reads it cannot be the thing that decides whether
       // it was written — a run that started recording halfway would enforce
@@ -499,46 +504,46 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
         events.push({ type: "letter_destroyed", letter })
       }
 
-      // Same discipline as the burns above: scoring decided what each joker
+      // Same discipline as the burns above: scoring decided what each relic
       // grew to, and this is where growing becomes part of the run.
-      for (const { slot, data } of result.jokerData) {
-        const instance = next.jokers[slot]
+      for (const { slot, data } of result.relicData) {
+        const instance = next.relics[slot]
         if (!instance) continue
         instance.data = data
         // Growth earned while scoring gets the same announcement as growth
-        // earned at a blind's end. Only slots that actually wrote turn up here,
+        // earned at a round's end. Only slots that actually wrote turn up here,
         // so this never fires for a card that merely read its own counter, and
-        // the label is whatever the card wears — floater and joker agree.
-        const label = JOKER_BY_ID.get(instance.id)?.detail?.(instance)
-        if (label) events.push({ type: "joker_grew", slot, id: instance.id, label })
+        // the label is whatever the card wears — floater and relic agree.
+        const label = RELIC_BY_ID.get(instance.id)?.detail?.(instance)
+        if (label) events.push({ type: "relic_grew", slot, id: instance.id, label })
       }
 
       if (result.gold > 0) {
         next.gold += result.gold
         events.push({ type: "gold", delta: result.gold, reason: "scoring" })
       }
-      events.push({ type: "guess_scored", score: result.score, total: blind.score })
+      events.push({ type: "guess_scored", score: result.score, total: round.score })
 
       // The solve bonus lands on the running total, after the guess is banked —
       // so it multiplies the farming as well as the finish. Emitted last
       // because that is the order it reads on screen: the guess scores, then
       // the whole pile multiplies.
       if (solved && result.solveBonus > 1) {
-        blind.score = Math.round(blind.score * result.solveBonus)
-        events.push({ type: "solve_bonus", factor: result.solveBonus, total: blind.score })
+        round.score = Math.round(round.score * result.solveBonus)
+        events.push({ type: "solve_bonus", factor: result.solveBonus, total: round.score })
       }
 
-      if (solved) blind.solved = true
-      // Solving ends the blind on the spot, forfeiting every unplayed guess.
-      if (solved || blind.guesses.length >= blind.maxGuesses) {
-        blind.done = true
-        resolveBlind(next, events)
+      if (solved) round.solved = true
+      // Solving ends the round on the spot, forfeiting every unplayed guess.
+      if (solved || round.guesses.length >= round.maxGuesses) {
+        round.done = true
+        resolveRound(next, events)
       }
       return { state: next, events }
     }
 
     case "use_consumable": {
-      if (next.phase !== "blind") return reject("only during a blind")
+      if (next.phase !== "round") return reject("only during a round")
       const instance = next.consumables[action.index]
       if (!instance) return reject("no such card")
       const card = CONSUMABLE_BY_ID.get(instance.id)
@@ -547,9 +552,9 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
       const rng = derive(
         next.seed,
         "consumable",
-        next.ante,
-        next.blindIndex,
-        next.blind.guesses.length,
+        next.stage,
+        next.roundIndex,
+        next.round.guesses.length,
         action.index,
       )
       const problem = card.apply(next, rng, events)
@@ -562,12 +567,12 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
     case "collect": {
       if (next.phase !== "reward" || !next.reward) return reject("nothing to collect")
       next.gold += next.reward.total
-      events.push({ type: "gold", delta: next.reward.total, reason: "blind cleared" })
+      events.push({ type: "gold", delta: next.reward.total, reason: "round cleared" })
 
       // The win is offered once, and `won` is what makes it once: past this the
-      // run keeps passing ante `ANTES`'s last blind every three blinds, and a
-      // victory screen every ante would turn the ending into a nag.
-      if (!next.won && next.ante >= ANTES && next.blindIndex === 2) {
+      // run keeps passing stage `STAGES`'s last round every three rounds, and a
+      // victory screen every stage would turn the ending into a nag.
+      if (!next.won && next.stage >= STAGES && next.roundIndex === 2) {
         next.won = true
         next.phase = "victory"
         events.push({ type: "run_won" })
@@ -607,7 +612,7 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
         const options = packContents(
           next,
           pack,
-          derive(next.seed, "pack", next.ante, next.blindIndex, next.shop.rerolls, action.index),
+          derive(next.seed, "pack", next.stage, next.roundIndex, next.shop.rerolls, action.index),
         )
         if (options.length === 0) return reject("nothing left to put in that pack")
         next.pack = { id: pack.id, options, picks: Math.min(pack.picks, options.length) }
@@ -675,7 +680,7 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
       const item = next.pack.options[action.index]
       if (!item) return reject("already taken")
       // Nothing is charged — the pack was. A pick can still be refused, though,
-      // by whatever the item itself needs: a joker with no slot free is the
+      // by whatever the item itself needs: a relic with no slot free is the
       // ordinary case, and the pack stays open so the choice can go elsewhere.
       const reason = applyItem(next, item)
       if (reason) return reject(reason)
@@ -694,14 +699,14 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
       return { state: next, events }
     }
 
-    case "sell_joker": {
+    case "sell_relic": {
       if (next.phase !== "shop") return reject("you can only sell in the shop")
       if (next.pack) return reject("finish the open pack first")
       if (next.placing) return reject("place the modifier first")
-      const instance = next.jokers[action.index]
-      if (!instance) return reject("no such joker")
-      const value = sellValue(JOKER_BY_ID.get(instance.id)?.cost ?? 4)
-      next.jokers.splice(action.index, 1)
+      const instance = next.relics[action.index]
+      if (!instance) return reject("no such relic")
+      const value = sellValue(RELIC_BY_ID.get(instance.id)?.cost ?? 4)
+      next.relics.splice(action.index, 1)
       next.gold += value
       events.push({ type: "gold", delta: value, reason: "sold" })
       return { state: next, events }
@@ -718,32 +723,32 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
       const rerolls = next.shop.rerolls + 1
       next.shop = rollShop(
         next,
-        derive(next.seed, "shop", next.ante, next.blindIndex, rerolls),
+        derive(next.seed, "shop", next.stage, next.roundIndex, rerolls),
         rerolls,
       )
       events.push({ type: "gold", delta: -cost, reason: "reroll" })
       return { state: next, events }
     }
 
-    case "next_blind": {
+    case "next_round": {
       if (next.phase !== "shop") return reject("not in the shop")
       if (next.pack) return reject("finish the open pack first")
       if (next.placing) return reject("place the modifier first")
-      if (next.blindIndex === 2) {
-        next.ante += 1
-        next.blindIndex = 0
+      if (next.roundIndex === 2) {
+        next.stage += 1
+        next.roundIndex = 0
       } else {
-        next.blindIndex = (next.blindIndex + 1) as BlindIndex
+        next.roundIndex = (next.roundIndex + 1) as RoundIndex
       }
 
-      // No ceiling here any more. Passing ante `ANTES` used to be the end of the
-      // run and is now the end of the *authored* run: `blindTargets` is
-      // geometric past the last hand-set ante and `bossForAnte` wraps within its
-      // band, so ante 9 and ante 90 are both ordinary antes as far as this is
+      // No ceiling here any more. Passing stage `STAGES` used to be the end of the
+      // run and is now the end of the *authored* run: `roundTargets` is
+      // geometric past the last hand-set stage and `bossForStage` wraps within its
+      // band, so stage 9 and stage 90 are both ordinary stages as far as this is
       // concerned. The win was already offered when the reward for the final
-      // ante's last blind was banked, which is the only place it belongs — this
+      // stage's last round was banked, which is the only place it belongs — this
       // gate could only ever have fired for a run that skipped that one.
-      beginBlind(next, words, events)
+      beginRound(next, words, events)
       return { state: next, events }
     }
   }

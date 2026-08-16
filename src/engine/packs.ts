@@ -22,7 +22,7 @@
  * should be the exciting thing on the shelf, not the correct thing.
  */
 
-export type PackId = "alphabet" | "joker" | "category"
+export type PackId = "alphabet" | "relic" | "category"
 
 export type Pack = {
   id: PackId
@@ -51,13 +51,13 @@ export const PACKS: readonly Pack[] = [
     picks: 1,
   },
   {
-    id: "joker",
-    name: "Joker Pack",
-    text: "Choose one of three jokers",
-    // A shade above the alphabet pack though jokers average $6, because jokers
+    id: "relic",
+    name: "Relic Pack",
+    text: "Choose one of three relics",
+    // A shade above the alphabet pack though relics average $6, because relics
     // are the only line that multiplies and choosing among three is how a run
     // actually gets the one it wants. Held down by the slot cap: the fifth
-    // joker is worth much less than the first, so this does not scale away.
+    // relic is worth much less than the first, so this does not scale away.
     cost: 9,
     options: OPTIONS,
     picks: 1,

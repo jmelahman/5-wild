@@ -65,9 +65,18 @@ style but not its prose is half-finished.
 
 ## Storage
 
-`5wild:run:v1` (the run save), `5wild:meta:v2` (the record), and four flags:
+`5wild:run:v2` (the run save), `5wild:meta:v2` (the record), and four flags:
 `5wild:seen-help`, `5wild:plain`, `5wild:muted`, `5wild:music`. Adding an
 optional field needs no key bump; changing what an existing field means does.
+
+Renaming a field is the case in between, and the two keys answered it
+differently when antes became stages and jokers became relics. The run save
+bumped: a v1 save spells half its fields differently, and a run read as half
+present is worse than a run refused. The record did not: it is independent
+counters, `loadMeta` already reads them one at a time, so it reads the old
+spelling where the new one is missing and keeps everything — including the
+`cleared` that gates the ladder, which a bump would have thrown away to make a
+point about schemas.
 
 ## Backlog
 

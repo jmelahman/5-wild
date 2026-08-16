@@ -1,12 +1,8 @@
 import type { BossTier, Rarity, RunState, ShopItem } from "../engine"
 import {
-  ANTES,
   ASCENSIONS,
   AUTHORED_ASCENSIONS,
   ascensionAt,
-  BLIND_NAMES,
-  BLIND_PAYOUT,
-  BLINDS_PER_ANTE,
   BOSS_TIERS,
   BOSSES,
   baseChips,
@@ -26,9 +22,6 @@ import {
   getBoss,
   INTEREST_CAP,
   INTEREST_PER,
-  JOKER_BY_ID,
-  JOKER_SLOTS,
-  JOKERS,
   keyboardColors,
   LETTER_CHIPS,
   levelBonus,
@@ -42,25 +35,32 @@ import {
   placeableLetters,
   RANGE_BY_ID,
   RANGES,
+  RELIC_BY_ID,
+  RELIC_SLOTS,
+  RELICS,
+  ROUND_NAMES,
+  ROUND_PAYOUT,
+  ROUNDS_PER_STAGE,
   rangeChips,
   rangeLevelOf,
   rangeOf,
   rerollCost,
   rulesFor,
+  STAGES,
   sellValue,
   solveBonusFor,
-  TIER_ANTES,
+  TIER_STAGES,
 } from "../engine"
 import { h } from "./dom"
 import { money, formatNumber as num } from "./format"
 import type { MetaState } from "./meta"
 import {
-  blindsPlayed,
   chosenAscension,
-  favouriteJokers,
+  favouriteRelics,
   favouriteWord,
   isLocked,
   meanSolve,
+  roundsPlayed,
   unlocked,
   wordsFound,
 } from "./meta"
@@ -74,7 +74,7 @@ export type Handlers = {
   buy: (index: number) => void
   sell: (index: number) => void
   reroll: () => void
-  nextBlind: () => void
+  nextRound: () => void
   continueRun: () => void
   pickPack: (index: number) => void
   skipPack: () => void
@@ -164,39 +164,39 @@ function plainToggle(on: Handlers, chrome: Chrome): HTMLElement {
 }
 
 function hud(state: RunState, on: Handlers): HTMLElement {
-  const blind = state.blind
+  const round = state.round
   return h(
     "header",
     { class: "hud" },
     h(
       "div",
-      { class: "hud-blind" },
-      h("div", { class: "blind-name" }, BLIND_NAMES[state.blindIndex] ?? ""),
-      // "Ante 9/8" is nonsense, and so is any denominator once the run is past
+      { class: "hud-round" },
+      h("div", { class: "round-name" }, ROUND_NAMES[state.roundIndex] ?? ""),
+      // "Stage 9/8" is nonsense, and so is any denominator once the run is past
       // the last authored one. A won run counts up instead of counting down.
       h(
         "div",
-        { class: "ante" },
-        state.won ? `Ante ${state.ante} ∞` : `Ante ${state.ante}/${ANTES}`,
+        { class: "stage" },
+        state.won ? `Stage ${state.stage} ∞` : `Stage ${state.stage}/${STAGES}`,
         // The terms the whole run is being played under, in the space of two
         // characters. It shares its colour with the boss banner because it is
         // the same kind of fact — something bending what a guess may be — and
         // the rules it stands for are named in full on every intro card.
-        state.ascension ? h("span", { class: "ante-asc" }, `A${state.ascension}`) : null,
+        state.ascension ? h("span", { class: "stage-asc" }, `A${state.ascension}`) : null,
       ),
     ),
     h(
       "div",
-      { class: `hud-score ${blind.score >= blind.target ? "met" : ""}` },
-      h("div", { class: "score" }, num(blind.score)),
-      h("div", { class: "target" }, `of ${num(blind.target)}`),
+      { class: `hud-score ${round.score >= round.target ? "met" : ""}` },
+      h("div", { class: "score" }, num(round.score)),
+      h("div", { class: "target" }, `of ${num(round.target)}`),
       // The same fact as the two numbers above it, in the form a glance can take
       // in. The scoring animation drives it frame by frame, so it fills as the
       // total climbs rather than jumping to the answer.
       h(
         "div",
         { class: "meter" },
-        h("div", { class: "meter-fill", style: `--fill:${meterFill(blind.score, blind.target)}` }),
+        h("div", { class: "meter-fill", style: `--fill:${meterFill(round.score, round.target)}` }),
       ),
     ),
     h("div", { class: "hud-gold" }, money(state.gold)),
@@ -208,37 +208,37 @@ function hud(state: RunState, on: Handlers): HTMLElement {
 export const meterFill = (score: number, target: number): number =>
   target > 0 ? Math.min(1, score / target) : 1
 
-function jokerRow(state: RunState, on: Handlers): HTMLElement {
+function relicRow(state: RunState, on: Handlers): HTMLElement {
   // The tray draws as many seats as the run actually has, so ascension 8 reads
   // as four slots rather than as a fifth that silently refuses every purchase.
-  const slots = Array.from({ length: difficultyOf(state).jokerSlots }, (_, slot) => {
-    const instance = state.jokers[slot]
-    if (!instance) return h("div", { class: "joker empty" })
-    const joker = JOKER_BY_ID.get(instance.id)
-    if (!joker) return h("div", { class: "joker empty" })
-    // What a scaling joker has grown to. A card whose value moves and does not
+  const slots = Array.from({ length: difficultyOf(state).relicSlots }, (_, slot) => {
+    const instance = state.relics[slot]
+    if (!instance) return h("div", { class: "relic empty" })
+    const relic = RELIC_BY_ID.get(instance.id)
+    if (!relic) return h("div", { class: "relic empty" })
+    // What a scaling relic has grown to. A card whose value moves and does not
     // say so is a card the player cannot plan around, so it goes on the face
     // rather than only in the tip.
-    const detail = joker.detail?.(instance)
+    const detail = relic.detail?.(instance)
     return h(
       "button",
       {
-        class: `joker rarity-${joker.rarity}`,
+        class: `relic rarity-${relic.rarity}`,
         "data-slot": slot,
         // Read by the hover tip. It lives on the card rather than in a nested
         // element because the tray clips its own children — the panel that
         // shows this has to be built outside it, and so cannot inherit either.
         // The name is left out: it is already on the card the tip points at.
-        "data-tip": detail ? `${joker.text} (${detail})` : joker.text,
-        "data-rarity": joker.rarity,
+        "data-tip": detail ? `${relic.text} (${detail})` : relic.text,
+        "data-rarity": relic.rarity,
         type: "button",
-        onclick: () => on.inspect(`${joker.name} — ${joker.text}${detail ? ` (${detail})` : ""}`),
+        onclick: () => on.inspect(`${relic.name} — ${relic.text}${detail ? ` (${detail})` : ""}`),
       },
-      h("span", { class: "joker-name" }, joker.name),
-      detail ? h("span", { class: "joker-detail" }, detail) : null,
+      h("span", { class: "relic-name" }, relic.name),
+      detail ? h("span", { class: "relic-detail" }, detail) : null,
     )
   })
-  return h("div", { class: "jokers" }, ...slots)
+  return h("div", { class: "relics" }, ...slots)
 }
 
 function consumableRow(state: RunState, on: Handlers): HTMLElement | null {
@@ -259,16 +259,16 @@ function consumableRow(state: RunState, on: Handlers): HTMLElement | null {
   return h("div", { class: "consumables" }, ...cards)
 }
 
-/* --------------------------------------------------------------- the blind */
+/* --------------------------------------------------------------- the round */
 
 function grid(state: RunState): HTMLElement {
-  const blind = state.blind
-  const width = blind.answer.length
-  const active = blind.guesses.length
-  const modsOff = getBoss(blind.bossId)?.noModifiers ?? false
+  const round = state.round
+  const width = round.answer.length
+  const active = round.guesses.length
+  const modsOff = getBoss(round.bossId)?.noModifiers ?? false
 
-  const rows = Array.from({ length: blind.maxGuesses }, (_, row) => {
-    const played = blind.guesses[row]
+  const rows = Array.from({ length: round.maxGuesses }, (_, row) => {
+    const played = round.guesses[row]
 
     const tiles = Array.from({ length: width }, (_, column) => {
       if (played) {
@@ -290,18 +290,18 @@ function grid(state: RunState): HTMLElement {
         )
       }
 
-      if (row === active && !blind.done) {
-        const typed = blind.draft[column]
+      if (row === active && !round.done) {
+        const typed = round.draft[column]
         if (typed) {
           // Only the tile at the end of the draft lands. The board is rebuilt on
           // every keystroke, so animating `.filled` would replay the whole word
           // each time a letter is added to it.
-          const landed = column === blind.draft.length - 1
+          const landed = column === round.draft.length - 1
           return h("div", { class: `tile filled ${landed ? "land" : ""}` }, typed.toUpperCase())
         }
         // The Oracle's reveals sit in place as ghosts, so the hint is spatial
         // rather than a line of text the player has to hold in their head.
-        const revealed = blind.revealed[column]
+        const revealed = round.revealed[column]
         if (revealed) return h("div", { class: "tile ghost" }, revealed.toUpperCase())
       }
 
@@ -317,7 +317,7 @@ function grid(state: RunState): HTMLElement {
       ? [
           h(
             "span",
-            { class: "row-note", "data-tip": getBoss(state.blind.bossId)?.text },
+            { class: "row-note", "data-tip": getBoss(state.round.bossId)?.text },
             played.note,
           ),
         ]
@@ -331,7 +331,7 @@ function grid(state: RunState): HTMLElement {
   return h(
     "div",
     { class: "grid-wrap" },
-    h("div", { class: "grid", style: `--rows:${blind.maxGuesses};--cols:${width}` }, ...rows),
+    h("div", { class: "grid", style: `--rows:${round.maxGuesses};--cols:${width}` }, ...rows),
   )
 }
 
@@ -342,7 +342,7 @@ function grid(state: RunState): HTMLElement {
  * modifier — and marks are a reminder, not an explanation. A player who has
  * bought an etching, levelled a range and dropped a Lucky on the same letter is
  * looking at `+3` and `?` and has no way to find out what either came from
- * without leaving the blind.
+ * without leaving the round.
  *
  * The headline is the boss-adjusted figure rather than the raw one, because the
  * question is what this letter pays *now*: under The Rust every upgraded letter
@@ -358,7 +358,7 @@ function letterTip(state: RunState, letter: string): string {
   const etch = state.letters[letter]?.etch ?? 0
   const range = rangeOf(letter)
   const fromRange = rangeChips(state, letter)
-  const boss = getBoss(state.blind.bossId)
+  const boss = getBoss(state.round.bossId)
   // `draftChips` prices a one-letter draft, which is to say the first column —
   // fine for a boss that reads the letter, wrong for one that reads the column.
   // Under The Margin every key would announce "no chips", which is true of the
@@ -386,12 +386,12 @@ function letterTip(state: RunState, letter: string): string {
 
   const mod = modifierOf(state, letter)
   // Under The Vandal the modifier is still bought, still placed and still worth
-  // reading — it just will not fire this blind, and the tip is the one place
+  // reading — it just will not fire this round, and the tip is the one place
   // that can say which of those two things is true.
   if (mod) {
     lines.push(
       boss?.noModifiers
-        ? `${mod.name} · ${mod.text} — silenced this blind`
+        ? `${mod.name} · ${mod.text} — silenced this round`
         : `${mod.name} · ${mod.text}`,
     )
   }
@@ -399,12 +399,12 @@ function letterTip(state: RunState, letter: string): string {
 }
 
 function keyboard(state: RunState, on: Handlers): HTMLElement {
-  const colors = keyboardColors(state.blind.guesses)
-  const eliminated = new Set(state.blind.eliminated)
+  const colors = keyboardColors(state.round.guesses)
+  const eliminated = new Set(state.round.eliminated)
   // The Vandal. The pip stays — the modifier has not gone anywhere, and hiding
-  // it would make the blind look like it had eaten the purchase — but it greys
+  // it would make the round look like it had eaten the purchase — but it greys
   // out, which is the same thing a burnt key already does to it.
-  const modsOff = getBoss(state.blind.bossId)?.noModifiers ?? false
+  const modsOff = getBoss(state.round.bossId)?.noModifiers ?? false
 
   const key = (letter: string) => {
     const destroyed = state.letters[letter]?.destroyed ?? false
@@ -470,17 +470,17 @@ function keyboard(state: RunState, on: Handlers): HTMLElement {
  * so The Long Game and The Auditor move this line as well as the score.
  */
 function solveHint(state: RunState): HTMLElement | false {
-  const blind = state.blind
-  const factor = solveBonusFor(state, blind.maxGuesses - blind.guesses.length - 1)
-  if (blind.done || blind.guesses.length >= blind.maxGuesses || factor < 1) return false
+  const round = state.round
+  const factor = solveBonusFor(state, round.maxGuesses - round.guesses.length - 1)
+  if (round.done || round.guesses.length >= round.maxGuesses || factor < 1) return false
 
-  const floor = Math.round(blind.score * factor)
-  const clears = floor >= blind.target
+  const floor = Math.round(round.score * factor)
+  const clears = floor >= round.target
   return h(
     "div",
     { class: `solve-hint ${clears ? "clears" : ""}` },
     h("span", { class: "solve-factor" }, `solve ×${factor}`),
-    blind.score > 0 &&
+    round.score > 0 &&
       h("span", { class: "solve-floor" }, clears ? `→ ${num(floor)}, clears` : `→ ${num(floor)}`),
   )
 }
@@ -498,10 +498,10 @@ function solveHint(state: RunState): HTMLElement | false {
  * word they are describing.
  */
 export function wordInPlay(state: RunState): string {
-  const blind = state.blind
-  const last = blind.guesses[blind.guesses.length - 1]
-  const word = blind.draft.length === blind.answer.length ? blind.draft : (last?.word ?? "")
-  return word.length === blind.answer.length ? word : ""
+  const round = state.round
+  const last = round.guesses[round.guesses.length - 1]
+  const word = round.draft.length === round.answer.length ? round.draft : (last?.word ?? "")
+  return word.length === round.answer.length ? word : ""
 }
 
 /**
@@ -532,7 +532,7 @@ export function fillCategory(slot: Element, state: RunState, on: Handlers): void
   const category = categoryOf(word)
   const bonus = levelBonus(state, category)
   // A button rather than a div, because this line is the only place the shape
-  // system announces itself during a blind, and a player who wants to know what
+  // system announces itself during a round, and a player who wants to know what
   // the other four shapes are has nowhere else to press.
   slot.append(
     h(
@@ -555,7 +555,7 @@ export function fillCategory(slot: Element, state: RunState, on: Handlers): void
  * is still on screen while they think. From the first letter typed it switches
  * to the word being built, and that is the whole point of it: the choice of
  * which word to spend a guess on is partly a scoring choice, and a board that
- * only reveals the chips *after* the guess is spent makes that choice blind.
+ * only reveals the chips *after* the guess is spent makes that choice round.
  *
  * Only the chips half moves. Mult comes entirely from colour, and colour is the
  * thing the player is trying to find out, so there is genuinely nothing
@@ -577,15 +577,15 @@ function readoutSlot(state: RunState): HTMLElement {
  * render would lag the letters it is counting.
  */
 export function fillReadout(el: Element, state: RunState): void {
-  const blind = state.blind
-  const drafting = !blind.done && blind.draft.length > 0
-  const last = blind.guesses[blind.guesses.length - 1]
+  const round = state.round
+  const drafting = !round.done && round.draft.length > 0
+  const last = round.guesses[round.guesses.length - 1]
   el.classList.toggle("drafting", drafting)
   el.replaceChildren(
     h(
       "span",
       { class: "chips" },
-      num(drafting ? draftChips(state, blind.draft) : (last?.chips ?? 0)),
+      num(drafting ? draftChips(state, round.draft) : (last?.chips ?? 0)),
     ),
     h("span", { class: "times" }, "×"),
     drafting
@@ -601,14 +601,14 @@ export function fillReadout(el: Element, state: RunState): void {
   )
 }
 
-export function blindView(state: RunState, on: Handlers, chrome: Chrome): HTMLElement {
-  const boss = getBoss(state.blind.bossId)
+export function roundView(state: RunState, on: Handlers, chrome: Chrome): HTMLElement {
+  const boss = getBoss(state.round.bossId)
   return h(
     "div",
-    { class: "screen blind-screen" },
+    { class: "screen round-screen" },
     hud(state, on),
     boss && h("div", { class: "boss" }, h("strong", {}, boss.name), h("span", {}, ` ${boss.text}`)),
-    jokerRow(state, on),
+    relicRow(state, on),
     consumableRow(state, on),
     grid(state),
     categorySlot(state, on),
@@ -618,51 +618,51 @@ export function blindView(state: RunState, on: Handlers, chrome: Chrome): HTMLEl
     // times a word.
     h("div", { class: "readout-row" }, readoutSlot(state), plainToggle(on, chrome)),
     solveHint(state),
-    h("div", { class: "joker-tip" }),
+    h("div", { class: "relic-tip" }),
     h("div", { class: "toast" }),
     keyboard(state, on),
   )
 }
 
-/* --------------------------------------------------------- the blind intro */
+/* --------------------------------------------------------- the round intro */
 
 /**
  * The beat between the shop and the board. It exists for pacing — the player
- * arrives at a blind having decided what to buy, and this is where they read
+ * arrives at a round having decided what to buy, and this is where they read
  * what they are walking into before the keyboard demands anything of them.
  */
 export function introView(state: RunState, on: Handlers, chrome: Chrome): HTMLElement {
-  const boss = getBoss(state.blind.bossId)
-  const name = BLIND_NAMES[state.blindIndex] ?? "Blind"
+  const boss = getBoss(state.round.bossId)
+  const name = ROUND_NAMES[state.roundIndex] ?? "Round"
 
-  // Three blinds, three tokens. The shape carries the warning before the name is
+  // Three rounds, three tokens. The shape carries the warning before the name is
   // read, which matters most for the one that changes the rules.
-  const token = boss ? "boss" : state.blindIndex === 0 ? "small" : "big"
+  const token = boss ? "boss" : state.roundIndex === 0 ? "small" : "big"
 
   return h(
     "div",
     { class: "screen center intro", onclick: () => on.play() },
     h(
       "div",
-      { class: "intro-ante" },
-      state.won ? `Ante ${state.ante} · endless` : `Ante ${state.ante} of ${ANTES}`,
+      { class: "intro-stage" },
+      state.won ? `Stage ${state.stage} · endless` : `Stage ${state.stage} of ${STAGES}`,
     ),
     h(
       "div",
       { class: `intro-card ${boss ? "boss-card" : ""}` },
-      h("div", { class: `blind-token ${token}` }),
+      h("div", { class: `round-token ${token}` }),
       h("div", { class: "intro-name" }, boss ? boss.name : name),
       boss && h("div", { class: "intro-rule" }, boss.text),
       h("div", { class: "intro-label" }, "Score at least"),
-      h("div", { class: "intro-target" }, num(state.blind.target)),
+      h("div", { class: "intro-target" }, num(state.round.target)),
       h(
         "div",
         { class: "intro-meta" },
         // The payout the run will actually be handed, not the one the table
         // lists: ascension 6 takes a dollar off it, and a card that promises $3
-        // before a blind and pays $2 after it is the worst kind of wrong.
-        `${state.blind.maxGuesses} guesses · reward ${money(
-          Math.max(0, (BLIND_PAYOUT[state.blindIndex] ?? 0) - difficultyOf(state).payoutCut),
+        // before a round and pays $2 after it is the worst kind of wrong.
+        `${state.round.maxGuesses} guesses · reward ${money(
+          Math.max(0, (ROUND_PAYOUT[state.roundIndex] ?? 0) - difficultyOf(state).payoutCut),
         )}`,
       ),
       standing(state),
@@ -673,7 +673,7 @@ export function introView(state: RunState, on: Handlers, chrome: Chrome): HTMLEl
 }
 
 /**
- * The run's own rules, named on the card that announces the blind.
+ * The run's own rules, named on the card that announces the round.
  *
  * Named rather than spelled out: at the top of the ladder that would be six
  * sentences competing with the target for a card meant to be read in a second,
@@ -706,7 +706,7 @@ function muteButton(on: Handlers, chrome: Chrome): HTMLElement {
       class: "mute",
       type: "button",
       // The card behind this is itself a tap target; without stopping here the
-      // toggle would also start the blind.
+      // toggle would also start the round.
       onclick: (event: Event) => {
         event.stopPropagation()
         on.mute()
@@ -726,13 +726,13 @@ export function rewardView(state: RunState, on: Handlers): HTMLElement {
   return h(
     "div",
     { class: "screen center" },
-    h("h1", { class: "banner win" }, "Blind cleared"),
+    h("h1", { class: "banner win" }, "Round cleared"),
     h(
       "div",
       { class: "panel" },
-      h("div", { class: "answer-note" }, `The word was ${state.blind.answer.toUpperCase()}`),
-      h("div", { class: "score-note" }, `${num(state.blind.score)} of ${num(state.blind.target)}`),
-      reward && line(BLIND_NAMES[state.blindIndex] ?? "Blind", reward.base),
+      h("div", { class: "answer-note" }, `The word was ${state.round.answer.toUpperCase()}`),
+      h("div", { class: "score-note" }, `${num(state.round.score)} of ${num(state.round.target)}`),
+      reward && line(ROUND_NAMES[state.roundIndex] ?? "Round", reward.base),
       reward && reward.unusedGuesses > 0 && line("Unused guesses", reward.unusedGuesses),
       reward && reward.interest > 0 && line("Interest", reward.interest),
       reward &&
@@ -759,13 +759,13 @@ export function rewardView(state: RunState, on: Handlers): HTMLElement {
  * sentence, a price — so "The Mint" and "Etch Heavy" were distinguishable only by
  * reading both sentences and knowing the game well enough to classify them. The
  * tag says the kind in one word before the name is read, and for the two kinds
- * that need somewhere to live it says when there is nowhere: a joker bought into
+ * that need somewhere to live it says when there is nowhere: a relic bought into
  * a full tray is refused at the till, and that refusal belongs on the card rather
  * than in a toast after the tap.
  *
- * Rarity stays a colour and does not become a second tag, except on jokers. That
+ * Rarity stays a colour and does not become a second tag, except on relics. That
  * is the one line where rarity is an economy — the shelf weights them, the tray
- * is where a run's identity ends up — and "Rare Joker" is worth more than a shade
+ * is where a run's identity ends up — and "Rare Relic" is worth more than a shade
  * of border a player has to have learnt.
  */
 export function describeItem(
@@ -787,13 +787,13 @@ export function describeItem(
     // the only one that asks a question back.
     rarity = "rare"
     tag = "Pack"
-  } else if (item.kind === "joker") {
-    const joker = JOKER_BY_ID.get(item.id)
-    title = joker?.name ?? item.id
-    text = joker?.text ?? ""
-    rarity = joker?.rarity ?? "common"
-    blocked = state.jokers.length >= difficultyOf(state).jokerSlots
-    tag = blocked ? "Joker · tray full" : `${RARITY_WORD[rarity] ?? ""} Joker`.trim()
+  } else if (item.kind === "relic") {
+    const relic = RELIC_BY_ID.get(item.id)
+    title = relic?.name ?? item.id
+    text = relic?.text ?? ""
+    rarity = relic?.rarity ?? "common"
+    blocked = state.relics.length >= difficultyOf(state).relicSlots
+    tag = blocked ? "Relic · tray full" : `${RARITY_WORD[rarity] ?? ""} Relic`.trim()
   } else if (item.kind === "consumable") {
     const card = CONSUMABLE_BY_ID.get(item.id)
     title = card?.name ?? item.id
@@ -860,7 +860,7 @@ export function describeItem(
 }
 
 /**
- * Rarity as a word, for the joker tag. Common is left blank rather than said: a
+ * Rarity as a word, for the relic tag. Common is left blank rather than said: a
  * shelf where three of five cards announce themselves as common is a shelf that
  * has taught the player to stop reading the tag.
  */
@@ -903,7 +903,7 @@ function shopItemCard(item: ShopItem, index: number, state: RunState, on: Handle
  * the thing does.
  *
  * Baseline-aligned rather than centred, so a long name and a long tag —
- * "Joker · tray full" is the worst pair the shelf can deal — still sit on one
+ * "Relic · tray full" is the worst pair the shelf can deal — still sit on one
  * line of type, with the tag wrapping under itself in the corner rather than
  * dragging the name off its own baseline. An empty `tag` means no ticket, which
  * is how a pack asks for the name on its own.
@@ -959,11 +959,11 @@ export function packView(state: RunState, on: Handlers): HTMLElement | null {
             // A pack deals one kind of card, so on the shelf's terms the tag
             // would say "Letter" three times down a sheet whose title already
             // said Alphabet Pack. It is kept for the two cases where it is not
-            // repeating the title: a joker, where the tag is carrying the rarity
+            // repeating the title: a relic, where the tag is carrying the rarity
             // and every option carries a different one, and anything blocked,
             // where the pick would be taken and then refused with the pack
             // already paid for.
-            shopItemHead(title, blocked || item.kind === "joker" ? tag : "", blocked),
+            shopItemHead(title, blocked || item.kind === "relic" ? tag : "", blocked),
             h("div", { class: "shop-item-text" }, text),
             // The price it would have carried in the stock, struck through: the
             // pack already charged for it, and seeing what it would have cost is
@@ -1084,24 +1084,24 @@ export function shopView(state: RunState, on: Handlers): HTMLElement {
 
   // Drawn as seats rather than as a list, the way the board draws it, because
   // the shop is the one screen where the empty ones are the point: a shelf
-  // offering a $8 joker to a player who cannot see whether they have room for it
+  // offering a $8 relic to a player who cannot see whether they have room for it
   // is asking a question with the answer off screen. Full length, so the tray
   // that has no space left looks like a tray with no space left.
-  const owned = Array.from({ length: difficultyOf(state).jokerSlots }, (_, slot) => {
-    const instance = state.jokers[slot]
-    const joker = instance ? JOKER_BY_ID.get(instance.id) : undefined
-    if (!instance) return h("div", { class: "joker empty" })
+  const owned = Array.from({ length: difficultyOf(state).relicSlots }, (_, slot) => {
+    const instance = state.relics[slot]
+    const relic = instance ? RELIC_BY_ID.get(instance.id) : undefined
+    if (!instance) return h("div", { class: "relic empty" })
     return h(
       "button",
       {
-        class: `joker rarity-${joker?.rarity ?? "common"}`,
-        "data-tip": joker?.text ?? instance.id,
-        "data-rarity": joker?.rarity ?? "common",
+        class: `relic rarity-${relic?.rarity ?? "common"}`,
+        "data-tip": relic?.text ?? instance.id,
+        "data-rarity": relic?.rarity ?? "common",
         type: "button",
         onclick: () => on.sell(slot),
       },
-      h("span", { class: "joker-name" }, joker?.name ?? instance.id),
-      h("span", { class: "sell" }, `sell ${money(sellValue(joker?.cost ?? 4))}`),
+      h("span", { class: "relic-name" }, relic?.name ?? instance.id),
+      h("span", { class: "sell" }, `sell ${money(sellValue(relic?.cost ?? 4))}`),
     )
   })
 
@@ -1111,7 +1111,7 @@ export function shopView(state: RunState, on: Handlers): HTMLElement {
     h(
       "header",
       { class: "hud" },
-      h("div", { class: "hud-blind" }, h("div", { class: "blind-name" }, "Shop")),
+      h("div", { class: "hud-round" }, h("div", { class: "round-name" }, "Shop")),
       h("div", { class: "hud-gold" }, money(state.gold)),
       menuButton(on),
     ),
@@ -1140,8 +1140,8 @@ export function shopView(state: RunState, on: Handlers): HTMLElement {
       ),
       h(
         "button",
-        { class: "primary", type: "button", onclick: () => on.nextBlind() },
-        "Next blind",
+        { class: "primary", type: "button", onclick: () => on.nextRound() },
+        "Next round",
       ),
     ),
     h(
@@ -1151,15 +1151,15 @@ export function shopView(state: RunState, on: Handlers): HTMLElement {
         "div",
         { class: "owned-label" },
         // The instruction only when there is something to obey it with: an empty
-        // tray under "tap a joker to sell" reads as a control that is broken
+        // tray under "tap a relic to sell" reads as a control that is broken
         // rather than as one that has nothing to act on yet.
-        `Jokers ${state.jokers.length}/${difficultyOf(state).jokerSlots} · Cards ${state.consumables.length}/${CONSUMABLE_SLOTS}${
-          state.jokers.length > 0 ? " — tap a joker to sell" : ""
+        `Relics ${state.relics.length}/${difficultyOf(state).relicSlots} · Cards ${state.consumables.length}/${CONSUMABLE_SLOTS}${
+          state.relics.length > 0 ? " — tap a relic to sell" : ""
         }`,
       ),
-      h("div", { class: "jokers" }, ...owned),
+      h("div", { class: "relics" }, ...owned),
     ),
-    h("div", { class: "joker-tip" }),
+    h("div", { class: "relic-tip" }),
     h("div", { class: "toast" }),
   )
 }
@@ -1169,7 +1169,7 @@ export function shopView(state: RunState, on: Handlers): HTMLElement {
 /**
  * The end of a run, whichever end it is.
  *
- * The win is a fork rather than a finish. Ante `ANTES` is where the authored
+ * The win is a fork rather than a finish. Stage `STAGES` is where the authored
  * game stops, not where the run has to: the targets keep growing geometrically
  * and the bosses keep coming, so a build that has beaten the game can be asked
  * how far it actually goes.
@@ -1195,27 +1195,27 @@ export function endView(state: RunState, on: Handlers): HTMLElement {
       "div",
       { class: "panel" },
       lost &&
-        h("div", { class: "answer-note" }, `The word was ${state.blind.answer.toUpperCase()}`),
+        h("div", { class: "answer-note" }, `The word was ${state.round.answer.toUpperCase()}`),
       lost &&
         h(
           "div",
           { class: "score-note" },
-          `${num(state.blind.score)} of ${num(state.blind.target)} — short by ${num(state.blind.target - state.blind.score)}`,
+          `${num(state.round.score)} of ${num(state.round.target)} — short by ${num(state.round.target - state.round.score)}`,
         ),
       lost &&
         state.won &&
-        h("div", { class: "score-note won-note" }, `Beat ante ${ANTES} and kept going`),
+        h("div", { class: "score-note won-note" }, `Beat stage ${STAGES} and kept going`),
       h(
         "div",
         { class: "score-note" },
-        `Reached ante ${state.ante}, ${BLIND_NAMES[state.blindIndex]}`,
+        `Reached stage ${state.stage}, ${ROUND_NAMES[state.roundIndex]}`,
       ),
       cleared(state, offering),
       offering &&
         h(
           "p",
           { class: "endless-note" },
-          `Ante ${ANTES} is where the game stops, not where the run has to. The win is
+          `Stage ${STAGES} is where the game stops, not where the run has to. The win is
            yours either way — playing on only asks how far this build really goes, and
            the targets keep growing at the same rate the whole way.`,
         ),
@@ -1303,7 +1303,7 @@ function record(meta: MetaState, on: Handlers): HTMLElement | null {
   const parts = [
     `${meta.runs} run${meta.runs === 1 ? "" : "s"}`,
     ...(meta.wins > 0 ? [`${meta.wins} win${meta.wins === 1 ? "" : "s"}`] : []),
-    `best ante ${meta.bestAnte}`,
+    `best stage ${meta.bestStage}`,
   ]
   // A button rather than a line with a button beside it: the summary *is* the
   // link to the long version, so there is nothing extra on the title screen and
@@ -1328,7 +1328,7 @@ function record(meta: MetaState, on: Handlers): HTMLElement | null {
  * shown as "of 0".
  */
 export function statsView(meta: MetaState, pool: number, on: Handlers): HTMLElement {
-  const played = blindsPlayed(meta)
+  const played = roundsPlayed(meta)
   const best = favouriteWord(meta)
   const solved = wordsFound(meta)
   const mean = meanSolve(meta)
@@ -1342,7 +1342,7 @@ export function statsView(meta: MetaState, pool: number, on: Handlers): HTMLElem
   /**
    * Two readings of the same number, on purpose.
    *
-   * The percentage is the share of every blind ever played, which is the honest
+   * The percentage is the share of every round ever played, which is the honest
    * one and is what a player would mean by "how often". The bar is drawn against
    * the tallest row instead. A distribution whose mode is 31% would otherwise
    * spend the whole chart in the left third of the track, and the shape — did the
@@ -1369,7 +1369,7 @@ export function statsView(meta: MetaState, pool: number, on: Handlers): HTMLElem
     )
   }
 
-  const jokers = favouriteJokers(meta).slice(0, 3)
+  const relics = favouriteRelics(meta).slice(0, 3)
 
   return overlay(
     on,
@@ -1379,13 +1379,13 @@ export function statsView(meta: MetaState, pool: number, on: Handlers): HTMLElem
       { class: "figures" },
       figure("runs", num(meta.runs)),
       figure(meta.wins === 1 ? "win" : "wins", num(meta.wins)),
-      figure("best ante", num(meta.bestAnte)),
+      figure("best stage", num(meta.bestStage)),
       figure("guesses", num(meta.guesses)),
       // Three across and two down rather than four across, which is what buys the
       // second row: the top one is the run record and the bottom one is the word
       // record, and a player who wants to know whether they are getting better at
       // the game reads the bottom row. An em dash rather than a zero before any
-      // blind has ended — 0% solved is a claim, and this player has not made it.
+      // round has ended — 0% solved is a claim, and this player has not made it.
       figure("solved", played > 0 ? `${Math.round((solved / played) * 100)}%` : "—"),
       figure("avg guess", mean === null ? "—" : mean.toFixed(1)),
     ),
@@ -1423,16 +1423,16 @@ export function statsView(meta: MetaState, pool: number, on: Handlers): HTMLElem
           h("p", { class: "stat-foot" }, streakLine(meta)),
         )
       : null,
-    jokers.length > 0
+    relics.length > 0
       ? h(
           "div",
           { class: "breakdown" },
-          h("h3", { class: "stat-head" }, "Favourite jokers"),
-          ...jokers.map((entry) =>
+          h("h3", { class: "stat-head" }, "Favourite relics"),
+          ...relics.map((entry) =>
             h(
               "p",
               { class: "stat-line" },
-              h("strong", {}, JOKER_BY_ID.get(entry.id)?.name ?? entry.id),
+              h("strong", {}, RELIC_BY_ID.get(entry.id)?.name ?? entry.id),
               ` · taken ${num(entry.count)}×`,
             ),
           ),
@@ -1491,7 +1491,7 @@ export function streakLine(meta: MetaState): string {
  * cumulative — the question is "how far up", not "which one" — and because the
  * ladder no longer has a length a list could have. The level's own rule is
  * spelled out under it; the ones below are named on the intro card of every
- * blind, and written out in full in the codex.
+ * round, and written out in full in the codex.
  */
 function ladder(on: Handlers, meta: MetaState): HTMLElement {
   const top = unlocked(meta)
@@ -1594,7 +1594,7 @@ function ladder(on: Handlers, meta: MetaState): HTMLElement {
  *
  * The rule of the rung being stepped onto is quoted rather than only its number,
  * because "ascension 8" means nothing to a player who has seen three of them and
- * "Four joker slots, not five" means something to anyone. It is the one piece of
+ * "Four relic slots, not five" means something to anyone. It is the one piece of
  * information that turns this from a dare into a decision.
  *
  * It is only ever this one rung. The lock sits at the edge of what was earned,
@@ -1716,9 +1716,9 @@ export function helpView(on: Handlers): HTMLElement {
       ),
       rule(
         "Solving multiplies the round",
-        ` Land the word and everything you have banked this blind — not just the
+        ` Land the word and everything you have banked this round — not just the
          guess that solved it — is multiplied by 1 + the guesses you had left.
-         Then the blind ends immediately, target met or not.`,
+         Then the round ends immediately, target met or not.`,
       ),
       h(
         "p",
@@ -1730,39 +1730,39 @@ export function helpView(on: Handlers): HTMLElement {
         "So watch the solve line",
         ` Under the board it shows the multiplier a solve would earn right now, and
          what the pile is already worth at it. When it turns green, solving wins
-         the blind.`,
+         the round.`,
       ),
       h("h3", { class: "sheet-heading" }, "The run"),
       rule(
         "Beat the target",
-        ` ${ANTES} antes of ${BLINDS_PER_ANTE} blinds. Fall short of a blind's target
+        ` ${STAGES} stages of ${ROUNDS_PER_STAGE} rounds. Fall short of a round's target
          and the run is over — that is the only way to lose.`,
       ),
       rule(
         "Then keep going, if you dare",
-        ` Clearing ante ${ANTES} wins the run, and you can bank it there or play on into
-         antes nobody balanced. The targets keep growing at the same rate, and dying out
+        ` Clearing stage ${STAGES} wins the run, and you can bank it there or play on into
+         stages nobody balanced. The targets keep growing at the same rate, and dying out
          there does not take the win back.`,
       ),
-      rule("Bosses", " Every third blind bends a rule. Read it before you play."),
+      rule("Bosses", " Every third round bends a rule. Read it before you play."),
       rule(
         "Ascensions",
         ` The difficulty dial on the title screen, and the number worth comparing. The
          first ${AUTHORED_ASCENSIONS} levels each add one standing rule — to what you may
-         guess, what a blind pays, how high the targets are, how many jokers you may keep,
+         guess, what a round pays, how high the targets are, how many relics you may keep,
          how many guesses you get. Above that the ladder does not end: every further level raises
          every target again. Winning at one earns the next, and climbing a rung at a time
          is the intended way up, not a lock.`,
       ),
       rule(
         "Money",
-        ` Blinds pay $${BLIND_PAYOUT.join(" / $")}, plus $${GOLD_PER_UNUSED_GUESS} per
+        ` Rounds pay $${ROUND_PAYOUT.join(" / $")}, plus $${GOLD_PER_UNUSED_GUESS} per
          unused guess, plus $1 interest per $${INTEREST_PER} you are holding, up to
          $${INTEREST_CAP}. Sitting on cash is a strategy.`,
       ),
       rule(
-        "Jokers",
-        ` Up to ${JOKER_SLOTS}, and they fire left to right, so the order you buy them
+        "Relics",
+        ` Up to ${RELIC_SLOTS}, and they fire left to right, so the order you buy them
          in matters. Tap one to read it.`,
       ),
       rule(
@@ -1785,7 +1785,7 @@ export function helpView(on: Handlers): HTMLElement {
       h(
         "p",
         { class: "sheet-lead" },
-        "The codex has every joker, boss, word shape and modifier in the game, listed in full.",
+        "The codex has every relic, boss, word shape and modifier in the game, listed in full.",
       ),
     ),
     h(
@@ -1861,7 +1861,7 @@ const TIER_NAMES: Record<BossTier, string> = {
  * only tells you what you already know is a trophy cabinet, not a reference.
  *
  * Takes no run state on purpose: this is the catalogue, not the board. A scaling
- * joker shows its rule here, never the number it happens to be holding.
+ * relic shows its rule here, never the number it happens to be holding.
  */
 /**
  * The five word shapes, what they are worth, and which of them the word on the
@@ -1940,22 +1940,22 @@ export function codexView(on: Handlers): HTMLElement {
       h("p", { class: "sheet-lead" }, "Everything in the game, whether you have met it or not."),
 
       section(
-        "Jokers",
-        JOKERS.length,
-        `Up to ${JOKER_SLOTS} at once, firing left to right — the order you buy them in
+        "Relics",
+        RELICS.length,
+        `Up to ${RELIC_SLOTS} at once, firing left to right — the order you buy them in
          is part of the build.`,
         // The rarity class goes on the wrapper rather than the header, so the
         // band's colour reaches the cards under it the same way it reaches a
-        // joker in the tray.
+        // relic in the tray.
         ...RARITIES.flatMap((rarity) => {
-          const jokers = JOKERS.filter((joker) => joker.rarity === rarity)
-          if (jokers.length === 0) return []
+          const relics = RELICS.filter((relic) => relic.rarity === rarity)
+          if (relics.length === 0) return []
           return [
             h(
               "div",
               { class: `codex-band rarity-${rarity}` },
               h("div", { class: "codex-group" }, rarity),
-              ...jokers.map((joker) => entry(joker.name, joker.text, money(joker.cost))),
+              ...relics.map((relic) => entry(relic.name, relic.text, money(relic.cost))),
             ),
           ]
         }),
@@ -1964,7 +1964,7 @@ export function codexView(on: Handlers): HTMLElement {
       section(
         "Bosses",
         BOSSES.length,
-        `Every third blind. Each band is drawn without replacement, so a run never
+        `Every third round. Each band is drawn without replacement, so a run never
          meets the same boss twice.`,
         ...BOSS_TIERS.map((tier) =>
           h(
@@ -1973,7 +1973,7 @@ export function codexView(on: Handlers): HTMLElement {
             h(
               "div",
               { class: "codex-group" },
-              `${TIER_NAMES[tier]} · antes ${TIER_ANTES[tier].first}–${TIER_ANTES[tier].last}`,
+              `${TIER_NAMES[tier]} · stages ${TIER_STAGES[tier].first}–${TIER_STAGES[tier].last}`,
             ),
             ...bossesIn(tier).map((boss) => entry(boss.name, boss.text)),
           ),
@@ -2126,8 +2126,8 @@ export function quitView(state: RunState, on: Handlers): HTMLElement {
       h(
         "p",
         {},
-        `You are on ante ${state.ante}${state.won ? "" : ` of ${ANTES}`}, ${
-          BLIND_NAMES[state.blindIndex] ?? "a blind"
+        `You are on stage ${state.stage}${state.won ? "" : ` of ${STAGES}`}, ${
+          ROUND_NAMES[state.roundIndex] ?? "a round"
         }. Quitting deletes it — there is no way back to this run.`,
       ),
     ),

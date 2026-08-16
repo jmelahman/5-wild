@@ -75,7 +75,7 @@ const allowed = [...new Set(lines(alphaRaw).filter(isTarget))].sort()
 // twenty real words (ALIVE, TEETH, DEPOT, INPUT) get rejected too, along with
 // British spellings, which is arguably correct for a US-spelling answer set.
 // We accept that. Losing a word here only means it is never the secret word —
-// it is still a legal guess — whereas letting ALICE through is a blind the
+// it is still a legal guess — whereas letting ALICE through is a round the
 // player cannot reason their way to.
 const lemmas = new Set<string>()
 for (const line of hunspellRaw.split("\n")) {
@@ -124,7 +124,7 @@ const isEnglish = (w: string) => stems(w).some((s) => lemmas.has(s))
  * only five-letter words and could not answer the question at all. Being the
  * small SCOWL list, it errs toward letting a plural through rather than toward
  * eating a real word, which is the right direction: a missed plural is one
- * awkward blind, an eaten word is a word nobody ever gets to be dealt.
+ * awkward round, an eaten word is a word nobody ever gets to be dealt.
  */
 function isPlural(w: string): boolean {
   if (!w.endsWith("s") || w.endsWith("ss")) return false

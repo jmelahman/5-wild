@@ -1,16 +1,16 @@
-import { ANTES } from "../content/blinds"
 import { ALPHABET } from "../content/letters"
+import { STAGES } from "../content/rounds"
 import { difficultyOf } from "./ascensions"
 import { CATEGORIES } from "./categories"
 import { CONSUMABLES } from "./consumables"
 import { ETCHINGS } from "./etchings"
-import type { Joker } from "./jokers"
-import { JOKERS } from "./jokers"
 import type { ModId, Modifier } from "./modifiers"
 import { MODIFIER_BY_ID } from "./modifiers"
 import type { Pack } from "./packs"
 import { PACKS } from "./packs"
 import { liveRanges } from "./ranges"
+import type { Relic } from "./relics"
+import { RELICS } from "./relics"
 import type { Rng } from "./rng"
 import { pick } from "./rng"
 import type { Rarity, RunState, ShopItem, ShopState } from "./state"
@@ -195,37 +195,37 @@ function rollLetter(state: RunState, rng: Rng): ShopItem {
   return rollConsumable(rng)
 }
 
-/** Jokers already owned are off the table — duplicates do not stack. */
-const unowned = (state: RunState): readonly Joker[] => {
-  const owned = new Set(state.jokers.map((instance) => instance.id))
-  return JOKERS.filter((joker) => !owned.has(joker.id))
+/** Relics already owned are off the table — duplicates do not stack. */
+const unowned = (state: RunState): readonly Relic[] => {
+  const owned = new Set(state.relics.map((instance) => instance.id))
+  return RELICS.filter((relic) => !owned.has(relic.id))
 }
 
 /**
- * How often each rarity fills a joker slot, at the first ante and at the last
- * authored one. In between it moves linearly; past ante `ANTES` it stays put.
+ * How often each rarity fills a relic slot, at the first stage and at the last
+ * authored one. In between it moves linearly; past stage `STAGES` it stays put.
  *
  * The early column is deliberately the neutral shelf — it is what drawing a card
  * uniformly out of today's catalogue already deals. The ramp only ever adds, and
  * that is not timidity, it is what the bots measured. Gold compounds here through
- * interest while joker prices never move, so a shelf still reading mostly common
- * at ante 7 is a shelf the run has outgrown; that half is free, worth 3.736 mean
- * final ante against a uniform shelf's 3.724 across 2,500 recorded runs.
+ * interest while relic prices never move, so a shelf still reading mostly common
+ * at stage 7 is a shelf the run has outgrown; that half is free, worth 3.736 mean
+ * final stage against a uniform shelf's 3.724 across 2,500 recorded runs.
  *
  * Tilting the *early* half toward cheap cards is what costs, and it was tried
  * three ways. Balatro's own 70/25/5 took the mean to 3.37 and cut the wins by
- * four fifths. A gentle 38/33/21/8 still cost 0.10 of an ante and a quarter of
+ * four fifths. A gentle 38/33/21/8 still cost 0.10 of an stage and a quarter of
  * the wins. Even leaving rare and legendary untouched and moving only uncommon
- * into common cost 0.14 — five joker slots that fill by ante 2 and are never
+ * into common cost 0.14 — five relic slots that fill by stage 2 and are never
  * sold means a cheaper shelf is a permanently weaker tray, and that is a real
  * player's habit and not only a bot's.
  *
  * It also bought almost nothing. The complaint that started this was first
  * shelves with nothing affordable on them, and a first shelf has *never* dealt
- * no joker at all: 90% of them hold one at $6 or under, and the tilt moved the
+ * no relic at all: 90% of them hold one at $6 or under, and the tilt moved the
  * $8-or-nothing case from 9.6% to 8.4% while turning $6 uncommons into $4
- * commons. The affordable-joker problem is a catalogue problem — seven of the
- * twenty-three cost $8 or $10 — and it wants more cheap jokers, not a shop that
+ * commons. The affordable-relic problem is a catalogue problem — seven of the
+ * twenty-three cost $8 or $10 — and it wants more cheap relics, not a shop that
  * deals the existing ones more often.
  */
 const RARITY_ODDS: Record<Rarity, readonly [number, number]> = {
@@ -243,8 +243,8 @@ const RARITY_ODDS: Record<Rarity, readonly [number, number]> = {
  * renormalises the odds: a run that has bought every common should see the other
  * three in their own proportions, not see the slot fail seven times in ten.
  */
-function rarityBag(ante: number, available: ReadonlySet<Rarity>): Rarity[] {
-  const through = Math.min(1, Math.max(0, (ante - 1) / (ANTES - 1)))
+function rarityBag(stage: number, available: ReadonlySet<Rarity>): Rarity[] {
+  const through = Math.min(1, Math.max(0, (stage - 1) / (STAGES - 1)))
   const bag: Rarity[] = []
   for (const [rarity, [early, late]] of Object.entries(RARITY_ODDS)) {
     if (!available.has(rarity as Rarity)) continue
@@ -255,7 +255,7 @@ function rarityBag(ante: number, available: ReadonlySet<Rarity>): Rarity[] {
 }
 
 /**
- * One joker out of a pool, rarity first and then uniformly within it.
+ * One relic out of a pool, rarity first and then uniformly within it.
  *
  * Two draws rather than one, and that is the whole point: drawing a card
  * directly makes a rarity's odds depend on how many cards happen to sit at it,
@@ -263,10 +263,10 @@ function rarityBag(ante: number, available: ReadonlySet<Rarity>): Rarity[] {
  * Drawing the tier first means the catalogue can grow anywhere without moving
  * the shelf's shape.
  */
-function rollJoker(state: RunState, pool: readonly Joker[], rng: Rng): Joker | null {
+function rollRelic(state: RunState, pool: readonly Relic[], rng: Rng): Relic | null {
   if (pool.length === 0) return null
-  const bag = rarityBag(state.ante, new Set(pool.map((joker) => joker.rarity)))
-  // Every rarity carries weight at every ante, so this only fires if a column is
+  const bag = rarityBag(state.stage, new Set(pool.map((relic) => relic.rarity)))
+  // Every rarity carries weight at every stage, so this only fires if a column is
   // ever set to zero. Uniform is the honest fallback then: an empty slot would be
   // worse than bending the odds, and the odds were never a promise not to sell.
   if (bag.length === 0) return pick(rng, pool)
@@ -274,31 +274,31 @@ function rollJoker(state: RunState, pool: readonly Joker[], rng: Rng): Joker | n
   // Non-empty by construction: the rarity came out of the pool's own set.
   return pick(
     rng,
-    pool.filter((joker) => joker.rarity === rarity),
+    pool.filter((relic) => relic.rarity === rarity),
   )
 }
 
 /**
- * Whether a joker could actually be taken right now — one exists to offer, and
+ * Whether a relic could actually be taken right now — one exists to offer, and
  * there is somewhere to put it.
  *
- * The slot half matters more for packs than for the joker slots. An unbuyable
- * joker on the shelf costs nothing: the buy is refused and the gold stays put.
- * An unbuyable joker *pack* is a trap, because the gold goes when the pack
+ * The slot half matters more for packs than for the relic slots. An unbuyable
+ * relic on the shelf costs nothing: the buy is refused and the gold stays put.
+ * An unbuyable relic *pack* is a trap, because the gold goes when the pack
  * opens and the refusal comes three cards later.
  */
-const canTakeJoker = (state: RunState): boolean =>
-  state.jokers.length < difficultyOf(state).jokerSlots && unowned(state).length > 0
+const canTakeRelic = (state: RunState): boolean =>
+  state.relics.length < difficultyOf(state).relicSlots && unowned(state).length > 0
 
 /**
  * Which pack the pack slot offers. Uniform across the three, since each one
  * points at a different line of the run and none is the fallback for another.
  *
- * The joker pack drops out when there is no joker to be had, for the same
- * reason the joker slots do: there would be nothing to lay out in it.
+ * The relic pack drops out when there is no relic to be had, for the same
+ * reason the relic slots do: there would be nothing to lay out in it.
  */
 function rollPack(state: RunState, rng: Rng): ShopItem {
-  const usable = PACKS.filter((pack) => pack.id !== "joker" || canTakeJoker(state))
+  const usable = PACKS.filter((pack) => pack.id !== "relic" || canTakeRelic(state))
   const pack = pick(rng, usable.length > 0 ? usable : PACKS)
   return { kind: "pack", id: pack.id, cost: pack.cost }
 }
@@ -314,12 +314,12 @@ function rollPack(state: RunState, rng: Rng): ShopItem {
  * costs a short pack rather than a hang.
  *
  * Empty is a meaningful answer, and the caller refuses the sale on it. The
- * shelf goes stale: a joker pack rolled while a slot was free is still sitting
- * there after the joker in the next slot along fills it, and opening it then
+ * shelf goes stale: a relic pack rolled while a slot was free is still sitting
+ * there after the relic in the next slot along fills it, and opening it then
  * would spend the gold on three cards none of which could land.
  */
 export function packContents(state: RunState, pack: Pack, rng: Rng): ShopItem[] {
-  if (pack.id === "joker" && !canTakeJoker(state)) return []
+  if (pack.id === "relic" && !canTakeRelic(state)) return []
   const out: ShopItem[] = []
   const seen = new Set<string>()
   const key = (item: ShopItem) =>
@@ -328,14 +328,14 @@ export function packContents(state: RunState, pack: Pack, rng: Rng): ShopItem[] 
   for (let tries = 0; tries < pack.options * 6 && out.length < pack.options; tries++) {
     let item: ShopItem | null = null
     if (pack.id === "alphabet") item = rollPairing(state, rng)
-    else if (pack.id === "joker") {
-      // Weighted the same way the shelf is, so a joker pack is three more looks
+    else if (pack.id === "relic") {
+      // Weighted the same way the shelf is, so a relic pack is three more looks
       // at the same distribution rather than a back door to the dear ones.
-      const pool = JOKERS.filter((joker) => !seen.has(joker.id)).filter(
-        (joker) => !state.jokers.some((held) => held.id === joker.id),
+      const pool = RELICS.filter((relic) => !seen.has(relic.id)).filter(
+        (relic) => !state.relics.some((held) => held.id === relic.id),
       )
-      const joker = rollJoker(state, pool, rng)
-      item = joker ? jokerItem(joker) : null
+      const relic = rollRelic(state, pool, rng)
+      item = relic ? relicItem(relic) : null
     } else {
       const category = pick(rng, CATEGORIES)
       item = { kind: "level", id: category.id, cost: LEVEL_COST }
@@ -347,18 +347,18 @@ export function packContents(state: RunState, pack: Pack, rng: Rng): ShopItem[] 
   return out
 }
 
-const jokerItem = (joker: Joker): ShopItem => ({
-  kind: "joker",
-  id: joker.id,
-  cost: joker.cost,
+const relicItem = (relic: Relic): ShopItem => ({
+  kind: "relic",
+  id: relic.id,
+  cost: relic.cost,
 })
 
 /**
  * A fixed layout rather than four weighted rolls:
  *
  * ```
- *   slot 0   joker
- *   slot 1   joker — and the cap, never a third
+ *   slot 0   relic
+ *   slot 1   relic — and the cap, never a third
  *   slot 2   upgrade: an etching group, a slice level, a category level, or a card
  *   slot 3   letter: a modifier, or a card
  *   slot 4   a pack
@@ -375,7 +375,7 @@ const jokerItem = (joker: Joker): ShopItem => ({
  * the dedupe key dance existed to paper over. A layout that cannot deal a
  * duplicate does not need either, so both are gone.
  *
- * The two joker slots keep their fallback for the late run where every joker is
+ * The two relic slots keep their fallback for the late run where every relic is
  * already owned; they fall through to what the slot beside them would have sold.
  *
  * Slot 1 is also the only one the ascension ladder is allowed to take away, and
@@ -385,13 +385,13 @@ const jokerItem = (joker: Joker): ShopItem => ({
  */
 export function rollShop(state: RunState, rng: Rng, rerolls: number): ShopState {
   const pool = unowned(state)
-  const first = rollJoker(state, pool, rng)
-  const rest = first ? pool.filter((joker) => joker.id !== first.id) : pool
-  const second = rollJoker(state, rest, rng)
+  const first = rollRelic(state, pool, rng)
+  const rest = first ? pool.filter((relic) => relic.id !== first.id) : pool
+  const second = rollRelic(state, rest, rng)
   return {
     items: [
-      first ? jokerItem(first) : rollUpgrade(state, rng),
-      second ? jokerItem(second) : rollLetter(state, rng),
+      first ? relicItem(first) : rollUpgrade(state, rng),
+      second ? relicItem(second) : rollLetter(state, rng),
       rollUpgrade(state, rng),
       rollLetter(state, rng),
       rollPack(state, rng),

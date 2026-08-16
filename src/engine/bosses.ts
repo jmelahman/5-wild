@@ -1,19 +1,19 @@
-import { ANTES } from "../content/blinds"
 import { isVowel, LETTER_CHIPS } from "../content/letters"
+import { STAGES } from "../content/rounds"
 import { derive, shuffled } from "./rng"
 import { keepGreens } from "./rules"
-import type { BlindState, RunState, Tile } from "./state"
+import type { RoundState, RunState, Tile } from "./state"
 
 /**
- * Boss blinds. Each one attacks a specific pole of the deduction/greed tension
+ * Boss rounds. Each one attacks a specific pole of the deduction/greed tension
  * rather than just raising the target, so the counterplay differs every time:
  * some punish information-gathering, some punish farming.
  *
- * They are banded by ante, and the band is the load-bearing part. This used to
- * be eight bosses across eight antes drawn without replacement, so a run met
+ * They are banded by stage, and the band is the load-bearing part. This used to
+ * be eight bosses across eight stages drawn without replacement, so a run met
  * each exactly once — a nice property, and one that a ninth boss would have
  * silently deleted, turning the sequence into a random subset. Worse, it would
- * have let The Auditor, which caps the solve multiplier at ×2, land on ante 1
+ * have let The Auditor, which caps the solve multiplier at ×2, land on stage 1
  * where no build exists yet to survive it.
  *
  * So the draw is now without replacement *within a band*. A run meets three of
@@ -29,13 +29,13 @@ import type { BlindState, RunState, Tile } from "./state"
 export type BossTier = "early" | "mid" | "late"
 
 /**
- * Which antes each band owns. Late runs to `ANTES` rather than to 8 so that
- * lengthening the run cannot leave an ante without a band to draw from.
+ * Which stages each band owns. Late runs to `STAGES` rather than to 8 so that
+ * lengthening the run cannot leave an stage without a band to draw from.
  */
-export const TIER_ANTES: Record<BossTier, { first: number; last: number }> = {
+export const TIER_STAGES: Record<BossTier, { first: number; last: number }> = {
   early: { first: 1, last: 3 },
   mid: { first: 4, last: 6 },
-  late: { first: 7, last: ANTES },
+  late: { first: 7, last: STAGES },
 }
 
 export type Boss = {
@@ -59,9 +59,9 @@ export type Boss = {
    */
   note?: (tiles: readonly Tile[]) => string | null
   /** A rejection reason, or null to allow the guess. */
-  validate?: (word: string, blind: BlindState) => string | null
+  validate?: (word: string, round: RoundState) => string | null
   /** Bends a tile's base chip value. `index` is the column it was played in. */
-  tileChips?: (base: number, tile: Tile, blind: BlindState, index: number) => number
+  tileChips?: (base: number, tile: Tile, round: RoundState, index: number) => number
   /**
    * `tileChips` reads the column, so what a letter is worth is not a fact about
    * the letter. Declared rather than inferred because the UI is what needs to
@@ -70,7 +70,7 @@ export type Boss = {
    */
   positional?: true
   /**
-   * Letter modifiers do not fire this blind. A flag rather than a hook because
+   * Letter modifiers do not fire this round. A flag rather than a hook because
    * there is nothing to compute — the layer is simply switched off, and the one
    * place that decides whether to run a modifier is the one place that reads it.
    */
@@ -78,11 +78,11 @@ export type Boss = {
   /**
    * `timesMult` does nothing; mult may only be added. Same reasoning as
    * `noModifiers`, and it deliberately catches everything multiplicative at
-   * once — jokers, modifiers, category levels — rather than naming a source.
+   * once — relics, modifiers, category levels — rather than naming a source.
    */
   noTimesMult?: true
-  /** Rewrites the solve multiplier, jokers included. Applied last, so a cap caps. */
-  solveBonus?: (base: number, blind: BlindState) => number
+  /** Rewrites the solve multiplier, relics included. Applied last, so a cap caps. */
+  solveBonus?: (base: number, round: RoundState) => number
 }
 
 export const BOSSES: readonly Boss[] = [
@@ -96,12 +96,12 @@ export const BOSSES: readonly Boss[] = [
      * game — a mid-tier boss doing something harsher than anything in the late
      * band.
      *
-     * Two probes (AROSE, UNLIT) across 300 fresh blinds: yellow is the dominant
+     * Two probes (AROSE, UNLIT) across 300 fresh rounds: yellow is the dominant
      * signal at 1.17 tiles a guess against 0.38 green, so silencing it costs 35%
      * of what those probes banked — the mult base is only 1 + 1.17 + 3×0.38, and
      * a flat −1.17 is a third of it. That part is a fair price and stays.
      *
-     * The part that did not was the lie. On 95% of those blinds at least one
+     * The part that did not was the lie. On 95% of those rounds at least one
      * letter that *is* in the word read gray, so the ordinary Wordle inference —
      * gray means gone, never type it again — produced a wrong elimination. The
      * Fog and The Mirror lie too, but invertibly: under the Fog you know a gray
@@ -158,8 +158,8 @@ export const BOSSES: readonly Boss[] = [
     text: "Letters you have already used score no chips.",
     // The sharpest of the set: it forbids the repeat-letter probing that good
     // deduction leans on, so a scoring build has to carry the round.
-    tileChips: (base, tile, blind) => {
-      const spent = blind.guesses.some((g) => g.word.includes(tile.letter))
+    tileChips: (base, tile, round) => {
+      const spent = round.guesses.some((g) => g.word.includes(tile.letter))
       return spent ? 0 : base
     },
   },
@@ -185,7 +185,7 @@ export const BOSSES: readonly Boss[] = [
     tier: "late",
     name: "The Auditor",
     text: "Your solve multiplier is capped at ×2.",
-    // Every other blind can be won by banking a modest pile and cashing it in
+    // Every other round can be won by banking a modest pile and cashing it in
     // at ×5 or ×6. This one takes the cash-out away and asks whether the build
     // can actually reach the target on its own, which is the question the solve
     // bonus otherwise lets you avoid answering all run.
@@ -234,7 +234,7 @@ export const BOSSES: readonly Boss[] = [
     name: "The Famine",
     text: "Three guesses only.",
     // The Clock, late and meant it. Three guesses is barely a deduction at all,
-    // so this is the blind that asks whether the build can simply out-score the
+    // so this is the round that asks whether the build can simply out-score the
     // target — and it hands you a ×4 solve multiplier if you can do it at once.
     maxGuesses: 3,
   },
@@ -244,7 +244,7 @@ export const BOSSES: readonly Boss[] = [
     name: "The Rust",
     text: "Letter upgrades score nothing. Letters are worth only what they started as.",
     // Aimed squarely at the permanent upgrade line: a run that bought four
-    // etchings meets a blind where none of them exist. It reads `LETTER_CHIPS`
+    // etchings meets a round where none of them exist. It reads `LETTER_CHIPS`
     // rather than subtracting them, so it stays correct if the upgrade rules
     // ever change — the claim is "what the letter started as", not "minus what
     // you added". Which is why it caught alphabet range levels for free, and
@@ -264,13 +264,13 @@ export const BOSSES: readonly Boss[] = [
     // recoverable by a player who moves the heavy letters inward, which is the
     // counterplay — an early boss should teach a habit rather than tax one.
     //
-    // ×0.85 on the mean blind score over 250 seeds, which lands it exactly on
+    // ×0.85 on the mean round score over 250 seeds, which lands it exactly on
     // The Drought in the same band. Two early bosses that each cost a sixth of
     // the pile by refusing to pay for a different thing is the shape that band
     // is for.
     positional: true,
-    tileChips: (base, _tile, blind, index) =>
-      index === 0 || index === blind.answer.length - 1 ? 0 : base,
+    tileChips: (base, _tile, round, index) =>
+      index === 0 || index === round.answer.length - 1 ? 0 : base,
   },
   {
     id: "vandal",
@@ -279,9 +279,9 @@ export const BOSSES: readonly Boss[] = [
     text: "Letter modifiers do nothing.",
     // The etching line has The Rust; the modifier line had nothing, which left
     // the layer the run spends most of its shop money on unattackable. This is
-    // the counterpart, and mid rather than late on purpose: by ante 4 a run has
+    // the counterpart, and mid rather than late on purpose: by stage 4 a run has
     // two or three modifiers placed and the loss is felt, but it is not yet the
-    // whole build, so the blind reads as a setback instead of a wall.
+    // whole build, so the round reads as a setback instead of a wall.
     //
     // The bite scales with what the run actually bought, which is the property
     // worth having. Over 250 seeds it costs a board with one modifier ×0.60, two
@@ -302,7 +302,7 @@ export const BOSSES: readonly Boss[] = [
     // what does the build score when only the flat half fires? A run that bought
     // Masochist and Sunk Cost walks through it, which is the whole idea.
     //
-    // ×0.51 over 250 seeds against a tray holding one ×mult joker, which puts it
+    // ×0.51 over 250 seeds against a tray holding one ×mult relic, which puts it
     // level with The Auditor — the other late boss that takes a multiplier away
     // — and they take different ones, so a build cannot be safe from both.
     noTimesMult: true,
@@ -314,10 +314,10 @@ const BY_ID = new Map(BOSSES.map((boss) => [boss.id, boss]))
 export const getBoss = (id: string | null): Boss | undefined =>
   id === null ? undefined : BY_ID.get(id)
 
-/** The band an ante draws from. Anything past the last band stays in it. */
-export function tierForAnte(ante: number): BossTier {
-  if (ante <= TIER_ANTES.early.last) return "early"
-  if (ante <= TIER_ANTES.mid.last) return "mid"
+/** The band an stage draws from. Anything past the last band stays in it. */
+export function tierForStage(stage: number): BossTier {
+  if (stage <= TIER_STAGES.early.last) return "early"
+  if (stage <= TIER_STAGES.mid.last) return "mid"
   return "late"
 }
 
@@ -328,20 +328,20 @@ export const bossesIn = (tier: BossTier): readonly Boss[] =>
   BOSSES.filter((boss) => boss.tier === tier)
 
 /**
- * Draw without replacement *within the ante's band*, so a run never meets the
+ * Draw without replacement *within the stage's band*, so a run never meets the
  * same boss twice and never meets a late boss early.
  *
  * Each band gets its own RNG stream, keyed by the band name. Deriving a whole
- * band's order up front — rather than picking one boss per ante — keeps the
- * sequence stable if antes are ever skipped or replayed, and keying by name
+ * band's order up front — rather than picking one boss per stage — keeps the
+ * sequence stable if stages are ever skipped or replayed, and keying by name
  * rather than by index means adding a band cannot reshuffle the others.
  */
-export function bossForAnte(state: RunState): string {
-  const tier = tierForAnte(state.ante)
+export function bossForStage(state: RunState): string {
+  const tier = tierForStage(state.stage)
   const order = shuffled(derive(state.seed, "bosses", tier), bossesIn(tier))
-  // The offset within the band, so ante 4 takes the mid band's first boss
-  // rather than its fourth. Modulo covers a band with fewer bosses than antes.
-  const boss = order[(state.ante - TIER_ANTES[tier].first) % order.length]
+  // The offset within the band, so stage 4 takes the mid band's first boss
+  // rather than its fourth. Modulo covers a band with fewer bosses than stages.
+  const boss = order[(state.stage - TIER_STAGES[tier].first) % order.length]
   if (!boss) throw new Error(`no bosses in tier ${tier}`)
   return boss.id
 }

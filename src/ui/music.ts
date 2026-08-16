@@ -23,7 +23,7 @@ const TICK_MS = 60
 /** Eighth notes per bar. Everything here is in 4/4. */
 const STEPS_PER_BAR = 8
 
-export type Mood = "title" | "blind" | "boss" | "shop" | "over"
+export type Mood = "title" | "round" | "boss" | "shop" | "over"
 
 type Palette = {
   bpm: number
@@ -58,7 +58,7 @@ const PALETTES: Record<Mood, Palette> = {
     wave: "sine",
     gain: 0.05,
   },
-  blind: {
+  round: {
     bpm: 96,
     key: -12,
     scale: MINOR,
