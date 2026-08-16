@@ -45,6 +45,21 @@ once laid the board out at the fallback size — not with `reuseBoard` and not
 without it. A board misbehaving in the APK is a different bug wearing the same
 face.
 
+It was, and it is worth naming so the next one is not misfiled either. Blink
+flashed the board on the APK after every guess and every decor tap, and none of
+it was this: not the fallback size but the *pre-resolution* one, one frame at
+`width: 344px` / `font-size: 30.96px` against a correct 339.84 / 30.5859 at
+360×800, which is the `100%` branch of `min(100%, 100cqh * 5/6)` and the `45cqw`
+branch of the font — the container query resolving on the second pass, exactly as
+designed, and then being *transitioned into* rather than landed on because the
+reduced-motion block had armed a transition on every property in the document.
+`.grid-wrap` measured 407.81px on the good frames and the bad ones alike, so the
+container was never wrong and `reuseBoard` was never going to help; it keeps the
+box and replaces the `.grid` inside it. CPU speed was not a variable either — 6×
+throttling without the preference gave zero bad frames, 1× with it gave them. If
+the board flashes again, read `getAnimations()` on the bad frame before anything
+else: it named `width` and `font-size` on `.grid` outright.
+
 Mobile first: portrait, thumb-reachable, sheets rising from the bottom edge
 rather than centred. Anything with a `data-tip` gets the hover panel on a mouse
 and a long-press one on a finger, so a new affordance usually only needs the
@@ -55,18 +70,30 @@ and a gate built on that answer handed a thumb both halves at once — see
 `bindTips` for what that did to the panel. Anything the app has to ask about the
 *input* is worth distrusting; the queries about the screen are sound.
 
-The stylesheet answers `prefers-reduced-motion` with one blanket
-`animation-duration: 1ms !important`, and that rule is sharper than it looks: an
-animation with `forwards` fill is not calmed by it, it is *completed* by it, in
-the frame it starts. Any keyframe sequence ending at `opacity: 0` therefore
-deletes its element rather than slowing it. That took the refusal toast — the
-only channel the game has for saying no — and every `+chips +mult` badge in a
-cascade, all reading 0.00 for their whole lives on any phone with "Remove
-animations" switched on, which the APK's WebView passes straight through. So:
-if an animation carries information rather than decorating it, own its lifetime
-in JS and leave CSS only the fade, or carve it out of the block by name. Both
-patterns are in the file — see `TOAST` in `app.ts` and the `.floater, .tile-gain`
-exception at the foot of the stylesheet.
+The stylesheet answers `prefers-reduced-motion` with one blanket block, and that
+block is the single most expensive thing in the file to get wrong, because the
+APK's WebView passes Android's "Remove animations" straight through and no
+desktop browser has it set. Three separate bugs have come out of it, all the same
+mistake: it once said `animation-duration: 1ms` and `transition-duration: 1ms`,
+and a duration short enough to look like stillness is still a duration.
+
+An animation with `forwards` fill is not calmed by 1ms, it is *completed* by it,
+in the frame it starts, so any keyframe sequence ending at `opacity: 0` deletes
+its element rather than slowing it — that took the refusal toast and every
+`+chips +mult` badge in a cascade. An animation with a delay keeps the delay, so
+`.shop-item`'s 70ms-per-card stagger held five `backwards`-filled cards at
+`opacity: 0` for up to 280ms with no animation left to explain it. And a
+*transition* duration on `*` does not shorten the transitions this file writes —
+every one of those names its properties — it lands beside an untouched
+`transition-property: all` and arms a transition on every element and every
+property in the document, which is what the board flash below turned out to be.
+
+So the block now says `animation: none` and `transition: none`, and the standing
+rule is that it must stop motion rather than compress it. If an animation carries
+information rather than decorating it, own its lifetime in JS and leave CSS only
+the fade — see `TOAST` in `app.ts`. If killing it drops something the keyframes
+were the only source of, carve it out by name — see `.floater, .tile-gain`, whose
+horizontal centring lives nowhere but its `-50%`.
 
 The same render that `reuseBoard` protects can be defeated by a class. It keeps
 the container only when the live screen and the new one are the same kind, and a

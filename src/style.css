@@ -2971,9 +2971,14 @@ button {
 }
 
 /*
- * A blanket kill-switch has to outrank every animation shorthand in the file,
- * and it is deliberately the last word on the subject — this is the one place
- * `!important` is the correct tool rather than a workaround.
+ * A blanket kill-switch has to outrank every animation and transition shorthand
+ * in the file, and it is deliberately the last word on the subject — this is the
+ * one place `!important` is the correct tool rather than a workaround.
+ *
+ * What it must not do is compress motion instead of stopping it. Both rules
+ * below say `none` for the same reason, spelled out at each: a duration short
+ * enough to look like stillness is still a duration, and the engine will spend a
+ * frame on it. See the APK flashes it cost.
  */
 @media (prefers-reduced-motion: reduce) {
   /*
@@ -2985,42 +2990,117 @@ button {
   *,
   *::before,
   *::after {
+    /*
+     * `none`, not `1ms`.
+     *
+     * This was `animation-duration: 1ms` plus `animation-iteration-count: 1`,
+     * which is the snippet everyone ships, and it does not mean "still". A 1ms
+     * animation is not skipped — it is sampled once, at t=0, and 0% of a
+     * keyframe list is its `from` state. So a duration of 1ms buys exactly one
+     * painted frame of the starting pose and then a jump to the resting one,
+     * which is a glitch where there used to be a movement.
+     *
+     * Seven of the twelve animations in this file are `from {}`-shaped and were
+     * all doing it: `rise-sheet` opens every sheet from `translateY(1.5rem)`, so
+     * the pause sheet painted at y=426 and snapped to 402 and the quit sheet at
+     * 561.1 snapped to 537.1 — a 24px jump each, twice on the way out of a run,
+     * which is what "quitting mid-guess flashes" turned out to be. `deal` starts
+     * at `opacity: 0` 12px low, `token` at 0.7 scale and 25 degrees over,
+     * `coach-in` 6px low, `land` at 0.86, `fade` transparent. The five that
+     * survived — `pop`, `flip`, `shake`, `sheen`, `coach-mark` — are the ones
+     * whose keyframes start where they end, so one frame at 0% is one frame of
+     * nothing happening. That is the whole difference, and it is not a property
+     * of the duration.
+     *
+     * The shorthand also does what the longhand could not reach. A duration says
+     * nothing about a delay or a fill, and `.shop-item` has both: `deal` with
+     * `backwards` and `animation-delay: calc(var(--deal) * 70ms)`. Under the old
+     * rule a five-card shop computed `delay=0.28s fill=backwards dur=0.001s` on
+     * its last card and held every card at `opacity: 0` until its own delay ran
+     * out — measured 0.00 across all five at t=9ms, and the fifth still 0.00 at
+     * t=259ms — so the one setting a player turns on to stop things moving got
+     * them a shop that appeared a card at a time over 280ms with no animation to
+     * explain why. `none` resets the delay and the fill with the name, and the
+     * shop is simply there.
+     *
+     * The iteration count is gone rather than kept: the reason it was here was
+     * that the legendary sheen loops forever and a 1ms loop is a strobe, and
+     * `animation: none` reaches the sheen without needing the count at all.
+     *
+     * Nothing in the app reads `getAnimations()` or listens for `animationend`
+     * — the usual argument for a nonzero duration — so there is nothing left to
+     * keep alive.
+     */
     /* biome-ignore lint/complexity/noImportantStyles: must override every animation shorthand above */
-    animation-duration: 1ms !important;
-    /* The count matters as much as the duration: the legendary sheen loops
-       forever, and a 1ms loop is not stillness, it is a strobe — the exact
-       thing this block exists to prevent. */
-    /* biome-ignore lint/complexity/noImportantStyles: a 1ms infinite animation is a strobe */
-    animation-iteration-count: 1 !important;
+    animation: none !important;
+    /*
+     * And `transition: none`, which is the same mistake with a much longer
+     * reach, because `transition-property` initially means `all`.
+     *
+     * Every transition written in this file names its properties. None of them
+     * says `all`. But a bare `transition-duration` does not shorten those — it
+     * lands on `*` next to an untouched `transition-property: all` and *arms* a
+     * transition on every element in the document, on every animatable
+     * property, most of which no rule here ever asked to animate. The board is
+     * where that bill came due. `.grid` sizes itself in `cqh`/`cqw` against
+     * `.grid-wrap`, and container query units resolve in a second style pass —
+     * the element is laid out once with the units unresolved and restyled once
+     * the container's size is known. That restyle is a style change like any
+     * other, so with a transition armed the engine transitioned *into* the
+     * correct size instead of being born at it, and a 1ms transition still owns
+     * a whole frame at its start value.
+     *
+     * Measured at 360x800 with the preference set: for one frame after every
+     * render, `.grid` was 344px wide at `font-size: 30.96px` rather than
+     * 339.84px at 30.5859px — 344 is the `100%` branch of `min(100%, 100cqh *
+     * 5/6)` and 30.96 is the `45cqw/5` branch, i.e. exactly the pre-resolution
+     * pass — overflowing a `.grid-wrap` that measured 407.81px on the bad frame
+     * and the good one alike. `getAnimations()` on that frame named the culprit
+     * outright: `width` and `font-size`, running, on `.grid`. Three decor taps
+     * produced three bad frames and a guess produced one; with this rule, zero
+     * of each. Without the preference the same runs never missed, because
+     * `transition-duration` is 0s there and no transition object is ever built.
+     *
+     * That is the whole of "the board flashes after guessing and after the
+     * decoration toggle, but only in the APK": Android's "Remove animations"
+     * passes `prefers-reduced-motion` straight through to the WebView, and a
+     * desktop browser without the preference set cannot reproduce any of it. It
+     * is not CPU speed — 6x throttling without the preference produced zero bad
+     * frames, and 1x with it produced them — and it is not `reuseBoard`, which
+     * keeps the `.grid-wrap` box but replaces the `.grid` inside it, so the
+     * element being transitioned is new on every render regardless.
+     */
     /* biome-ignore lint/complexity/noImportantStyles: must override every transition shorthand above */
-    transition-duration: 1ms !important;
+    transition: none !important;
   }
 
   /*
-   * The two animations that are not decoration.
+   * The two animations that are not decoration, and the one thing killing an
+   * animation cannot hand back on its own.
    *
-   * Everything else in this file animates something already on screen and
-   * survives being flattened. These two *carry* a number — what one tile paid,
-   * and what the guess paid — and they are the only keyframes left that end at
-   * `opacity: 0`. Flattened, the rule above runs them to that last frame in a
-   * millisecond and `forwards` pins them there, so every `+chips +mult` badge
-   * in a cascade reads 0.00 for its whole life: measured, all of them, with the
-   * preference set. Turning animations off should not cost a player the scoring
-   * breakdown — that is the half of the game the coaching exists to teach.
+   * Everything else in this file animates something already on screen. These
+   * two *carry* a number — what one tile paid, and what the guess paid — and
+   * they are the only keyframes here that end at `opacity: 0`. That is what
+   * made them the first casualty of the old `animation-duration: 1ms`: run to
+   * their last frame in a millisecond and pinned there by `forwards`, every
+   * `+chips +mult` badge in a cascade read 0.00 for its whole life, measured,
+   * all of them, with the preference set. Turning animations off should not cost
+   * a player the scoring breakdown — that is the half of the game the coaching
+   * exists to teach. `animation: none` above now stills these along with
+   * everything else, so that part is answered by the blanket rule; they are
+   * named here for what it does not answer.
    *
-   * So they are stilled rather than sped up. Neither depends on the animation to
-   * leave: `floater` and `tileGain` each remove their node on a timer, 900ms and
-   * `GAIN`, so what the keyframes contributed was the drift and the fade and
-   * nothing else. What they also contributed, and it is easy to miss, is the
-   * horizontal centring — both are placed by a `left` that marks their middle,
-   * and every frame of both carries the `-50%` that makes that true. Killing the
-   * animation has to hand that back or the badge sits a half-width right of the
-   * tile it is announcing.
+   * Neither depends on the animation to leave: `floater` and `tileGain` each
+   * remove their node on a timer, 900ms and `GAIN`, so what the keyframes
+   * contributed was the drift and the fade and nothing else. What they also
+   * contributed, and it is easy to miss, is the horizontal centring — both are
+   * placed by a `left` that marks their middle, and every frame of both carries
+   * the `-50%` that makes that true. It lives nowhere but the keyframes, so
+   * killing the animation has to hand it back or the badge sits a half-width
+   * right of the tile it is announcing.
    */
   .floater,
   .tile-gain {
-    /* biome-ignore lint/complexity/noImportantStyles: must outrank the duration above, which would otherwise still run these to their invisible last frame */
-    animation: none !important;
     transform: translateX(-50%);
   }
 }
