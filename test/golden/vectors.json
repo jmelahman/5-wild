@@ -3,7 +3,7 @@
     "name": "greedy-solver",
     "covers": "the solve bonus at its largest, and a shop purchase every time one is affordable",
     "seed": 1,
-    "contentVersion": 18,
+    "contentVersion": 19,
     "actions": [
       {
         "type": "type_letter",
@@ -1087,7 +1087,7 @@
     "name": "chip-farmer",
     "covers": "grays scoring, the guess budget spent down to one, and the solve bonus at its smallest",
     "seed": 7,
-    "contentVersion": 18,
+    "contentVersion": 19,
     "actions": [
       {
         "type": "type_letter",
@@ -1304,7 +1304,7 @@
     "name": "banker",
     "covers": "a pile banked and then multiplied — the line the scoring rule exists for",
     "seed": 2024,
-    "contentVersion": 18,
+    "contentVersion": 19,
     "actions": [
       {
         "type": "type_letter",
@@ -1763,7 +1763,7 @@
     "name": "never-solves",
     "covers": "running a round out of guesses, and the run ending in defeat",
     "seed": 42,
-    "contentVersion": 18,
+    "contentVersion": 19,
     "actions": [
       {
         "type": "type_letter",
@@ -1980,7 +1980,7 @@
     "name": "shopkeeper",
     "covers": "reroll, sell, consumables used rather than hoarded, and a corrected draft",
     "seed": 1234,
-    "contentVersion": 18,
+    "contentVersion": 19,
     "actions": [
       {
         "type": "type_letter",
@@ -2478,7 +2478,7 @@
     "name": "letter-smith",
     "covers": "letter modifiers bought, and then landed on tiles often enough to score",
     "seed": 9,
-    "contentVersion": 18,
+    "contentVersion": 19,
     "actions": [
       {
         "type": "type_letter",
@@ -2660,14 +2660,6 @@
         "letter": "e"
       },
       {
-        "type": "buy",
-        "index": 1
-      },
-      {
-        "type": "buy",
-        "index": 2
-      },
-      {
         "type": "next_round"
       },
       {
@@ -2780,7 +2772,11 @@
       },
       {
         "type": "buy",
-        "index": 0
+        "index": 3
+      },
+      {
+        "type": "place_mod",
+        "letter": "e"
       },
       {
         "type": "next_round"
@@ -2875,9 +2871,9 @@
           "round": 2,
           "word": "eerie",
           "chips": 5,
-          "mult": 19,
+          "mult": 31,
           "solveBonus": 1,
-          "score": 95
+          "score": 155
         },
         {
           "stage": 1,
@@ -2893,36 +2889,36 @@
           "round": 0,
           "word": "eerie",
           "chips": 5,
-          "mult": 19,
+          "mult": 28,
           "solveBonus": 1,
-          "score": 95
+          "score": 140
         },
         {
           "stage": 2,
           "round": 0,
           "word": "harry",
           "chips": 11,
-          "mult": 24,
+          "mult": 16,
           "solveBonus": 5,
-          "score": 264
+          "score": 176
         },
         {
           "stage": 2,
           "round": 1,
           "word": "eerie",
           "chips": 5,
-          "mult": 16,
+          "mult": 25,
           "solveBonus": 1,
-          "score": 80
+          "score": 125
         },
         {
           "stage": 2,
           "round": 1,
           "word": "candy",
           "chips": 11,
-          "mult": 29,
+          "mult": 24,
           "solveBonus": 5,
-          "score": 319
+          "score": 264
         },
         {
           "stage": 2,
@@ -2938,9 +2934,9 @@
           "round": 2,
           "word": "among",
           "chips": 8,
-          "mult": 36,
+          "mult": 31,
           "solveBonus": 5,
-          "score": 288
+          "score": 248
         }
       ],
       "gold": [
@@ -2965,27 +2961,15 @@
           "reason": "reroll"
         },
         {
-          "delta": -9,
+          "delta": -8,
           "reason": "purchase"
         },
         {
-          "delta": 6,
-          "reason": "scoring"
-        },
-        {
-          "delta": 10,
+          "delta": 9,
           "reason": "round cleared"
         },
         {
           "delta": -9,
-          "reason": "purchase"
-        },
-        {
-          "delta": -4,
-          "reason": "purchase"
-        },
-        {
-          "delta": -3,
           "reason": "purchase"
         },
         {
@@ -3005,8 +2989,12 @@
           "reason": "reroll"
         },
         {
-          "delta": -6,
+          "delta": -9,
           "reason": "purchase"
+        },
+        {
+          "delta": 2,
+          "reason": "scoring"
         }
       ],
       "rewards": [
@@ -3025,8 +3013,8 @@
         {
           "base": 5,
           "unusedGuesses": 4,
-          "interest": 1,
-          "total": 10
+          "interest": 0,
+          "total": 9
         },
         {
           "base": 3,
@@ -3047,13 +3035,11 @@
       "finalGold": 2,
       "relics": [
         "head_start",
-        "consonant_cluster",
-        "slow_burn",
-        "qs_bargain"
+        "consonant_cluster"
       ],
       "etched": [],
       "mods": [
-        "e:anchor"
+        "e:gold"
       ],
       "levels": [],
       "ranges": [],
@@ -3065,7 +3051,7 @@
     "name": "leveller",
     "covers": "category levels bought, stacked, and paid out on the guesses that match them",
     "seed": 77,
-    "contentVersion": 18,
+    "contentVersion": 19,
     "actions": [
       {
         "type": "type_letter",
@@ -4548,7 +4534,7 @@
     "name": "etcher",
     "covers": "alphabet range levels and etchings stacking on the same letters",
     "seed": 21,
-    "contentVersion": 18,
+    "contentVersion": 19,
     "actions": [
       {
         "type": "type_letter",
@@ -6391,7 +6377,7 @@
     "name": "pack-opener",
     "covers": "packs bought, held open across the shop, and chosen from",
     "seed": 5,
-    "contentVersion": 18,
+    "contentVersion": 19,
     "actions": [
       {
         "type": "type_letter",
@@ -7658,7 +7644,7 @@
     "covers": "the whole written ascension ladder: guesses filtered by the run's rules, targets and payouts bent by them, every round solved",
     "seed": 13,
     "ascension": 10,
-    "contentVersion": 18,
+    "contentVersion": 19,
     "actions": [
       {
         "type": "type_letter",
@@ -9195,7 +9181,7 @@
     "covers": "a rung above the written ladder: targets compounded by the endless step",
     "seed": 20,
     "ascension": 14,
-    "contentVersion": 18,
+    "contentVersion": 19,
     "actions": [
       {
         "type": "type_letter",

@@ -213,11 +213,11 @@ export const MODIFIERS: readonly Modifier[] = [
   {
     id: "anchor",
     name: "Anchor",
-    text: "scores +250 chips when it lands green",
+    text: "scores +125 chips when it lands green",
     pip: "⚓",
-    rarity: "uncommon",
-    cost: 5,
-    choiceCost: 9,
+    rarity: "rare",
+    cost: 8,
+    choiceCost: 12,
     // Wild's opposite number, deliberately: Wild pays most on the guess that
     // went worst, this pays only on the letter you have already nailed. Both
     // sides of the colour line are now purchasable.
@@ -226,13 +226,27 @@ export const MODIFIERS: readonly Modifier[] = [
     // rewards re-typing a letter you have locked — which The Tyrant compels and
     // The Miser forbids, so the same card swings hard either way.
     //
-    // Priced the same way as Echo, off the same measurement: only 8.8% of tiles
-    // land green, which left +50 worth 0.17 chips a gold. +250 brings the
-    // average to 0.84 and makes Anchor on S the single best modifier buy in the
-    // game — which is the whole idea, since the letter it sits on is printed on
-    // the card and reading it is the decision the slot is there to ask for.
+    // +250 was priced off "only 8.8% of tiles land green", and that number is
+    // right about the wrong sample. Across 17,018 recorded guesses it holds for
+    // guesses that did not solve — 8.4% of 56,440 tiles — but the guess that
+    // *wins* a round is five greens by definition, and those are another 28,650
+    // tiles. Counting the win, an E is green on 44% of its tiles, not 8.8%, and
+    // the card was sized against a fifth of its own firing rate.
+    //
+    // What that bought: +250 on E paid 3,633 points a guess against a 5,903
+    // baseline, 404 a gold — 3.3x Glass, the best rare, and its *mean over all
+    // 26 letters* still beat every other card's best letter. Strike the solving
+    // guess and it measures 767 against Glass's 802, which is what an uncommon
+    // ought to look like; every bit of the excess was the win, and the win is
+    // the highest-leverage guess there is because the solve bonus multiplies the
+    // round after it lands.
+    //
+    // So +125 at the rare band: 1,810 a guess, 151 a gold against Glass's 123.
+    // Still the best modifier in the game, which the letter spread is the reason
+    // for — e 3,633 down to q 57 at the old number, a 64x spread that the cut
+    // leaves untouched. Reading the letter is still the whole decision.
     onTile: (ctx, tile) => {
-      if (tile.color === "green") ctx.addChips(250)
+      if (tile.color === "green") ctx.addChips(125)
     },
   },
   {

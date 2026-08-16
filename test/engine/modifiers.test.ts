@@ -173,11 +173,25 @@ describe("buying a modifier", () => {
 
   it("Anchor pays only where the letter lands green", () => {
     // Against BRAID, CRANE puts R and A in their right places and everything
-    // else wrong — so the same card is worth +250 on R and nothing on C. The
-    // gap between those two numbers is the card: what it is worth depends on
-    // the letter it was sold on, not on the price it was sold at.
-    expect(play("r", "anchor", "crane").last).toMatchObject({ chips: 257, mult: 7 })
-    expect(play("c", "anchor", "crane").last).toMatchObject({ chips: 7, mult: 7 })
+    // else wrong — so the same card is worth a pile on R and nothing at all on
+    // C. The gap between those two is the card: what it is worth depends on the
+    // letter it was sold on, not on the price it was sold at.
+    //
+    // Read as a shape rather than as two totals. How big the pile is has been
+    // repriced twice and the golden vectors are what pin it; what belongs here
+    // is that a green tile pays and a gray one is indistinguishable from having
+    // bought nothing.
+    const plain = apply(startRun(1, words).state, type("crane")).round.guesses[0]
+    if (!plain) throw new Error("no guess was scored")
+
+    const onGreen = play("r", "anchor", "crane").last
+    expect(onGreen.chips).toBeGreaterThan(plain.chips)
+    expect(onGreen.mult).toBe(plain.mult)
+
+    expect(play("c", "anchor", "crane").last).toMatchObject({
+      chips: plain.chips,
+      mult: plain.mult,
+    })
   })
 
   it("Echo pays on every copy of a letter the word repeats", () => {

@@ -65,19 +65,43 @@ const UPGRADE_TABLE = [
 const LETTER_TABLE = ["mod", "mod", "mod", "consumable"] as const
 
 /**
- * Which modifier a modifier slot offers. Weighted rather than uniform: the two
- * ×mult ones are the build-defining pair and should feel like a find, not like
- * the default stock.
+ * Which modifier a modifier slot offers. Weighted rather than uniform: the
+ * build-defining ones should feel like a find, not like the default stock.
+ *
+ * `Modifier.rarity` cannot do this job, which is worth stating plainly because
+ * the relic line next door reads as though it could. Relics draw their tier
+ * first out of `rarityBag` and then a card within it; modifiers draw straight
+ * out of this bag, so for a modifier `rarity` is a label the shelf paints the
+ * card with and nothing else. A card is exactly as rare as its entries here.
+ *
+ * Ordered by what the cards measure rather than by what they are labelled,
+ * because the two had drifted apart. Anchor sat at one entry — the same rate as
+ * the two ×mult rares — while wearing "uncommon" and paying 3.3x the best of
+ * them; that half is fixed on the card. What is fixed here is the other half:
+ * the strong three are 3 in 16 now rather than 3 in 11, and the cheap reliable
+ * ones fill the gap.
+ *
+ * Wild is deliberately *not* among the ones made commoner. It pays at most +3
+ * mult and only on a tile that did not land green, against Mult's flat +4 on
+ * every tile for a gold less and a tier down — a card strictly dominated by a
+ * common, measured at 85 points a guess against Mult's 305. Dealing it more
+ * often would only spend more slots on it. It wants a number, not a weight, and
+ * that is its own pass.
  */
 const MOD_TABLE: readonly ModId[] = [
   "chip",
   "chip",
+  "chip",
+  "mult",
   "mult",
   "mult",
   "gold",
-  "wild",
+  "gold",
+  "lucky",
   "lucky",
   "echo",
+  "echo",
+  "wild",
   "anchor",
   "steel",
   "glass",
