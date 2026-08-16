@@ -47,18 +47,16 @@ import {
  */
 const SAVE_KEY = "5wild:run:v2"
 
-/** Set the first time the rules have been shown, so they only interrupt once. */
-const HELP_KEY = "5wild:seen-help"
-
 /**
  * Set once the first round has been coached, or the coaching waved off.
  *
- * A second key rather than a second meaning for `HELP_KEY`, because the two are
- * spent at different moments and one of them can be spent without the other
- * having happened: the rules sheet is closed at the title screen, possibly
- * before a run exists at all, and the coaching is only finished by playing three
- * guesses. Folding them together would silence the board's half for anyone who
- * had ever opened the menu.
+ * The last of the "has been here before" flags. `5wild:seen-help` used to sit
+ * beside it, holding that the rules sheet had already interrupted a first
+ * launch, and the two were deliberately kept apart because a sheet closed at the
+ * title screen is not a round played. Then the sheet stopped interrupting
+ * anything (see `start`), which left that key recording an event that no longer
+ * happens. This is the one worth keeping: it is spent by playing, which is the
+ * only evidence that the teaching landed.
  */
 const COACH_KEY = "5wild:coached"
 
@@ -199,12 +197,15 @@ export class App {
 
   start(): void {
     if (this.atTitle) {
-      // First launch ever: lead with the rules rather than waiting to be asked.
-      // Nothing about this game's scoring is guessable from a Wordle board.
-      if (!seenHelp()) {
-        this.overlay = "help"
-        markHelpSeen()
-      }
+      // Nothing opens on top of this screen. The rules sheet used to, once per
+      // install behind a `5wild:seen-help` flag, on the grounds that none of this
+      // game's scoring is guessable from a Wordle board. That is still true — but
+      // the sheet was answering it here, before a board existed, naming a mult to
+      // someone who had never seen one, and the coaching now says that half a beat
+      // at a time with the live number beside it. What the sheet still owns is the
+      // run — shops, bosses, ascensions — which was being read even further ahead
+      // of itself, and which sits one tap away under "How to play" on this screen
+      // and in the pause menu.
       this.render()
       return
     }
@@ -968,7 +969,6 @@ export class App {
     },
     openHelp: () => {
       this.overlay = "help"
-      markHelpSeen()
       this.render()
     },
     // Spent rather than dismissed: a card that came back on the next keystroke
@@ -1419,30 +1419,13 @@ function setDecor(decor: Decor): void {
   }
 }
 
-function seenHelp(): boolean {
-  try {
-    return localStorage.getItem(HELP_KEY) === "1"
-  } catch {
-    // A blocked store means the rules show every launch, which is the safe way
-    // to be wrong about it.
-    return false
-  }
-}
-
-function markHelpSeen(): void {
-  try {
-    localStorage.setItem(HELP_KEY, "1")
-  } catch {
-    // See above.
-  }
-}
-
 function seenCoach(): boolean {
   try {
     return localStorage.getItem(COACH_KEY) === "1"
   } catch {
-    // Same trade as `seenHelp`, and cheaper here: being wrong costs a returning
-    // player five short cards on the first round of a run and nothing after.
+    // A blocked store means the coaching runs again, which is the safe way to be
+    // wrong about it: it costs a returning player five short cards on the first
+    // round of a run and nothing after.
     return false
   }
 }
