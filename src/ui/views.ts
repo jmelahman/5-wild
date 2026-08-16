@@ -1539,7 +1539,7 @@ function ladder(on: Handlers, meta: MetaState): HTMLElement {
             {
               class: "ladder-step shut",
               type: "button",
-              "aria-label": `Skip ahead to ascension ${level + 1}`,
+              "aria-label": `Skip to ascension ${level + 1}`,
               onclick: () => on.askAscend(level + 1),
             },
             "🔒",
@@ -1581,14 +1581,21 @@ function ladder(on: Handlers, meta: MetaState): HTMLElement {
 /**
  * The lock, opened.
  *
- * It grants what it warns about, and the wording has to carry both without
- * hedging: what has not been beaten, what would be taken on instead, why the
- * order exists, and out. Four short lines, because a sheet that stands between a
- * player and a button they have already decided to press earns its place by
- * being read, and the longer version of this was skimmed. The button says
- * "anyway" because that is the honest name for the thing being pressed, and the
- * way out says "Back" rather than naming the climb — the sheet has made its
- * case, and repeating it in the button is the screen getting the last word.
+ * Three lines: what this rung does, that it is not the recommended way in, and
+ * that it costs nothing to try. A sheet standing between a player and a button
+ * they have already decided to press earns its place by being read, and every
+ * version of this that argued its case at length was skimmed instead.
+ *
+ * What is gone is the line naming the rung that has not been beaten. It was true
+ * and it was the wrong sentence for this sheet: the ladder behind it already
+ * says which level that is, twice — in the note under the dial and on the lock
+ * itself — and repeating it here made the sheet open by telling the player what
+ * they have failed to do. The advice does the same work forwards.
+ *
+ * "Recommended" rather than an argument about tuning, for the same reason. It is
+ * what the sentence actually means, a player can weigh it in the time it takes
+ * to read, and the button beside it says "anyway" — which is the honest name for
+ * the thing being pressed and carries the rest of the warning on its own.
  *
  * No disabled state, no delay, no second confirmation — the game already decided
  * a player may start anywhere, and a sheet that grudges the permission it is
@@ -1606,28 +1613,22 @@ function ladder(on: Handlers, meta: MetaState): HTMLElement {
  */
 export function ascendView(level: number, on: Handlers): HTMLElement {
   const rule = ascensionAt(level)
-  const below = level - 1
   return overlay(
     on,
-    h("h2", { class: "sheet-title" }, `Start at ascension ${level}?`),
+    h("h2", { class: "sheet-title" }, `Skip to ascension ${level}?`),
     h(
       "div",
       { class: "sheet-body" },
-      h(
-        "p",
-        { class: "sheet-lead" },
-        below === 0 ? "No run has been won yet." : `Ascension ${below} hasn't been beaten yet.`,
-      ),
       rule
         ? h(
             "p",
-            {},
+            { class: "sheet-lead" },
             h("strong", {}, `${rule.name}: `),
             rule.text,
             level > 1 ? " Plus every rule below it." : "",
           )
         : null,
-      h("p", {}, "Rungs are meant to be climbed one at a time. Skipped, they arrive together."),
+      h("p", {}, "It is recommended to win before skipping to a higher ascension."),
       // Said plainly, because the record is the thing a player might reasonably
       // fear they are spending here, and they are not: the leap changes the next
       // run, and nothing about what has already been won.
@@ -1639,7 +1640,7 @@ export function ascendView(level: number, on: Handlers): HTMLElement {
       h(
         "button",
         { class: "danger", type: "button", onclick: () => on.ascend() },
-        `Start at ${level} anyway`,
+        `Skip to ${level} anyway`,
       ),
       h("button", { class: "primary", type: "button", onclick: () => on.closeOverlay() }, "Back"),
     ),
