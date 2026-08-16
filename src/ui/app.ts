@@ -739,11 +739,12 @@ export class App {
    * somewhere a player can reach mid-round.
    *
    * Hover is the desktop half. Touch gets `bindHeldTips`, because there is no
-   * hovering a phone and because the keys — unlike the tray — do something when
-   * you tap them.
+   * hovering a phone. The keyboard gets `bindFocusTips`, because it has neither
+   * gesture and the tray is otherwise a row of cards it can reach and not read.
    */
   private bindTips(): void {
     this.bindHeldTips()
+    this.bindFocusTips()
     if (!window.matchMedia?.("(hover: hover)").matches) return
     this.root.addEventListener("pointerover", (event) => {
       const target = event.target
@@ -812,6 +813,40 @@ export class App {
       },
       true,
     )
+  }
+
+  /**
+   * Tab to a thing, read what it does.
+   *
+   * The tray's cards are not pressable — a relic is a card you consult, not a
+   * button — so landing on one is the only way a keyboard has of asking, and
+   * this is the answer. Bound to `data-tip` like the other two halves rather
+   * than to the tray, because a key tabbed to asks the same question and the
+   * sentence is already hanging on it.
+   *
+   * `:focus-visible` rather than plain focus is the whole subtlety here. A click
+   * and a tap both focus what they hit, so without the guard a mouse would get
+   * the tip twice over and a thumb would get one it could not put down: the
+   * board patches rather than rebuilds while a word is being typed, so a tip
+   * pinned by a tap on a key would sit over the round until the guess landed.
+   * The browser already tracks whether the keyboard is what put focus there, and
+   * this is that answer rather than a second guess at it.
+   */
+  private bindFocusTips(): void {
+    this.root.addEventListener("focusin", (event) => {
+      const target = event.target
+      if (!(target instanceof HTMLElement) || !target.matches(":focus-visible")) return
+      const host = target.closest<HTMLElement>("[data-tip]")
+      if (host) this.showTip(host)
+    })
+    // Only the tip that belongs to what is leaving. A pointer resting on a card
+    // while the keyboard tabs away from something else is still hovering it, and
+    // an unconditional clear here would take that panel down with the other one.
+    this.root.addEventListener("focusout", (event) => {
+      const target = event.target
+      const host = target instanceof Element ? target.closest<HTMLElement>("[data-tip]") : null
+      if (host && host === this.hovered) this.showTip(null)
+    })
   }
 
   private showTip(host: HTMLElement | null): void {
@@ -937,7 +972,6 @@ export class App {
       this.profile.chose(level)
       this.render()
     },
-    inspect: (text) => this.toast(text),
     play: () => {
       this.intro = false
       this.render()
@@ -1312,8 +1346,17 @@ export class App {
       // that got this far", because Tab gets this far too, and blurring on the
       // way past would drop the tab order back to the top of the document at the
       // exact moment the player was trying to walk it.
+      //
+      // A card tabbed to for its tip is the same statement read the other way.
+      // The tip goes down with the focus that opened it, and it has to: a guess
+      // typed a letter at a time never rebuilds the screen — see `patchDraft` —
+      // so a panel left open over the board would stay there until Enter.
       const typing = event.key === "Backspace" || /^[a-zA-Z]$/.test(event.key)
-      if (typing && active instanceof HTMLElement && active.hasAttribute("data-focus")) {
+      if (
+        typing &&
+        active instanceof HTMLElement &&
+        (active.hasAttribute("data-focus") || active.hasAttribute("data-tip"))
+      ) {
         active.blur()
       }
       // Through the handlers rather than straight to `dispatch`, so a typed

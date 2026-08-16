@@ -93,7 +93,6 @@ export type Handlers = {
   newRun: () => void
   /** The difficulty the *next* run starts at. Nothing in flight can hear this. */
   setAscension: (level: number) => void
-  inspect: (text: string) => void
   play: () => void
   mute: () => void
   toggleMusic: () => void
@@ -321,7 +320,7 @@ function hud(state: RunState, on: Handlers): HTMLElement {
 export const meterFill = (score: number, target: number): number =>
   target > 0 ? Math.min(1, score / target) : 1
 
-function relicRow(state: RunState, on: Handlers): HTMLElement {
+function relicRow(state: RunState): HTMLElement {
   // The tray draws as many seats as the run actually has, so ascension 8 reads
   // as four slots rather than as a fifth that silently refuses every purchase.
   const slots = Array.from({ length: difficultyOf(state).relicSlots }, (_, slot) => {
@@ -333,8 +332,18 @@ function relicRow(state: RunState, on: Handlers): HTMLElement {
     // say so is a card the player cannot plan around, so it goes on the face
     // rather than only in the tip.
     const detail = relic.detail?.(instance)
+    // A card to read, not a control to press. It answered a tap with its own
+    // text in a toast, which is a message across the board for a thumb that only
+    // brushed the tray on its way to the keyboard, and which said what the tip
+    // beside the card says anyway — the tip being the better half of the two,
+    // since it arrives next to the thing it is about instead of over the round.
+    //
+    // So no handler, and a `tabindex` rather than a button: a button that does
+    // nothing when pressed offers the keyboard a press worth making and then
+    // takes it back. What is left is a stop on the tab order, and the tip shows
+    // itself on focus — see `bindTips`.
     return h(
-      "button",
+      "div",
       {
         class: `relic rarity-${relic.rarity}`,
         "data-slot": slot,
@@ -344,8 +353,11 @@ function relicRow(state: RunState, on: Handlers): HTMLElement {
         // The name is left out: it is already on the card the tip points at.
         "data-tip": detail ? `${relic.text} (${detail})` : relic.text,
         "data-rarity": relic.rarity,
-        type: "button",
-        onclick: () => on.inspect(`${relic.name} — ${relic.text}${detail ? ` (${detail})` : ""}`),
+        tabindex: 0,
+        // The tip is drawn rather than spoken, so what it holds is said again
+        // here for a reader that will never see the panel. The name goes back in
+        // — a screen reader has no card in view for it to be already on.
+        "aria-label": `${relic.name} — ${relic.text}${detail ? ` (${detail})` : ""}`,
       },
       h("span", { class: "relic-name" }, relic.name),
       detail ? h("span", { class: "relic-detail" }, detail) : null,
@@ -814,7 +826,7 @@ export function roundView(state: RunState, on: Handlers, chrome: Chrome): HTMLEl
     { class: "screen round-screen" },
     hud(state, on),
     boss && h("div", { class: "boss" }, h("strong", {}, boss.name), h("span", {}, ` ${boss.text}`)),
-    relicRow(state, on),
+    relicRow(state),
     consumableRow(state, on),
     grid(state, chrome.coach, on),
     categorySlot(state, on),

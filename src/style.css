@@ -428,8 +428,11 @@ button {
 /*
  * A relic's name is a mnemonic, not an explanation, and on a mouse the player
  * has a way to ask what it does that costs them nothing — so the card leans
- * toward the pointer and the text arrives beside it. On a phone there is no
- * such gesture, so the tray keeps tap-to-inspect and none of this is bound.
+ * toward the pointer and the text arrives beside it. A phone asks by holding the
+ * card and a keyboard by tabbing to it; neither leans, so none of this is bound
+ * for them. A tap does nothing at all: it used to throw the same sentence across
+ * the board as a toast, and the tray is close enough to the keys that most of
+ * those taps were a thumb on its way past.
  */
 @media (hover: hover) {
   .relic[data-tip]:hover {
