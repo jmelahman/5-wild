@@ -161,8 +161,8 @@ export class Sound {
     this.play({ freq: step(C5, -12), to: step(C5, -24), ms: 700, type: "sine", gain: 0.07 })
   }
 
-  /** A letter burnt off the keyboard — a loss, so it falls rather than rises. */
-  burn(): void {
+  /** A letter broken off the keyboard — a loss, so it falls rather than rises. */
+  break(): void {
     this.play({ freq: step(C5, -5), to: step(C5, -17), ms: 260, type: "sawtooth", gain: 0.05 })
   }
 }

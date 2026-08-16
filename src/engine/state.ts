@@ -63,12 +63,12 @@ export type LetterState = {
   destroyed: boolean
   /**
    * The modifier stuck to this letter, if any. One at a time — buying a second
-   * replaces the first — and it outlives being etched or burnt out.
+   * replaces the first — and it outlives being etched or broken.
    */
   mod: ModId | null
 }
 
-/** 0 small, 1 big, 2 boss. */
+/** 0 normal, 1 elite, 2 boss. */
 export type RoundIndex = 0 | 1 | 2
 
 export type RoundState = {

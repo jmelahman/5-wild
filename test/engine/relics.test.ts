@@ -132,30 +132,30 @@ describe("relics", () => {
     expect(state.gold).toBe(startRun(1, words).state.gold + 4)
   })
 
-  it("Pyromaniac burns a letter out of the alphabet, and the answer respects it", () => {
-    // Needs a real round transition, since burning happens before the draw.
+  it("Pyromaniac breaks a letter out of the alphabet, and the answer respects it", () => {
+    // Needs a real round transition, since breaking happens before the draw.
     let state = startRun(1, realWords).state
     state = apply(state, type(state.round.answer), realWords)
     state = apply(state, [{ type: "collect" }], realWords)
     state = { ...state, relics: [{ id: "pyromaniac" }] }
     state = apply(state, [{ type: "next_round" }], realWords)
 
-    const burnt = Object.entries(state.letters)
+    const broken = Object.entries(state.letters)
       .filter(([, letter]) => letter.destroyed)
       .map(([name]) => name)
 
-    expect(burnt).toHaveLength(1)
-    expect(state.round.answer).not.toContain(burnt[0])
+    expect(broken).toHaveLength(1)
+    expect(state.round.answer).not.toContain(broken[0])
   })
 
-  it("refuses to type a burnt letter", () => {
+  it("refuses to type a broken letter", () => {
     const base = startRun(1, words).state
     const state: RunState = {
       ...base,
       letters: { ...base.letters, q: { etch: 0, destroyed: true, mod: null } },
     }
     const { events } = reduce(state, { type: "type_letter", letter: "q" }, words)
-    expect(events).toEqual([{ type: "rejected", reason: "Q is burnt out" }])
+    expect(events).toEqual([{ type: "rejected", reason: "Q is broken" }])
   })
 
   it("gives every relic a distinct id, name and price", () => {
@@ -196,16 +196,16 @@ describe("the relics that close a build", () => {
     expect(cleared([{ id: "mint" }])).toBe(0)
   })
 
-  it("Scorched Earth pays for every letter the run has burnt", () => {
+  it("Scorched Earth pays for every letter the run has broken", () => {
     const base = startRun(1, words).state
     const letters = { ...base.letters }
     for (const letter of "jkvwxz") letters[letter] = { etch: 0, destroyed: true, mod: null }
     const state: RunState = { ...base, letters, relics: [{ id: "scorched_earth" }] }
-    // Six burnt: 7 + 72 mult, and none of those letters is in CRANE.
+    // Six broken: 7 + 72 mult, and none of those letters is in CRANE.
     expect(apply(state, type("crane")).round.guesses[0]).toMatchObject({ chips: 7, mult: 79 })
   })
 
-  it("Scorched Earth is worth nothing to a run that has burnt nothing", () => {
+  it("Scorched Earth is worth nothing to a run that has broken nothing", () => {
     expect(withRelic("scorched_earth", "crane").last).toMatchObject({ mult: 7 })
   })
 

@@ -65,7 +65,7 @@ export type ScoreCtx = {
   getData(key: string): number
   /**
    * Grow this relic. Collected rather than applied: scoring prices a guess, it
-   * does not edit the run — the same rule that puts `burned` in the result
+   * does not edit the run — the same rule that puts `broken` in the result
    * instead of mutating `state.letters` here. The caller commits it.
    */
   setData(key: string, value: number): void
@@ -78,12 +78,12 @@ export type ScoreResult = {
   score: number
   gold: number
   /**
-   * Letters a shattering modifier retired. Applied by the caller rather than
+   * Letters a breaking modifier retired. Applied by the caller rather than
    * here: scoring prices a guess, it does not edit the run.
    */
-  burned: string[]
+  broken: string[]
   /**
-   * Relics that grew this guess, by slot. Same discipline as `burned` — only
+   * Relics that grew this guess, by slot. Same discipline as `broken` — only
    * the slots that actually wrote appear, so committing this never plants an
    * empty `data` on a relic that does not scale.
    */
@@ -205,7 +205,7 @@ export function scoreGuess(params: {
   /** The Plateau, read once rather than per call. */
   const blockTimesMult = boss?.noTimesMult ?? false
 
-  const burned: string[] = []
+  const broken: string[] = []
 
   /**
    * Which relic slot is firing, so `setData` knows whose counter it is writing.
@@ -276,15 +276,15 @@ export function scoreGuess(params: {
       if (slotFiring === null) return
       bucketFor(slotFiring)[key] = value
     },
-    burn(letter) {
-      if (burned.includes(letter)) return
-      // Counted against what the alphabet *will* be, so a guess that shatters
-      // two letters cannot walk past the floor one letter at a time.
+    breakLetter(letter) {
+      if (broken.includes(letter)) return
+      // Counted against what the alphabet *will* be, so a guess that breaks two
+      // letters cannot walk past the floor one letter at a time.
       const live = [...ALPHABET].filter(
-        (name) => !state.letters[name]?.destroyed && !burned.includes(name),
+        (name) => !state.letters[name]?.destroyed && !broken.includes(name),
       )
       if (live.length < MIN_LIVE_LETTERS) return
-      burned.push(letter)
+      broken.push(letter)
     },
   }
 
@@ -389,7 +389,7 @@ export function scoreGuess(params: {
     solveBonus,
     score: Math.round(ctx.chips * ctx.mult),
     gold: ctx.gold,
-    burned,
+    broken,
     relicData: [...grown].map(([slot, data]) => ({ slot, data })),
   }
 }

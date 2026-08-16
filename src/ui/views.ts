@@ -430,7 +430,7 @@ export function fillCoach(slot: Element, coach: CoachStep | null, on: Handlers):
  */
 function letterTip(state: RunState, letter: string): string {
   const upper = letter.toUpperCase()
-  if (state.letters[letter]?.destroyed) return `${upper} · burnt out, no longer typeable`
+  if (state.letters[letter]?.destroyed) return `${upper} · broken, no longer typeable`
 
   const base = LETTER_CHIPS[letter] ?? 0
   const etch = state.letters[letter]?.etch ?? 0
@@ -481,7 +481,7 @@ function keyboard(state: RunState, on: Handlers): HTMLElement {
   const eliminated = new Set(state.round.eliminated)
   // The Vandal. The pip stays — the modifier has not gone anywhere, and hiding
   // it would make the round look like it had eaten the purchase — but it greys
-  // out, which is the same thing a burnt key already does to it.
+  // out, which is the same thing a broken key already does to it.
   const modsOff = getBoss(state.round.bossId)?.noModifiers ?? false
 
   const key = (letter: string) => {
@@ -499,7 +499,7 @@ function keyboard(state: RunState, on: Handlers): HTMLElement {
     return h(
       "button",
       {
-        class: ["key", color ?? "", destroyed ? "burnt" : "", etch > 0 ? "etched" : ""]
+        class: ["key", color ?? "", destroyed ? "broken" : "", etch > 0 ? "etched" : ""]
           .filter(Boolean)
           .join(" "),
         "data-mod": mod?.id,
@@ -715,7 +715,7 @@ export function introView(state: RunState, on: Handlers, chrome: Chrome): HTMLEl
 
   // Three rounds, three tokens. The shape carries the warning before the name is
   // read, which matters most for the one that changes the rules.
-  const token = boss ? "boss" : state.roundIndex === 0 ? "small" : "big"
+  const token = boss ? "boss" : state.roundIndex === 0 ? "normal" : "elite"
 
   return h(
     "div",
@@ -1143,7 +1143,7 @@ export function placeView(state: RunState, on: Handlers): HTMLElement | null {
     return h(
       "button",
       {
-        class: ["key", "place-key", entry?.destroyed ? "burnt" : "", current ? "taken" : ""]
+        class: ["key", "place-key", entry?.destroyed ? "broken" : "", current ? "taken" : ""]
           .filter(Boolean)
           .join(" "),
         "data-mod": current?.id,

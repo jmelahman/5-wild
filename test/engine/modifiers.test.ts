@@ -79,13 +79,15 @@ describe("letter modifiers", () => {
 
   it("Wild pays on every colour, and pays a worse one more", () => {
     // Against BRAID, QUAZY's Q is gray and its A is green — the two ends of the
-    // range the card flattens. Both pay, because the card is a floor rather than
-    // a promotion: the tile is worth the same either way, so what colour costs
-    // is the difference between the floor and what the colour was already worth.
+    // ladder. Both pay, and the gray pays far more, which is the whole shape:
+    // the card is for the guess that went wrong, but a card paying *nothing* on
+    // a green is a card telling you not to solve, so the green rung is load
+    // bearing and the assertion below is not a formality.
     //
-    // Read as a shape. The floor has been resized once already — it was three,
-    // which made this assertion "green pays nothing" — and the golden vectors
-    // are what pin the number.
+    // Read as a shape. The numbers have been resized twice — once from a pure
+    // promotion, where "green pays nothing" was true and this assertion would
+    // have failed, and once from a flat floor that paid more on the solve than
+    // on the miss. The golden vectors are what pin them.
     const plain = apply(startRun(1, words).state, type("quazy")).round.guesses[0]
     if (!plain) throw new Error("no guess was scored")
 
@@ -104,7 +106,7 @@ describe("letter modifiers", () => {
     expect(play("q", "glass", "quazy").last.mult).toBe(6)
   })
 
-  it("Glass can shatter on a gray tile, and says so", () => {
+  it("Glass can break on a gray tile, and says so", () => {
     // U is the second tile of QUAZY and absent from BRAID: both conditions the
     // break needs. The roll is derived from the tile's coordinates, so this is
     // the same outcome on every machine and every replay.
@@ -122,9 +124,9 @@ describe("letter modifiers", () => {
     expect(play("q", "glass", "quazy").state.letters.q?.destroyed).toBe(false)
   })
 
-  it("Glass never shatters a letter the answer needs", () => {
+  it("Glass never breaks a letter the answer needs", () => {
     // AAHED's second A is gray — BRAID's only A is spoken for by the first —
-    // and its roll would break. Burning it would leave a round nobody could
+    // and its roll would break. Breaking it would leave a round nobody could
     // solve, so the answer is checked before the dice are.
     const { state } = play("a", "glass", "aahed")
     expect(state.letters.a?.destroyed).toBe(false)
@@ -247,7 +249,7 @@ describe("buying a modifier", () => {
 
     expect(offered.length).toBeGreaterThan(0)
     // Never a letter that is already carrying the same thing, and never one
-    // that has been burnt out of the alphabet.
+    // that has been broken out of the alphabet.
     for (const item of offered) expect(item.cost).toBeGreaterThan(0)
   })
 })

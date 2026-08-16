@@ -175,9 +175,9 @@ describe("the rules themselves", () => {
   })
 
   it("7 — raises every target, and rounds the result to something readable", () => {
-    const [small] = roundTargets(1)
-    expect(at(6).round.target).toBe(small)
-    expect(at(7).round.target).toBe(Math.round((small * 1.15) / 10) * 10)
+    const [normal] = roundTargets(1)
+    expect(at(6).round.target).toBe(normal)
+    expect(at(7).round.target).toBe(Math.round((normal * 1.15) / 10) * 10)
     // Ten, not a hundred: 15% of the first target is 45, and rounding that to
     // the nearest hundred would make the first Steeper either free or double.
     expect(at(7).round.target % 10).toBe(0)

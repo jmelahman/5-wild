@@ -82,7 +82,7 @@ describe("a full run, headless", () => {
    * The round must always be winnable. The Glutton demands two vowels of every
    * guess and a fifth of the answer list has one, so an unfiltered draw hands
    * the player a word they are forbidden to type — a round that cannot be
-   * solved by any play. Pyromaniac makes this worse: burning enough letters can
+   * solved by any play. Pyromaniac makes this worse: breaking enough letters can
    * empty the pool, and the escape hatch that heals the alphabet must not also
    * drop the boss rule on its way out.
    */
@@ -92,7 +92,7 @@ describe("a full run, headless", () => {
   })
 
   /*
-   * The stage's shape is Small → Big → Boss, and the boss rule is a large part
+   * The stage's shape is Normal → Elite → Boss, and the boss rule is a large part
    * of a round's difficulty. A boss leaking onto round 0 or 1 — or missing from
    * round 2 — silently rewrites the difficulty curve without failing anything
    * else, so the placement is asserted rather than assumed.

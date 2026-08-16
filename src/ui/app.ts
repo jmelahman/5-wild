@@ -495,8 +495,8 @@ export class App {
           break
         }
         case "letter_destroyed":
-          this.floater(screen, `${event.letter.toUpperCase()} burnt out`)
-          this.sound.burn()
+          this.floater(screen, `${event.letter.toUpperCase()} broken`)
+          this.sound.break()
           await this.pace(PACE.relic)
           break
         default:

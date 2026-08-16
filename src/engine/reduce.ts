@@ -86,10 +86,10 @@ function freshLetters(): Record<string, LetterState> {
 }
 
 /**
- * Answers must avoid destroyed letters, or a burnt keyboard could be handed a
- * word it cannot type. If burning ever narrows the pool to nothing the alphabet
+ * Answers must avoid destroyed letters, or a broken keyboard could be handed a
+ * word it cannot type. If breaking ever narrows the pool to nothing the alphabet
  * heals rather than dead-ends the run — unreachable in practice, since
- * Pyromaniac refuses to burn below fifteen live letters.
+ * Pyromaniac refuses to break below fifteen live letters.
  *
  * The answer must also be a legal guess under every rule in force — the boss's
  * and the run's ascension both. The Glutton demands two vowels of every guess,
@@ -279,7 +279,7 @@ function applyItem(state: RunState, item: ShopItem): string | null {
     case "etch": {
       const etching = ETCHING_BY_ID.get(item.id)
       if (!etching) return "unknown etching"
-      // Burnt-out letters are skipped rather than etched: they cannot be typed
+      // Broken letters are skipped rather than etched: they cannot be typed
       // again, so the chips would be unspendable and the keyboard would wear a
       // "+2" pip on a dead key.
       for (const letter of etching.letters) {
@@ -300,8 +300,8 @@ function applyItem(state: RunState, item: ShopItem): string | null {
       const range = RANGE_BY_ID.get(item.id)
       if (!range) return "unknown range"
       // Stored on the run rather than pushed out into `letters`, unlike an
-      // etching: a range level has to keep applying to a letter that is burnt
-      // out and later restored, and writing it per letter would lose that. It
+      // etching: a range level has to keep applying to a letter that is broken
+      // and later restored, and writing it per letter would lose that. It
       // also means the save carries four numbers instead of 26.
       state.ranges = { ...state.ranges, [range.id]: rangeLevelOf(state, range.id) + 1 }
       return null
@@ -410,7 +410,7 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
       if (next.phase !== "round" || round.done) return reject("not your turn")
       const letter = action.letter.toLowerCase()
       if (letter.length !== 1 || !ALPHABET.includes(letter)) return reject("not a letter")
-      if (next.letters[letter]?.destroyed) return reject(`${letter.toUpperCase()} is burnt out`)
+      if (next.letters[letter]?.destroyed) return reject(`${letter.toUpperCase()} is broken`)
       if (round.draft.length >= round.answer.length) return reject("no room")
       round.draft += letter
       return { state: next, events }
@@ -494,17 +494,17 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
       // "no word twice" against half a run.
       next.history = [...(next.history ?? []), word]
 
-      // A glass letter that shattered goes out of the alphabet here rather than
+      // A glass letter that broke goes out of the alphabet here rather than
       // mid-pipeline: scoring prices the guess, this owns the run. It lands
       // before the total so the break reads as part of the guess that caused it.
-      for (const letter of result.burned) {
+      for (const letter of result.broken) {
         const entry = next.letters[letter]
         if (!entry || entry.destroyed) continue
         entry.destroyed = true
         events.push({ type: "letter_destroyed", letter })
       }
 
-      // Same discipline as the burns above: scoring decided what each relic
+      // Same discipline as the breaks above: scoring decided what each relic
       // grew to, and this is where growing becomes part of the run.
       for (const { slot, data } of result.relicData) {
         const instance = next.relics[slot]

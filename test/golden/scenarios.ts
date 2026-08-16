@@ -72,7 +72,7 @@ function firstPlayable(
 /**
  * A change of mind before the real word. Backspace is the one action nothing
  * else here would ever produce, and typing the answer's own first letter is
- * always legal — answers are drawn to avoid burnt-out letters, so the draft is
+ * always legal — answers are drawn to avoid broken letters, so the draft is
  * guaranteed to accept it and the erase leaves the guess exactly as it was.
  */
 function withCorrection(state: RunState, guess: Action[] | null): Action[] | null {
@@ -452,7 +452,7 @@ export const SCENARIOS: readonly Scenario[] = [
    * guesses and the round's base — and then spends the whole pile hunting. It
    * works: 302 of the first 600 seeds end holding one, and 65 hold both at some
    * point in the run. Only 9 of the 600 *end* holding both, which is not the
-   * hunt failing but the Glass doing what it says — it shatters on a gray, so
+   * hunt failing but the Glass doing what it says — it breaks on a gray, so
    * counting the final board undercounts every run that played one and lost it.
    * The measurement that matters here is what the letters carried while the
    * guesses were being scored.
