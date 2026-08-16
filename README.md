@@ -258,7 +258,15 @@ guesses/round     4.30     5.55
 
 Two things came out of it. **Boss rounds are a third of the rounds and 72% of
 the deaths** — 199 of the solver's 278 losses land on round 3, which is what the
-`stage.round` histogram in the report exists to show. And **the income line is
+`stage.round` histogram in the report exists to show. Round 3 is also the
+stage's steepest target — 600 against round 1's 300 — so that figure alone
+cannot tell a hard boss from a hard curve, and a throwaway probe with
+`bossForStage` stubbed to `null` was what separated them. Without bosses, round
+3 takes 89 of 258 losses: 34.5%, flat, for a round that is a third of the
+rounds. The win rate doubles to 14.0% and the median run reaches stage 6 rather
+than 4. The curve is not what kills. The boss is, and it costs half the wins.
+
+And **the income line is
 dominated**: farming gets worse the harder it is played, because mult comes from
 colours and colours come from being right, so a guess thrown at chips alone
 scores its tiles at ×1 and buys nothing towards the next one. Income is worth
