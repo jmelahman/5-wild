@@ -112,6 +112,24 @@ const BY_USE = "etaoinsrhldcumfpgwybvkxjqz"
 const RARE_MODS: readonly ModId[] = ["steel", "glass"]
 const RARE_PRICE = Math.max(...RARE_MODS.map((id) => MODIFIER_BY_ID.get(id)?.choiceCost ?? 0))
 
+/** What it costs to walk out of a shop holding an Anchor. */
+const ANCHOR_PRICE = MODIFIER_BY_ID.get("anchor")?.choiceCost ?? 0
+
+/**
+ * How many of a word's tiles would land green *on a letter carrying `mod`*.
+ *
+ * `modTiles` counts a card's tiles whatever colour they come up, which is the
+ * right question for a card that pays on every tile and the wrong one for a card
+ * that pays on one colour. Anchor is the second kind, so a bot aiming it has to
+ * be able to tell a tile that will fire from a tile that merely carries.
+ */
+function greenMods(state: RunState, word: string, mod: ModId): number {
+  const answer = state.round.answer
+  return [...word].filter(
+    (letter, index) => letter === answer[index] && state.letters[letter]?.mod === mod,
+  ).length
+}
+
 /**
  * Put the modifier in hand on the most-typed letter still open to it.
  *
@@ -347,6 +365,76 @@ export const SCENARIOS: readonly Scenario[] = [
     },
   },
   /*
+   * Anchor, and the colour it is fussy about.
+   *
+   * This one is here because of how it went missing. `letter-smith` held an
+   * Anchor for as long as the modifier table had eleven entries; the reweighting
+   * to sixteen dropped the card to one roll in sixteen behind a slot that is
+   * three in four, and it fell out of every recorded run at once. Nothing failed
+   * — no test went red, the vectors re-recorded cleanly, and the diff read as a
+   * shop change, which it was. The card's own arithmetic simply stopped being
+   * exercised, and it stopped on the same pass that resized it. A card is worth
+   * a scenario when the shelf can take it away from you quietly.
+   *
+   * What that scenario has to do is not obvious, because solving hides the bug.
+   * The winning guess is five greens by definition, so a solve-on-sight bot
+   * fires every Anchor the answer contains and records a fat number every time —
+   * and would go on recording it if the card paid on any colour at all. The gate
+   * is the half worth pinning, so the probe is filtered rather than sorted: a
+   * candidate is played only if it puts an anchored letter in its own position,
+   * and the guess is skipped when none would. Sorting by `modTiles` the way the
+   * rare hunt does was the first attempt and it is the wrong question — it ranks
+   * tiles that carry the card above tiles that fire it, which for a colour-gated
+   * card are different sets.
+   *
+   * Over the first 600 seeds, 194 end holding at least one, 143 fire one off a
+   * guess that did not solve, and 47 do both with two or more on the board. Seed
+   * 32 is the best of the 47 by a distance: five Anchors placed, fifteen greens
+   * fired outside a solve across 28 guesses, and it lives to stage 5.2. Five
+   * copies is what makes it useful rather than merely green — the card is a flat
+   * +125 per firing tile, so a run carrying five of them is where an error in
+   * that number is loudest instead of roundable.
+   */
+  {
+    name: "anchor-smith",
+    covers: "Anchor stacked across letters, fired on greens no solve handed it",
+    seed: 32,
+    next: (state, words) => {
+      if (state.phase === "round") {
+        // The probe is chosen to land the card green rather than merely to carry
+        // it, and is skipped entirely when no candidate would. Anchor pays on one
+        // colour, so a guess that puts it on a gray costs a gold and records
+        // nothing the solve was not going to record anyway.
+        const armed = Object.values(state.letters).some((letter) => letter.mod === "anchor")
+        const probes =
+          armed && state.round.guesses.length === 0
+            ? decoys(state, words, 29)
+                .filter((word) => greenMods(state, word, "anchor") > 0)
+                .sort((a, b) => greenMods(state, b, "anchor") - greenMods(state, a, "anchor"))
+            : []
+        return firstPlayable(state, words, [...probes, state.round.answer])
+      }
+      if (state.phase === "reward") return [{ type: "collect" }]
+      if (state.phase === "shop") {
+        const items = state.shop?.items ?? []
+        const anchor = items.findIndex(
+          (item) => item?.kind === "mod" && item.id === "anchor" && item.cost <= state.gold,
+        )
+        if (anchor >= 0 && accepted(state, words, [{ type: "buy", index: anchor }])) {
+          return [{ type: "buy", index: anchor }]
+        }
+        // Same stopping rule as the rare hunt, for the same reason: reroll only
+        // while the change still covers the card being hunted.
+        const reroll = rerollCost(state.shop ?? { items: [], rerolls: 0 })
+        if (state.gold >= reroll + ANCHOR_PRICE && accepted(state, words, [{ type: "reroll" }])) {
+          return [{ type: "reroll" }]
+        }
+        return [{ type: "next_round" }]
+      }
+      return null
+    },
+  },
+  /*
    * The rare modifier pair, which nothing else here ever holds.
    *
    * `letter-smith` buys the first modifier it can afford, and the first
@@ -364,7 +452,16 @@ export const SCENARIOS: readonly Scenario[] = [
    * hunt failing but the Glass doing what it says — it shatters on a gray, so
    * counting the final board undercounts every run that played one and lost it.
    * The measurement that matters here is what the letters carried while the
-   * guesses were being scored, and 397 carries both.
+   * guesses were being scored.
+   *
+   * Seed 490 is one of the nine that keeps both to the end, and is picked over
+   * the other eight for holding three rare cards at once — Steel on a and t,
+   * Glass on e — so the vector records the two of them scoring side by side
+   * rather than in different runs. It replaced 397, which was chosen against the
+   * eleven-entry table and degraded to a single Steel and a stage-two death when
+   * the shelf was reweighted. That is the failure mode to expect from any seed
+   * picked for what it happens to draw: it is not wrong afterwards, just weaker,
+   * and the vector goes on passing while covering less than its comment claims.
    *
    * These numbers moved once already. At the eleven-entry table it was 7% a
    * visit and 386 of 600, and the reweighting that made the strong cards 3 in 16
@@ -378,7 +475,7 @@ export const SCENARIOS: readonly Scenario[] = [
   {
     name: "rare-smith",
     covers: "the rare modifier pair, hunted down with rerolls and played through",
-    seed: 397,
+    seed: 490,
     next: (state, words) => {
       if (state.phase === "round") {
         // Solve on sight until there is a card to fire, then spend one guess a
