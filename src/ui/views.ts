@@ -121,6 +121,44 @@ function menuButton(on: Handlers): HTMLElement {
   )
 }
 
+/**
+ * The letter-values switch, on the board rather than in the menu.
+ *
+ * It used to live in the pause sheet beside sound and music, and it was the one
+ * setting there whose effect could not be seen from the screen it was set on:
+ * pressing it turned the pips off behind a sheet covering them, and the player
+ * had to close the sheet to find out what they had done. Here the board changes
+ * under the thumb, which is the entire feedback the switch needs.
+ *
+ * It sits beside the chips × mult readout rather than up in the HUD, because
+ * that is where the thing it governs is being totted up — the numbers on the
+ * keys feed that line, and the switch belongs at the bottom of the screen with
+ * them and within reach of the thumb already on the keyboard.
+ *
+ * The face is the setting rather than a label for it — a letter carrying its
+ * value, or the same letter on its own — so a button two characters wide says
+ * what it does without spending a word on it. The chip colour on the digit is
+ * the same one the keys use, which is what makes the pair read as a before and
+ * after rather than as an "A" and a "1".
+ */
+function plainToggle(on: Handlers, chrome: Chrome): HTMLElement {
+  return h(
+    "button",
+    {
+      class: `plain-toggle ${chrome.plain ? "off" : ""}`,
+      type: "button",
+      "aria-pressed": chrome.plain ? "false" : "true",
+      "aria-label": chrome.plain ? "Show letter values" : "Hide letter values",
+      "data-tip": chrome.plain
+        ? "Letter values are off.\nTap to show what each letter scores."
+        : "Letter values are on.\nTap to hide them and just find the word.",
+      onclick: () => on.togglePlain(),
+    },
+    h("span", {}, "A"),
+    chrome.plain ? null : h("span", { class: "plain-toggle-value" }, "1"),
+  )
+}
+
 function hud(state: RunState, on: Handlers): HTMLElement {
   const blind = state.blind
   return h(
@@ -559,7 +597,7 @@ export function fillReadout(el: Element, state: RunState): void {
   )
 }
 
-export function blindView(state: RunState, on: Handlers): HTMLElement {
+export function blindView(state: RunState, on: Handlers, chrome: Chrome): HTMLElement {
   const boss = getBoss(state.blind.bossId)
   return h(
     "div",
@@ -570,7 +608,11 @@ export function blindView(state: RunState, on: Handlers): HTMLElement {
     consumableRow(state, on),
     grid(state),
     categorySlot(state, on),
-    readoutSlot(state),
+    // The toggle is the readout's sibling and not its child on purpose:
+    // `fillReadout` calls `replaceChildren` on every keystroke, so a button
+    // inside that element would be rebuilt — and lose a press mid-tap — five
+    // times a word.
+    h("div", { class: "readout-row" }, readoutSlot(state), plainToggle(on, chrome)),
     solveHint(state),
     h("div", { class: "joker-tip" }),
     h("div", { class: "toast" }),
@@ -841,10 +883,33 @@ function shopItemCard(item: ShopItem, index: number, state: RunState, on: Handle
       type: "button",
       onclick: () => on.buy(index),
     },
-    h("div", { class: `shop-item-kind${blocked ? " blocked" : ""}` }, tag),
-    h("div", { class: "shop-item-name" }, title),
+    shopItemHead(title, tag, blocked),
     h("div", { class: "shop-item-text" }, text),
     h("div", { class: "shop-item-cost" }, money(item.cost)),
+  )
+}
+
+/**
+ * The name, with the kind ticketed off to the right of it on the same line.
+ *
+ * The tag used to have a row of its own above the name, and on a two-column
+ * shelf that row cost the card a line of the body copy the purchase is actually
+ * decided on. Beside the name it reads as the ticket on the shelf edge rather
+ * than as a second title, and the line it was taking goes back to saying what
+ * the thing does.
+ *
+ * Baseline-aligned rather than centred, so a long name and a long tag —
+ * "Joker · tray full" is the worst pair the shelf can deal — still sit on one
+ * line of type, with the tag wrapping under itself in the corner rather than
+ * dragging the name off its own baseline. An empty `tag` means no ticket, which
+ * is how a pack asks for the name on its own.
+ */
+function shopItemHead(title: string, tag: string, blocked: boolean): HTMLElement {
+  return h(
+    "div",
+    { class: "shop-item-head" },
+    h("div", { class: "shop-item-name" }, title),
+    tag ? h("div", { class: `shop-item-kind${blocked ? " blocked" : ""}` }, tag) : null,
   )
 }
 
@@ -894,9 +959,7 @@ export function packView(state: RunState, on: Handlers): HTMLElement | null {
             // and every option carries a different one, and anything blocked,
             // where the pick would be taken and then refused with the pack
             // already paid for.
-            (blocked || item.kind === "joker") &&
-              h("div", { class: `shop-item-kind${blocked ? " blocked" : ""}` }, tag),
-            h("div", { class: "shop-item-name" }, title),
+            shopItemHead(title, blocked || item.kind === "joker" ? tag : "", blocked),
             h("div", { class: "shop-item-text" }, text),
             // The price it would have carried in the stock, struck through: the
             // pack already charged for it, and seeing what it would have cost is
@@ -1941,18 +2004,15 @@ export function menuView(on: Handlers, chrome: Chrome): HTMLElement {
         },
         chrome.muted || chrome.musicOff ? "Music off" : "Music on",
       ),
-      // The board is dense by design — a value on every key, a pip on every
-      // modifier — and that density is the scoring game asking to be played.
-      // Some of the time the player is doing the other thing entirely, which is
-      // working out a five-letter word, and every number on screen is noise.
-      // This turns the decoration off without touching a single rule: the
-      // letters are worth exactly what they were, they have just stopped saying
-      // so, and the tip is still one hold away when the question comes back.
-      h(
-        "button",
-        { class: "secondary", type: "button", onclick: () => on.togglePlain() },
-        chrome.plain ? "Letter values off" : "Letter values on",
-      ),
+      // Letter values are not here. The board is dense by design — a value on
+      // every key, a pip on every modifier — and that density is the scoring
+      // game asking to be played; some of the time the player is doing the other
+      // thing entirely, which is working out a five-letter word, and every
+      // number on screen is noise. The switch for it is `plainToggle`, sitting
+      // beside the chips × mult readout, because it was the one setting on this
+      // sheet whose whole effect was hidden behind the sheet while it was being
+      // set — and the readout is the densest numbers on the screen, so the
+      // switch is next to the thing it is loudest about.
       h(
         "button",
         { class: "secondary", type: "button", onclick: () => on.openHelp() },

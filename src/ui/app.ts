@@ -915,7 +915,7 @@ export class App {
             ? shopView(this.state, this.handlers)
             : phase === "game_over" || phase === "victory"
               ? endView(this.state, this.handlers)
-              : blindView(this.state, this.handlers)
+              : blindView(this.state, this.handlers, this.chrome)
 
     // Overlays sit beside the screen rather than replacing it, so the board is
     // still visible behind the sheet and the player keeps their bearings.
@@ -1027,8 +1027,24 @@ export class App {
       }
       if (this.overlay) {
         // A sheet is modal, so it swallows everything and Escape dismisses it.
-        if (event.key === "Escape") this.handlers.closeOverlay()
-        event.preventDefault()
+        if (event.key === "Escape") {
+          this.handlers.closeOverlay()
+          event.preventDefault()
+          return
+        }
+        // Enter and Space are how a keyboard presses the button it has tabbed
+        // to, and preventing them here is what made "Quit run" unreachable
+        // without a mouse: the trap would walk focus onto it and neither key
+        // would fire. So the swallow stops short of the two keys that are an
+        // activation, and only when focus is inside the sheet — with focus
+        // anywhere else Space is a page scroll behind the backdrop, which is
+        // the thing modality is for.
+        const focused = document.activeElement
+        const pressing =
+          (event.key === "Enter" || event.key === " ") &&
+          focused instanceof HTMLElement &&
+          focused.closest(".sheet") !== null
+        if (!pressing) event.preventDefault()
         return
       }
       if (this.atTitle) return

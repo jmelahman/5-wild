@@ -663,7 +663,23 @@ button {
    was centring against. Wrapped in a plain div it kept the centring rule and
    lost the width, and slid to the left margin. */
 .category-slot {
+  /* The height of this line, empty or full, in one place.
+     Held open whether or not there is a shape to name. The slot used to collapse
+     to nothing until the fifth letter landed, and then the line arrived and took
+     its height out of the grid above — every tile resized and the board slid up,
+     on the exact keystroke where the player is staring hardest at the tiles.
+     Deleting a letter played the whole thing backwards.
+     One custom property rather than a `min-height` here and a matching height
+     over there: the first attempt reserved 1rem against a button that measured
+     17px, because `.category` is a baseline-aligned flex box of two font sizes
+     and its height is a sum of font metrics rather than of the numbers written
+     down here. Two numbers that have to agree and are derived differently will
+     drift on some device nobody is testing on. Inherited by `.category` below,
+     which is pinned to it, so the filled line cannot disagree with the space
+     kept for it. */
+  --shape-line: 1.0625rem;
   flex: 0 0 auto;
+  min-height: var(--shape-line);
   display: flex;
   justify-content: center;
 }
@@ -677,8 +693,14 @@ button {
   align-items: baseline;
   justify-content: center;
   gap: 0.375rem;
+  /* Pinned to the space the slot keeps for it, so the two cannot disagree. Any
+     font that wants a pixel more than this spills it rather than moving the
+     board, which is the trade the whole reservation exists to make. */
+  height: var(--shape-line);
   padding: 0.125rem 0.25rem 0;
   font-size: 0.75rem;
+  /* Left off `normal`, which resolves off the font, for the same reason. */
+  line-height: 0.875rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--muted);
@@ -715,6 +737,60 @@ button {
 }
 
 /* -------------------------------------------------------------- readout */
+
+/* The row exists to be the switch's anchor. The readout itself is unchanged and
+   keeps the centre of the line. */
+.readout-row {
+  flex: 0 0 auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The face is the setting: a letter carrying its value, or the letter alone.
+   Baseline-aligned so the digit sits where a value sits on a key, and sized to
+   the same box in both states so nothing twitches when it is pressed.
+   Hung off the right end of the row rather than sitting in it as a second flex
+   item, because the chips × mult figure is centred against the board above and a
+   button in the row would shove it off that centre by half its own width. */
+.plain-toggle {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.0625rem;
+  min-width: 2rem;
+  /* Padded rather than given a height: `align-items: baseline` in a fixed-height
+     box parks the pair at the top of it. Equal padding centres them instead, and
+     lands on the same 2rem square the menu button uses. */
+  padding: 0.5rem 0.375rem;
+  /* Carried transparent in both states so switching to the outlined one cannot
+     move the line by the width of a border. */
+  border: 1px solid transparent;
+  border-radius: 0.375rem;
+  background: var(--panel-2);
+  color: var(--fg);
+  font-size: 0.875rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.plain-toggle-value {
+  font-size: 0.5625rem;
+  color: var(--chips);
+}
+
+/* Off dims rather than empties. The affordance has to survive the state it turns
+   the numbers off in, or the way back is a thing the player has to remember. */
+.plain-toggle.off {
+  background: transparent;
+  border-color: var(--line);
+  color: var(--muted);
+}
 
 .readout {
   position: relative;
@@ -1171,16 +1247,30 @@ button {
   font-size: 0.75rem;
 }
 
+/* Name left, ticket right, one line. Baseline rather than centre, so the two
+   sizes of type sit on the same line and a tag that has to wrap does it under
+   itself instead of pushing the name around. */
+.shop-item-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.375rem;
+}
+
 /*
- * The kind tag. Small, letterspaced and muted, above the name — a label on the
- * shelf rather than a second title, and the thing an eye scanning five cards for
- * "is there a joker" lands on first.
+ * The kind tag. Small, letterspaced and muted, ticketed to the right of the name
+ * — a label on the shelf rather than a second title, and the thing an eye
+ * scanning five cards for "is there a joker" lands on.
  *
  * Uppercased in CSS rather than in the string, so the tag that has to say
  * something in prose — "Joker · tray full" — is still written as prose in the
  * one place a reader of the view code will look for it.
  */
 .shop-item-kind {
+  /* Yields the width before the name does: the name is the card's identity and
+     the tag is a category anyone can also read off the colour of the border. */
+  flex: 0 1 auto;
+  text-align: right;
   font-size: 0.5625rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -1203,6 +1293,11 @@ button {
 }
 
 .shop-item-name {
+  /* `min-width: 0` because a flex item will not shrink below its longest word
+     without it, and one long joker name would otherwise push the ticket off the
+     card — which `overflow: hidden` would silently swallow. */
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: 0.8125rem;
   font-weight: 700;
 }
