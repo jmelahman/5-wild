@@ -90,7 +90,7 @@ describe("the shop layout", () => {
   it("stops offering a modifier with nowhere left to put it", () => {
     // Echo is the only restricted one today, and the restriction is the point:
     // no five-letter answer repeats a J, Q or X, so Echo on one of those is a
-    // card that cannot ever fire. It goes on AELOST only — burn all six out and
+    // card that cannot ever fire. It goes on AELOST only — break all six and
     // the shop has to stop stocking it rather than sell a choice with no options.
     const base = startRun(5, realWords).state
     const letters = { ...base.letters }
@@ -102,7 +102,7 @@ describe("the shop layout", () => {
     }
   })
 
-  it("stops offering an etching whose group is entirely burnt out", () => {
+  it("stops offering an etching whose group is entirely broken", () => {
     const base = startRun(5, realWords).state
     const letters = { ...base.letters }
     for (const letter of "jqxz") letters[letter] = { etch: 0, destroyed: true, mod: null }
@@ -129,7 +129,7 @@ describe("group etchings", () => {
     expect(state.letters.a?.etch).toBe(6)
   })
 
-  it("skips a letter that has already burnt out", () => {
+  it("skips a letter that has already broken", () => {
     const base = inShop(1)
     const state = buy(
       offering(
@@ -240,7 +240,7 @@ describe("placing a bought modifier", () => {
     expect(events).toContainEqual({ type: "rejected", reason: "Echo cannot go on J" })
   })
 
-  it("refuses a letter that has burnt out", () => {
+  it("refuses a letter that has broken", () => {
     const base = inShop(1)
     const held = buy(
       selling(

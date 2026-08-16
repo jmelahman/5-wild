@@ -35,9 +35,9 @@ export const ALPHABET = "abcdefghijklmnopqrstuvwxyz"
 export const VOWELS = "aeiou"
 
 /**
- * Nothing burns a letter out below this many live ones. Both burners — the
- * Pyromaniac and a shattering Glass letter — check it, because an alphabet too
- * thin to spell with is a dead run rather than a hard one.
+ * Nothing breaks a letter below this many live ones. Both breakers — the
+ * Pyromaniac and a Glass letter that fails its roll — check it, because an
+ * alphabet too thin to spell with is a dead run rather than a hard one.
  */
 export const MIN_LIVE_LETTERS = 15
 

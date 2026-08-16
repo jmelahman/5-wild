@@ -125,7 +125,7 @@ describe("what the shop may draw from", () => {
     expect(liveRanges(freshState()).map((range) => range.id)).toEqual(RANGES.map((r) => r.id))
   })
 
-  it("drops a range once every letter in it is burnt out", () => {
+  it("drops a range once every letter in it is broken", () => {
     const state = freshState()
     for (const letter of "nopqr") {
       const entry = state.letters[letter]
@@ -135,7 +135,7 @@ describe("what the shop may draw from", () => {
     expect(liveRanges(state)).toHaveLength(RANGES.length - 1)
   })
 
-  it("keeps a range whose letters are only partly burnt out", () => {
+  it("keeps a range whose letters are only partly broken", () => {
     const state = freshState()
     for (const letter of "nopq") {
       const entry = state.letters[letter]

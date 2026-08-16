@@ -82,7 +82,7 @@ describe("a full run, headless", () => {
    * The round must always be winnable. The Glutton demands two vowels of every
    * guess and a fifth of the answer list has one, so an unfiltered draw hands
    * the player a word they are forbidden to type — a round that cannot be
-   * solved by any play. Pyromaniac makes this worse: burning enough letters can
+   * solved by any play. Pyromaniac makes this worse: breaking enough letters can
    * empty the pool, and the escape hatch that heals the alphabet must not also
    * drop the boss rule on its way out.
    */

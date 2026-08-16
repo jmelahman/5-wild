@@ -1197,7 +1197,7 @@ button {
   box-shadow: inset 0 0 0 2px var(--gold);
 }
 
-.key.burnt {
+.key.broken {
   background: #1b1c20;
   color: #4a4b52;
   text-decoration: line-through;
@@ -1241,7 +1241,7 @@ button {
   box-shadow: inset 0 0 0 2px var(--mod);
 }
 
-.key.burnt[data-mod] {
+.key.broken[data-mod] {
   box-shadow: none;
 }
 
@@ -1254,13 +1254,13 @@ button {
   color: var(--mod);
 }
 
-.key.burnt .mod-pip {
+.key.broken .mod-pip {
   color: #4a4b52;
 }
 
 /*
  * The Vandal: the modifier is still on the letter and still owned, it just does
- * nothing for one round. Greyed to the burnt colour rather than hidden, and the
+ * nothing for one round. Greyed to the broken colour rather than hidden, and the
  * ring the key wears goes with it, so the whole keyboard reads as switched off
  * at a glance instead of one pip at a time.
  */

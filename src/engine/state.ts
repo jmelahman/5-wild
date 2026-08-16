@@ -63,7 +63,7 @@ export type LetterState = {
   destroyed: boolean
   /**
    * The modifier stuck to this letter, if any. One at a time — buying a second
-   * replaces the first — and it outlives being etched or burnt out.
+   * replaces the first — and it outlives being etched or broken.
    */
   mod: ModId | null
 }

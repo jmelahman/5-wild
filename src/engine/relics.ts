@@ -103,7 +103,7 @@ const RARITY_COST: Record<Rarity, number> = {
  * dilemma rather than a stack, which is the point.
  *
  * The last five arrived together, and each answers something the build rubric
- * found missing: a terminal for the money build, a payoff that makes burning
+ * found missing: a terminal for the money build, a payoff that makes breaking
  * the alphabet a plan rather than a tax, and three cards that *grow* — one on a
  * guess condition, one on a round condition, one on a shop condition — so that
  * scaling reads as a class of card and not as one oddity.
@@ -504,7 +504,7 @@ export const RELICS: readonly Relic[] = [
   {
     id: "scorched_earth",
     name: "Scorched Earth",
-    text: "+12 mult for each letter burnt out of the alphabet",
+    text: "+12 mult for each letter broken out of the alphabet",
     rarity: "rare",
     cost: RARITY_COST.rare,
     // What makes Pyromaniac and Glass a plan rather than a tax. The alphabet
@@ -512,8 +512,8 @@ export const RELICS: readonly Relic[] = [
     // is what a fully committed sacrifice run is buying — paid for with a
     // keyboard that can no longer type eleven letters, which is a real price.
     onGuess: (ctx) => {
-      const burnt = [...ALPHABET].filter((letter) => ctx.state.letters[letter]?.destroyed).length
-      if (burnt > 0) ctx.addMult(12 * burnt)
+      const broken = [...ALPHABET].filter((letter) => ctx.state.letters[letter]?.destroyed).length
+      if (broken > 0) ctx.addMult(12 * broken)
     },
   },
   {
@@ -570,16 +570,16 @@ export const RELICS: readonly Relic[] = [
   {
     id: "pyromaniac",
     name: "Pyromaniac",
-    text: "+40 mult. Burns a random letter out of the alphabet each round",
+    text: "+40 mult. Breaks a random letter out of the alphabet each round",
     rarity: "legendary",
     cost: RARITY_COST.legendary,
     onGuess: (ctx) => ctx.addMult(40),
-    // Runs before the answer is drawn, so a burnt letter genuinely cannot
+    // Runs before the answer is drawn, so a broken letter genuinely cannot
     // appear in the word — the search space shrinks along with your keyboard.
     onRoundStart: ({ state, rng, events }) => {
       const alive = [...ALPHABET].filter((letter) => !state.letters[letter]?.destroyed)
-      // Leave enough alphabet to still form words; refuse to burn past that.
-      // The same floor a shattering letter stops at — one rule, two ways in.
+      // Leave enough alphabet to still form words; refuse to break past that.
+      // The same floor a Glass letter stops at — one rule, two ways in.
       if (alive.length < MIN_LIVE_LETTERS) return
       const letter = shuffled(rng, alive)[0]
       if (letter === undefined) return

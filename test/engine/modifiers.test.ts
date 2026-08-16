@@ -106,7 +106,7 @@ describe("letter modifiers", () => {
     expect(play("q", "glass", "quazy").last.mult).toBe(6)
   })
 
-  it("Glass can shatter on a gray tile, and says so", () => {
+  it("Glass can break on a gray tile, and says so", () => {
     // U is the second tile of QUAZY and absent from BRAID: both conditions the
     // break needs. The roll is derived from the tile's coordinates, so this is
     // the same outcome on every machine and every replay.
@@ -124,9 +124,9 @@ describe("letter modifiers", () => {
     expect(play("q", "glass", "quazy").state.letters.q?.destroyed).toBe(false)
   })
 
-  it("Glass never shatters a letter the answer needs", () => {
+  it("Glass never breaks a letter the answer needs", () => {
     // AAHED's second A is gray — BRAID's only A is spoken for by the first —
-    // and its roll would break. Burning it would leave a round nobody could
+    // and its roll would break. Breaking it would leave a round nobody could
     // solve, so the answer is checked before the dice are.
     const { state } = play("a", "glass", "aahed")
     expect(state.letters.a?.destroyed).toBe(false)
@@ -249,7 +249,7 @@ describe("buying a modifier", () => {
 
     expect(offered.length).toBeGreaterThan(0)
     // Never a letter that is already carrying the same thing, and never one
-    // that has been burnt out of the alphabet.
+    // that has been broken out of the alphabet.
     for (const item of offered) expect(item.cost).toBeGreaterThan(0)
   })
 })

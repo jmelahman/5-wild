@@ -46,7 +46,7 @@ export type ModCtx = ScoreCtx & {
    * `ScoreCtx` now, since both need seeded chance and neither may reach for
    * anything else.
    */
-  burn(letter: string): void
+  breakLetter(letter: string): void
 }
 
 export type Modifier = {
@@ -101,7 +101,7 @@ export type Modifier = {
 }
 
 /**
- * How often a glass letter shatters on a tile that shattering is allowed on.
+ * How often a glass letter breaks on a tile that breaking is allowed on.
  *
  * Rarer in practice than a quarter sounds, because the tile has to be gray
  * *and* the letter genuinely absent: measured over 19,315 recorded guesses, a
@@ -340,7 +340,7 @@ export const MODIFIERS: readonly Modifier[] = [
   {
     id: "glass",
     name: "Glass",
-    text: "scores ×3 mult, and can shatter when it lands gray",
+    text: "scores ×3 mult, and can break when it lands gray",
     pip: "×3",
     rarity: "rare",
     cost: 9,
@@ -360,15 +360,15 @@ export const MODIFIERS: readonly Modifier[] = [
       ctx.timesMult(3)
       // Only a gray tile can break it, and only when the letter is genuinely
       // absent from the answer. Gray is not proof of absence — a second E is
-      // gray when the answer holds one — and burning a letter the answer needs
+      // gray when the answer holds one — and breaking a letter the answer needs
       // would leave a round that cannot be solved by anyone.
       //
       // That the break itself proves absence is the compensation for the risk:
-      // a shattered letter is a deduction you did not have to spend a guess on.
+      // a broken letter is a deduction you did not have to spend a guess on.
       if (tile.color !== "gray") return
       if (ctx.state.round.answer.includes(tile.letter)) return
       if (ctx.roll() >= GLASS_BREAK) return
-      ctx.burn(tile.letter)
+      ctx.breakLetter(tile.letter)
     },
   },
 ]
