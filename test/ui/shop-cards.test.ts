@@ -24,26 +24,41 @@ const ONE_OF_EACH: Record<ShopItem["kind"], ShopItem> = {
 }
 
 describe("what a shop card says it is", () => {
-  it("tags every kind the shelf can stock", () => {
+  it("tags every kind the shelf can stock, and explains every tag", () => {
     const state = fresh()
     for (const [kind, item] of Object.entries(ONE_OF_EACH)) {
-      const { tag } = describeItem(item, state)
+      const { tag, tip } = describeItem(item, state)
       // A blank tag is the failure this exists to catch: the card still draws,
       // still buys and still reads almost right, so nothing else would notice.
       expect(tag, `${kind} tag`).not.toBe("")
+      // Same failure one layer down. A missing tip is an inert ticket: the
+      // hover panel simply never opens, which looks like nothing at all.
+      expect(tip, `${kind} tip`).not.toBe("")
+      // The panel is `pre-line`, so a tip wrapped in the source would arrive
+      // with the source's own line breaks in it.
+      expect(tip, `${kind} tip`).not.toContain("\n")
+      // A tip is read in the second the pointer rests on the ticket, over the
+      // top of the shelf it is explaining. The limit is what one plain sentence
+      // fits in, and anything that wants more of the player's attention than
+      // that belongs in the rules sheet or the codex, where they went to read.
+      expect(tip.length, `${kind} tip length`).toBeLessThanOrEqual(80)
+      // The panel's voice is plain speech, and a dash in it is the sound of
+      // copy written to look considered rather than to be read quickly.
+      expect(tip, `${kind} tip`).not.toContain("—")
     }
   })
 
-  it("names a relic's rarity but leaves common unremarked", () => {
+  it("says the kind and leaves the rarity to the colour", () => {
     const state = fresh()
-    // Snowball is rare, Keystone uncommon, Head Start common. Commons are most
-    // of what the shelf deals, and a tag that said "Common Relic" three times a
-    // visit would be teaching the player to stop reading tags.
-    expect(describeItem(ONE_OF_EACH.relic, state).tag).toBe("Rare Relic")
-    expect(describeItem({ kind: "relic", id: "keystone", cost: 6 }, state).tag).toBe(
-      "Uncommon Relic",
-    )
-    expect(describeItem({ kind: "relic", id: "head_start", cost: 4 }, state).tag).toBe("Relic")
+    // Snowball is rare, Keystone uncommon, Head Start common — one tag between
+    // them. Rarity is on the border, on the tag's own ink and on the tray the
+    // relic is bound for; saying it a fourth time cost the name room on the
+    // line and pushed the kind, which is what the tag is for, into second place.
+    for (const id of ["snowball", "keystone", "head_start"]) {
+      expect(describeItem({ kind: "relic", id, cost: 6 }, state).tag, id).toBe("Relic")
+    }
+    // The rarity itself still comes back, because the card is coloured by it.
+    expect(describeItem(ONE_OF_EACH.relic, state).rarity).toBe("rare")
   })
 
   it("turns the tag into a warning when there is nowhere to put the card", () => {
@@ -59,7 +74,7 @@ describe("what a shop card says it is", () => {
     expect(relic.blocked).toBe(true)
 
     const card = describeItem(ONE_OF_EACH.consumable, full)
-    expect(card.tag).toBe("Card · slots full")
+    expect(card.tag).toBe("Consumable · slots full")
     expect(card.blocked).toBe(true)
 
     // The kinds that need no seat are never blocked, however full the run is —

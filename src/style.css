@@ -1382,11 +1382,28 @@ button {
   color: var(--muted);
 }
 
-/* The collectible lines take the card's own rarity colour, which is the one
-   place the tag is worth more than a label: "Rare Relic" written in the rare
-   colour teaches the border a player has otherwise had to learn by rote. */
+/* The collectible lines take the card's own rarity colour. The tag stopped
+   saying the rarity in words — the border, this ink and the tray were already
+   three tellings of it — so this is now the whole of what it contributes:
+   "RELIC" in the rare colour, teaching a border a player would otherwise have
+   had to learn by rote. */
 .shop-item.kind-relic .shop-item-kind {
   color: color-mix(in srgb, var(--rare, var(--rare-common)) 65%, var(--fg));
+}
+
+/*
+ * The ticket is also a question — "what is one of these?" — and on a mouse it
+ * answers itself through `data-tip`. This is only the hint that asking is
+ * possible. Underlined rather than brightened, because the colour on the relic
+ * line is carrying the rarity and a hover that changed it would be saying
+ * something the hover does not mean. Nothing on touch: the long-press is the
+ * gesture there, and it is the same one the tray already teaches.
+ */
+@media (hover: hover) {
+  .shop-item-kind[data-tip]:hover {
+    text-decoration: underline dotted;
+    text-underline-offset: 0.15em;
+  }
 }
 
 /* No seat for it. Mult red, because that is this game's colour for a number

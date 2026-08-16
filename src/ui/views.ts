@@ -841,19 +841,40 @@ export function rewardView(state: RunState, on: Handlers): HTMLElement {
  * a full tray is refused at the till, and that refusal belongs on the card rather
  * than in a toast after the tap.
  *
- * Rarity stays a colour and does not become a second tag, except on relics. That
- * is the one line where rarity is an economy — the shelf weights them, the tray
- * is where a run's identity ends up — and "Rare Relic" is worth more than a shade
- * of border a player has to have learnt.
+ * Rarity stays a colour and never becomes a word. Relics were the exception —
+ * "Uncommon Relic", on the grounds that rarity is an economy there — but a tag
+ * that says two things says the second one second, and the kind is what the tag
+ * is for. The card was already announcing its rarity three ways over: the
+ * border, the tag's own ink, and the tray the relic is bound for. The word was
+ * the fourth telling, and the only one charging the name room on the line.
+ *
+ * The tip is the sentence behind the tag. One word is enough to sort five cards
+ * into kinds and not nearly enough to say what a kind *is* — "Alphabet" names
+ * nothing to a player who has not already bought one — so the ticket answers the
+ * question it provokes when it is hovered or held.
+ *
+ * One line, and deliberately shorter than the card it hangs off. It says how
+ * that kind of thing works and stops: not what this card does, which the body
+ * copy under it is already saying, and not the fine print, which is what the
+ * rules sheet and the codex are for. A panel that has to be *read* is one the
+ * player has stopped hovering by the end of — it covers the shelf it is
+ * explaining while it does it — so anything that would not fit in a breath was
+ * dropped rather than compressed. The test holds the length.
  */
 export function describeItem(
   item: ShopItem,
   state: RunState,
-): { title: string; text: string; rarity: string; tag: string; blocked: boolean } {
+): { title: string; text: string; rarity: string; tag: string; tip: string; blocked: boolean } {
   let title = ""
   let text = ""
   let rarity = "common"
   let tag = ""
+  /**
+   * Written as one line each. The tip panel is `white-space: pre-line`, so a
+   * wrapped template literal would arrive with the source's own line breaks in
+   * it.
+   */
+  let tip = ""
   /** The tag is a warning rather than a label: this one has nowhere to go. */
   let blocked = false
 
@@ -865,22 +886,35 @@ export function describeItem(
     // the only one that asks a question back.
     rarity = "rare"
     tag = "Pack"
+    tip = `It deals its cards face up, and you keep ${(pack?.picks ?? 1) > 1 ? pack?.picks : "one"} of them free.`
   } else if (item.kind === "relic") {
     const relic = RELIC_BY_ID.get(item.id)
     title = relic?.name ?? item.id
     text = relic?.text ?? ""
     rarity = relic?.rarity ?? "common"
     blocked = state.relics.length >= difficultyOf(state).relicSlots
-    tag = blocked ? "Relic · tray full" : `${RARITY_WORD[rarity] ?? ""} Relic`.trim()
+    tag = blocked ? "Relic · tray full" : "Relic"
+    // What separates it from everything else on the shelf, in one clause: it is
+    // never used up and never used at all. The slot count is a number the tray
+    // under it is already showing, so it stays out of here.
+    tip = "You keep it for the whole run, and it works on its own every round."
   } else if (item.kind === "consumable") {
     const card = CONSUMABLE_BY_ID.get(item.id)
     title = card?.name ?? item.id
     text = card?.text ?? ""
     blocked = state.consumables.length >= CONSUMABLE_SLOTS
-    tag = blocked ? "Card · slots full" : "Card"
+    // "Card" was what this line called itself, and a shelf where every item is
+    // drawn as a card had no way to hear that as a kind. The word that says the
+    // mechanic is the one the code has used all along: it is consumed.
+    tag = blocked ? "Consumable · slots full" : "Consumable"
+    tip = "You use it once, whenever you like, and then it is gone."
   } else if (item.kind === "mod") {
     const mod = MODIFIER_BY_ID.get(item.id)
     rarity = mod?.rarity ?? "common"
+    // One sentence for both versions of this card. The difference between them,
+    // which is who picks the letter, is already the difference between the two
+    // titles, and the tip is about the kind rather than about the card.
+    tip = "It sticks to one letter for the rest of the run."
     if (item.letter === undefined) {
       // The shop's version: a card with no letter on it yet. Named for what it
       // is being bought as — a choice — because the price is the price of the
@@ -914,6 +948,7 @@ export function describeItem(
     title = range ? `${range.name} → Lv ${rangeLevelOf(state, item.id) + 1}` : "Range"
     text = range ? `${range.name} letters are worth +${CHIPS_PER_LEVEL} chips per level` : ""
     tag = "Alphabet"
+    tip = "It levels a slice of the alphabet, so every letter in it is worth more."
   } else if (item.kind === "level") {
     const category = CATEGORY_BY_ID.get(item.id)
     // Named as the level it buys rather than as the level you hold, because the
@@ -925,6 +960,7 @@ export function describeItem(
     // "Shape" rather than "Category", because that is the word the board, the
     // shop's own levels line and the panel behind it all use for this.
     tag = "Word shape"
+    tip = "It levels one shape of word, so every guess of that shape pays more."
   } else {
     // Falls back to something readable rather than to `undefined`, so a save
     // written before etchings were sold by the group degrades quietly.
@@ -932,26 +968,15 @@ export function describeItem(
     title = etching?.name ?? "Etching"
     text = etching?.text ?? ""
     tag = "Etching"
+    tip = "It adds chips to a group of letters for good, and buying it again stacks."
   }
 
-  return { title, text, rarity, tag, blocked }
-}
-
-/**
- * Rarity as a word, for the relic tag. Common is left blank rather than said: a
- * shelf where three of five cards announce themselves as common is a shelf that
- * has taught the player to stop reading the tag.
- */
-const RARITY_WORD: Record<string, string> = {
-  common: "",
-  uncommon: "Uncommon",
-  rare: "Rare",
-  legendary: "Legendary",
+  return { title, text, rarity, tag, tip, blocked }
 }
 
 function shopItemCard(item: ShopItem, index: number, state: RunState, on: Handlers): HTMLElement {
   const affordable = state.gold >= item.cost
-  const { title, text, rarity, tag, blocked } = describeItem(item, state)
+  const { title, text, rarity, tag, tip, blocked } = describeItem(item, state)
 
   return h(
     "button",
@@ -965,7 +990,7 @@ function shopItemCard(item: ShopItem, index: number, state: RunState, on: Handle
       type: "button",
       onclick: () => on.buy(index),
     },
-    shopItemHead(title, tag, blocked),
+    shopItemHead(title, tag, blocked, tip, rarity),
     h("div", { class: "shop-item-text" }, text),
     h("div", { class: "shop-item-cost" }, money(item.cost)),
   )
@@ -981,17 +1006,43 @@ function shopItemCard(item: ShopItem, index: number, state: RunState, on: Handle
  * the thing does.
  *
  * Baseline-aligned rather than centred, so a long name and a long tag —
- * "Relic · tray full" is the worst pair the shelf can deal — still sit on one
- * line of type, with the tag wrapping under itself in the corner rather than
+ * "Consumable · slots full" is the worst pair the shelf can deal — still sit on
+ * one line of type, with the tag wrapping under itself in the corner rather than
  * dragging the name off its own baseline. An empty `tag` means no ticket, which
  * is how a pack asks for the name on its own.
+ *
+ * The tip hangs off the ticket rather than off the whole card, because the card
+ * is a buy button: a panel that opened over the shelf every time the pointer
+ * crossed a price would be in the way of the thing it is explaining. An empty
+ * `tip` leaves the ticket inert, which is what the pack sheet asks for — its
+ * backdrop sits above the tip's layer, so a tip raised from inside it would be
+ * drawn behind the sheet that asked for it.
+ *
+ * The rarity rides along so the panel takes the card's own edge colour, the way
+ * a relic's does from the tray.
  */
-function shopItemHead(title: string, tag: string, blocked: boolean): HTMLElement {
+function shopItemHead(
+  title: string,
+  tag: string,
+  blocked: boolean,
+  tip: string,
+  rarity: string,
+): HTMLElement {
   return h(
     "div",
     { class: "shop-item-head" },
     h("div", { class: "shop-item-name" }, title),
-    tag ? h("div", { class: `shop-item-kind${blocked ? " blocked" : ""}` }, tag) : null,
+    tag
+      ? h(
+          "div",
+          {
+            class: `shop-item-kind${blocked ? " blocked" : ""}`,
+            "data-tip": tip || undefined,
+            "data-rarity": tip ? rarity : undefined,
+          },
+          tag,
+        )
+      : null,
   )
 }
 
@@ -1036,12 +1087,17 @@ export function packView(state: RunState, on: Handlers): HTMLElement | null {
             },
             // A pack deals one kind of card, so on the shelf's terms the tag
             // would say "Letter" three times down a sheet whose title already
-            // said Alphabet Pack. It is kept for the two cases where it is not
-            // repeating the title: a relic, where the tag is carrying the rarity
-            // and every option carries a different one, and anything blocked,
-            // where the pick would be taken and then refused with the pack
-            // already paid for.
-            shopItemHead(title, blocked || item.kind === "relic" ? tag : "", blocked),
+            // said Alphabet Pack. Relics used to be the exception, back when
+            // their tag carried a rarity that differed option to option; now
+            // that it is the bare kind, a Relic Pack would be saying "Relic"
+            // three times under its own name. What is left is the case the tag
+            // is not repeating anything to say: a pick that would be taken and
+            // then refused, with the pack already paid for.
+            //
+            // No tip either, and not only because there is no tag to hang it
+            // on: this sheet is a held decision, and the pack's own title has
+            // already said what kind of thing is being dealt.
+            shopItemHead(title, blocked ? tag : "", blocked, "", rarity),
             h("div", { class: "shop-item-text" }, text),
             // The price it would have carried in the stock, struck through: the
             // pack already charged for it, and seeing what it would have cost is
@@ -1231,7 +1287,7 @@ export function shopView(state: RunState, on: Handlers): HTMLElement {
         // The instruction only when there is something to obey it with: an empty
         // tray under "tap a relic to sell" reads as a control that is broken
         // rather than as one that has nothing to act on yet.
-        `Relics ${state.relics.length}/${difficultyOf(state).relicSlots} · Cards ${state.consumables.length}/${CONSUMABLE_SLOTS}${
+        `Relics ${state.relics.length}/${difficultyOf(state).relicSlots} · Consumables ${state.consumables.length}/${CONSUMABLE_SLOTS}${
           state.relics.length > 0 ? " — tap a relic to sell" : ""
         }`,
       ),
@@ -2125,7 +2181,11 @@ export function codexView(on: Handlers): HTMLElement {
       ),
 
       section(
-        "Cards",
+        // One word for this line everywhere it is named — the shelf's ticket,
+        // the shop's tray count and this heading — because a player who bought
+        // a Consumable and then reads a codex full of Cards has to work out
+        // that they are the same line before they can look anything up.
+        "Consumables",
         CONSUMABLES.length,
         `Used once, whenever you like. You can hold ${CONSUMABLE_SLOTS}.`,
         ...CONSUMABLES.map((card) => entry(card.name, card.text, money(card.cost))),
