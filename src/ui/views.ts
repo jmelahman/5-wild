@@ -1,4 +1,4 @@
-import type { BossTier, Rarity, RunState, ShopItem } from "../engine"
+import type { BossTier, Modifier, Rarity, RunState, ShopItem } from "../engine"
 import {
   ASCENSIONS,
   AUTHORED_ASCENSIONS,
@@ -79,8 +79,17 @@ export type Handlers = {
   continueRun: () => void
   pickPack: (index: number) => void
   skipPack: () => void
-  /** Where the modifier just bought is going. */
+  /**
+   * Where the modifier just bought is going.
+   *
+   * Two taps rather than one when the letter is already carrying something, and
+   * the decision between them is made here rather than in the view: the picker's
+   * keys and the physical keyboard both arrive through this, and they must not
+   * be able to disagree about which letters ask before they trade.
+   */
   placeMod: (letter: string) => void
+  /** Back out of a replacement without placing anything. The modifier is still held. */
+  cancelPlace: () => void
   newRun: () => void
   /** The difficulty the *next* run starts at. Nothing in flight can hear this. */
   setAscension: (level: number) => void
@@ -88,8 +97,8 @@ export type Handlers = {
   play: () => void
   mute: () => void
   toggleMusic: () => void
-  /** Hide the per-letter numbers and marks, for a player who wants to deduce. */
-  togglePlain: () => void
+  /** Step the board down a level of decoration, wrapping back to all of it. */
+  cycleDecor: () => void
   openMenu: () => void
   openHelp: () => void
   /** Retire the first-round coaching, now and for good. */
@@ -121,9 +130,26 @@ export type Handlers = {
 export type Chrome = {
   muted: boolean
   musicOff: boolean
-  plain: boolean
+  decor: Decor
   coach: CoachStep | null
 }
+
+/**
+ * How much of the scoring game the board draws on itself.
+ *
+ * Three states rather than two because the one switch was hiding six marks that
+ * answer three different questions — what a letter is worth, which modifier it
+ * carries, and what just happened while the guess scored — and a player who
+ * only wanted the third to stop had to give up the first two to get it.
+ *
+ * The middle state is a rule rather than a dimmer: mark what is *not* ordinary.
+ * A letter still worth what it started as says nothing, a letter bought up says
+ * so, a modifier says which one it is, and the board holds still while it
+ * scores. That is close to the board this game shipped with, before values went
+ * on every key, so it is a known-good screen rather than a new one invented for
+ * the setting.
+ */
+export type Decor = "all" | "minimal" | "none"
 
 const KEY_ROWS = ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
 
@@ -157,27 +183,97 @@ function menuButton(on: Handlers): HTMLElement {
  * them and within reach of the thumb already on the keyboard.
  *
  * The face is the setting rather than a label for it — a letter carrying its
- * value, or the same letter on its own — so a button two characters wide says
- * what it does without spending a word on it. The chip colour on the digit is
- * the same one the keys use, which is what makes the pair read as a before and
- * after rather than as an "A" and a "1".
+ * value, the same letter carrying only a mark, or the letter on its own — so a
+ * button two characters wide says what it does without spending a word on it.
+ * The digit is drawn the way an ordinary letter's value is drawn rather than a
+ * bought-up one's, because that is what most of the keyboard looks like, and it
+ * is what makes the pair read as a before and after rather than as an "A" and a
+ * "1". The middle face is honest for the same reason: an ordinary letter shows
+ * no value under `minimal`, and a dot is what a marked one would still show.
+ *
+ * A third state costs the switch its best property — you could not get a flip
+ * wrong, and you can get a cycle wrong, because nothing about a button says
+ * which way it goes round. Two things pay for it. The order only ever takes
+ * decoration away, so a mis-tap is always one step further down the ramp rather
+ * than somewhere unexpected; and every state is one tap from the next, so the
+ * way back is the same gesture that got here. What it buys is that the three
+ * questions the board answers stopped being one lump: a player who wants the
+ * scoring to stop shouting mid-guess no longer has to also forget which letter
+ * they made Gold.
+ *
+ * No `aria-pressed`: it is a two-valued attribute and this is three, and a
+ * screen reader told "not pressed" on the middle state would be told something
+ * false. The label carries the whole thing instead — what the board is now and
+ * what the tap will do — which is what the tip says to everyone else.
  */
-function plainToggle(on: Handlers, chrome: Chrome): HTMLElement {
+function decorToggle(on: Handlers, chrome: Chrome): HTMLElement {
+  const face = DECOR_FACE[chrome.decor]
   return h(
     "button",
     {
-      class: `plain-toggle ${chrome.plain ? "off" : ""}`,
+      class: `decor-toggle ${chrome.decor === "none" ? "bare" : ""}`,
       type: "button",
-      "aria-pressed": chrome.plain ? "false" : "true",
-      "aria-label": chrome.plain ? "Show letter values" : "Hide letter values",
-      "data-tip": chrome.plain
-        ? "Letter values are off.\nTap to show what each letter scores."
-        : "Letter values are on.\nTap to hide them and just find the word.",
-      onclick: () => on.togglePlain(),
+      // Pressing it rebuilds the screen it is standing on, so without a name to
+      // be found again by it would drop focus on every press and a keyboard
+      // player would have to tab back across the board to reach it a second
+      // time. Cycling makes that worse than it sounds: three states is up to two
+      // presses to land on the one you wanted. See `holdFocus`.
+      "data-focus": "decor",
+      "aria-label": face.label,
+      "data-tip": face.tip,
+      onclick: () => on.cycleDecor(),
     },
     h("span", {}, "A"),
-    chrome.plain ? null : h("span", { class: "plain-toggle-value" }, "1"),
+    face.mark ? h("span", { class: face.mark.class }, face.mark.glyph) : null,
   )
+}
+
+/**
+ * What the switch shows and says in each state.
+ *
+ * Kept beside `NEXT_DECOR` rather than inlined in the branches, because each tip
+ * names the state the next tap lands on and the two would drift apart the first
+ * time the order changed. Here a wrong order is visible as a wrong sentence.
+ *
+ * The mark is described rather than built: a module-level `h()` would be one
+ * node handed to every render, and since appending a node moves it, the table
+ * would be quietly mutable shared state in a file whose whole contract is that a
+ * view builds from scratch.
+ */
+const DECOR_FACE: Record<
+  Decor,
+  { label: string; tip: string; mark: { class: string; glyph: string } | null }
+> = {
+  all: {
+    label: "Mark only what you have changed",
+    tip: "Every letter shows what it scores.\nTap to mark only what you have changed.",
+    mark: { class: "decor-toggle-value", glyph: "1" },
+  },
+  minimal: {
+    label: "Clear the board",
+    tip: "Only modifiers and raised letters are marked.\nTap to clear the board.",
+    mark: { class: "decor-toggle-mark", glyph: "•" },
+  },
+  none: {
+    label: "Show every letter's value",
+    tip: "Nothing on the board says what a letter is worth.\nTap to show it all again.",
+    mark: null,
+  },
+}
+
+/**
+ * The cycle, in one place because two things depend on the order: the switch
+ * that steps through it and the tip that names where the next tap goes.
+ *
+ * It only ever takes decoration away until there is none, then restores all of
+ * it. The other candidate — walking back up the way it came — reads better as a
+ * dimmer but makes the same tap mean "less" or "more" depending on history,
+ * which is exactly the thing a player cannot see on the face of a button.
+ */
+export const NEXT_DECOR: Record<Decor, Decor> = {
+  all: "minimal",
+  minimal: "none",
+  none: "all",
 }
 
 function hud(state: RunState, on: Handlers): HTMLElement {
@@ -416,11 +512,11 @@ export function fillCoach(slot: Element, coach: CoachStep | null, on: Handlers):
 /**
  * Everything acting on one letter, in a sentence or four.
  *
- * The key already carries two marks — a `+N` for the upgrades and a pip for the
+ * The key already carries two marks — what the letter is worth and a pip for the
  * modifier — and marks are a reminder, not an explanation. A player who has
  * bought an etching, levelled a range and dropped a Lucky on the same letter is
- * looking at `+3` and `?` and has no way to find out what either came from
- * without leaving the round.
+ * looking at `4` and `?` and has no way to find out where either the four or the
+ * question mark came from without leaving the round.
  *
  * The headline is the boss-adjusted figure rather than the raw one, because the
  * question is what this letter pays *now*: under The Rust every upgraded letter
@@ -490,7 +586,27 @@ function keyboard(state: RunState, on: Handlers): HTMLElement {
     // this letter worth" and a player choosing a letter does not care which
     // purchase paid for it. Etchings and range levels crosscut, so most upgraded
     // keys are carrying some of each.
-    const etch = (state.letters[letter]?.etch ?? 0) + rangeChips(state, letter)
+    const bought = (state.letters[letter]?.etch ?? 0) + rangeChips(state, letter)
+    // And the whole figure, on every key rather than only the bought-up ones.
+    //
+    // The pip used to be a `+2` that appeared when an etching or a range level
+    // moved a letter, which answers "what changed". The question a player is
+    // actually holding while choosing a letter is "what is this one worth", and
+    // the twenty-odd letters nobody has spent on answered that with silence —
+    // the chip table is rarity-inverse, so Q is ten chips and E is one before
+    // anybody touches either, which is the most useful comparison on the board
+    // and was the one thing the board would not say. `bought` survives only to
+    // report whether the figure was paid for, which the stylesheet draws as the
+    // chips colour against the off-white a letter still worth what it started as
+    // gets — the ring that used to say it is gone, because the ring is how a
+    // modifier says which modifier it is.
+    //
+    // Deliberately the raw value rather than the boss-adjusted one `letterTip`
+    // leads with. A boss that bends chips does it per column (The Margin) or by
+    // what has already been spent (The Miser), and one number sitting on a key
+    // cannot say either without lying about the other; the tip has room for the
+    // sentence and prints it.
+    const value = baseChips(state, letter)
     const color = eliminated.has(letter) ? "gray" : colors.get(letter)
     // A modifier is bought once and paid off over the rest of the run, so the
     // key it lives on is the only place a player can be reminded it is there —
@@ -499,7 +615,7 @@ function keyboard(state: RunState, on: Handlers): HTMLElement {
     return h(
       "button",
       {
-        class: ["key", color ?? "", destroyed ? "broken" : "", etch > 0 ? "etched" : ""]
+        class: ["key", color ?? "", destroyed ? "broken" : "", bought > 0 ? "etched" : ""]
           .filter(Boolean)
           .join(" "),
         "data-mod": mod?.id,
@@ -509,7 +625,7 @@ function keyboard(state: RunState, on: Handlers): HTMLElement {
         onclick: () => on.key(letter),
       },
       letter.toUpperCase(),
-      etch > 0 ? h("span", { class: "etch-pip" }, `+${etch}`) : null,
+      h("span", { class: "value-pip" }, `${value}`),
       mod ? h("span", { class: `mod-pip${modsOff ? " silenced" : ""}` }, mod.pip) : null,
     )
   }
@@ -706,7 +822,7 @@ export function roundView(state: RunState, on: Handlers, chrome: Chrome): HTMLEl
     // `fillReadout` calls `replaceChildren` on every keystroke, so a button
     // inside that element would be rebuilt — and lose a press mid-tap — five
     // times a word.
-    h("div", { class: "readout-row" }, readoutSlot(state), plainToggle(on, chrome)),
+    h("div", { class: "readout-row" }, readoutSlot(state), decorToggle(on, chrome)),
     solveHint(state),
     h("div", { class: "relic-tip" }),
     h("div", { class: "toast" }),
@@ -848,10 +964,23 @@ export function rewardView(state: RunState, on: Handlers): HTMLElement {
  * thing are sold here and every one of them was the same rectangle — a name, a
  * sentence, a price — so "The Mint" and "Etch Heavy" were distinguishable only by
  * reading both sentences and knowing the game well enough to classify them. The
- * tag says the kind in one word before the name is read, and for the two kinds
- * that need somewhere to live it says when there is nowhere: a relic bought into
- * a full tray is refused at the till, and that refusal belongs on the card rather
- * than in a toast after the tap.
+ * tag says the kind in one word before the name is read.
+ *
+ * It also said when a card had nowhere to land. The relic's no longer does.
+ * "Relic · tray full" is a fact about the run rather than about the card, so it
+ * was never on one card at a time: a full tray tags every relic on the shelf at
+ * once, and a shelf of warnings reads as a shelf that is broken rather than as
+ * stock. It also spends the name's own line — five cards across a phone leaves
+ * about 64px for a name, and the ticket was taking three words of it — to say
+ * something the tray directly below is already saying by having no empty seat in
+ * it, about a purchase the player can make room for by selling on this very
+ * screen. The refusal is said at the till instead, where it is one line about
+ * the one card that was actually tapped.
+ *
+ * The consumable keeps its warning, and the difference is whether the screen can
+ * act on it. A card is used in a round, so a full hand is a wall for the whole
+ * shop visit — nothing on this screen empties it — and the tag is the only place
+ * that can say so before the gold is committed to a tap that will bounce.
  *
  * Rarity stays a colour and never becomes a word. Relics were the exception —
  * "Uncommon Relic", on the grounds that rarity is an economy there — but a tag
@@ -872,13 +1001,32 @@ export function rewardView(state: RunState, on: Handlers): HTMLElement {
  * player has stopped hovering by the end of — it covers the shelf it is
  * explaining while it does it — so anything that would not fit in a breath was
  * dropped rather than compressed. The test holds the length.
+ *
+ * `swap` is the one thing a card says that is about the run rather than about
+ * itself: an aimed modifier landing on a letter that is already carrying one
+ * destroys what is there, and that is the only line on the shelf describing
+ * something the player *loses* by tapping. It gets a field and a line of its own
+ * rather than a clause on the end of `text`, because it used to be a clause on
+ * the end of `text` — "E scores ×3 mult, and can break when it lands gray,
+ * replacing Steel" — which buried the consequence at the end of the longest
+ * sentence on the card, in the same ink as the sales copy, past the point a
+ * shelf of five cards is read to.
  */
 export function describeItem(
   item: ShopItem,
   state: RunState,
-): { title: string; text: string; rarity: string; tag: string; tip: string; blocked: boolean } {
+): {
+  title: string
+  text: string
+  rarity: string
+  tag: string
+  tip: string
+  blocked: boolean
+  swap: string
+} {
   let title = ""
   let text = ""
+  let swap = ""
   let rarity = "common"
   let tag = ""
   /**
@@ -904,8 +1052,10 @@ export function describeItem(
     title = relic?.name ?? item.id
     text = relic?.text ?? ""
     rarity = relic?.rarity ?? "common"
-    blocked = state.relics.length >= difficultyOf(state).relicSlots
-    tag = blocked ? "Relic · tray full" : "Relic"
+    // Never blocked, whatever the tray holds. The refusal still happens — the
+    // engine turns the purchase away with "no relic slots free" and the toast
+    // says it — it just happens at the till rather than on the card.
+    tag = "Relic"
     // What separates it from everything else on the shelf, in one clause: it is
     // never used up and never used at all. The slot count is a number the tray
     // under it is already showing, so it stays out of here.
@@ -945,8 +1095,12 @@ export function describeItem(
       // A letter holds one modifier, so this is sometimes a trade rather than an
       // addition — and that has to be legible before the gold is gone.
       const current = state.letters[item.letter]?.mod
-      if (current && current !== item.id) {
-        text += `, replacing ${MODIFIER_BY_ID.get(current)?.name ?? current}`
+      const held = current ? MODIFIER_BY_ID.get(current) : undefined
+      if (held && held.id !== item.id) {
+        // Named with its pip, which is the mark the player has been reading off
+        // the key all run. "Replaces Steel" asks them to remember what Steel
+        // was; "Replaces Steel ×2" says what is coming off the letter.
+        swap = `Replaces ${held.name} ${held.pip}`
       }
       // The pack's aimed version. Still a letter card, and the tag says so for
       // the same reason it does in the shop: the name reads "Gold E", which is
@@ -983,12 +1137,60 @@ export function describeItem(
     tip = "It adds chips to a group of letters for good, and buying it again stacks."
   }
 
-  return { title, text, rarity, tag, tip, blocked }
+  return { title, text, rarity, tag, tip, blocked, swap }
+}
+
+/**
+ * The line a card grows when tapping it would throw something away.
+ *
+ * Carries the outgoing modifier's own colour, because that is how the letter has
+ * been saying "Steel" since the day it was bought — the ring on the key, the pip
+ * in its corner and the dot on a played tile all read off `--mod`, and a warning
+ * about Steel drawn in warning-red would be the first thing in the game to name
+ * Steel in a colour that is not Steel's.
+ */
+function swapLine(swap: string, modId: string | undefined): HTMLElement {
+  return h("div", { class: "shop-item-swap", "data-mod": modId }, swap)
+}
+
+/**
+ * What placing `modifier` on `letter` would destroy, or undefined if it would
+ * destroy nothing. The question the confirmation exists to ask, in one place.
+ *
+ * One place because it was two, and the two disagreed. `app.ts` decided whether
+ * to arm by testing the letter's `mod` against `undefined`; an empty letter
+ * holds `null`, so every letter in the alphabet read as occupied and armed on
+ * the first tap, while this file asked `modifierOf` and correctly drew no
+ * question about it. What the player got was a tap that appeared to do nothing
+ * on exactly the letters — the bare ones, most of the board — that were supposed
+ * to place in one. Two answers to one question can be wrong in that shape; one
+ * cannot.
+ *
+ * `placeableLetters` is part of the answer rather than a separate check above
+ * it: a letter the engine is going to refuse — a Q under Echo, a broken letter,
+ * one already carrying this very modifier — is not a trade to confirm. It has to
+ * fall through to the dispatch and be refused with a reason, and it does that by
+ * arriving here and being told there is nothing to lose.
+ */
+export function displacedAt(
+  state: RunState,
+  modifier: Modifier,
+  letter: string,
+): Modifier | undefined {
+  if (!placeableLetters(state, modifier).includes(letter)) return undefined
+  return modifierOf(state, letter)
+}
+
+/** The modifier a shelf card would displace, for `swapLine` to colour. */
+function displaced(item: ShopItem, state: RunState): string | undefined {
+  if (item.kind !== "mod" || item.letter === undefined) return undefined
+  const current = state.letters[item.letter]?.mod
+  return current && current !== item.id ? current : undefined
 }
 
 function shopItemCard(item: ShopItem, index: number, state: RunState, on: Handlers): HTMLElement {
   const affordable = state.gold >= item.cost
-  const { title, text, rarity, tag, tip, blocked } = describeItem(item, state)
+  const { title, text, rarity, tag, tip, blocked, swap } = describeItem(item, state)
 
   return h(
     "button",
@@ -1004,6 +1206,7 @@ function shopItemCard(item: ShopItem, index: number, state: RunState, on: Handle
     },
     shopItemHead(title, tag, blocked, tip, rarity),
     h("div", { class: "shop-item-text" }, text),
+    swap ? swapLine(swap, displaced(item, state)) : null,
     h("div", { class: "shop-item-cost" }, money(item.cost)),
   )
 }
@@ -1088,7 +1291,7 @@ export function packView(state: RunState, on: Handlers): HTMLElement | null {
         { class: "pack-options" },
         ...open.options.map((item, index) => {
           if (!item) return h("div", { class: "shop-item sold", style: `--deal:${index}` }, "taken")
-          const { title, text, rarity, tag, blocked } = describeItem(item, state)
+          const { title, text, rarity, swap } = describeItem(item, state)
           return h(
             "button",
             {
@@ -1097,20 +1300,36 @@ export function packView(state: RunState, on: Handlers): HTMLElement | null {
               type: "button",
               onclick: () => on.pickPack(index),
             },
-            // A pack deals one kind of card, so on the shelf's terms the tag
-            // would say "Letter" three times down a sheet whose title already
-            // said Alphabet Pack. Relics used to be the exception, back when
-            // their tag carried a rarity that differed option to option; now
-            // that it is the bare kind, a Relic Pack would be saying "Relic"
-            // three times under its own name. What is left is the case the tag
-            // is not repeating anything to say: a pick that would be taken and
-            // then refused, with the pack already paid for.
+            // No tag at all on this sheet. A pack deals one kind of card, so on
+            // the shelf's terms it would say "Letter" three times under a title
+            // that already said Alphabet Pack. The last case it had left to say
+            // was the pick that could be taken and then refused — a relic dealt
+            // into a full tray — and that one was never really its to say:
+            // `packContents` returns nothing for a relic pack the tray has no
+            // room for, so the shop refuses to open it at all rather than
+            // selling three cards that all bounce. If a pack ever deals a
+            // second pick and the first one fills the tray, the refusal lands
+            // where the shop's does now — at the till, with the pack still open
+            // and the toast naming the card that was tapped.
             //
             // No tip either, and not only because there is no tag to hang it
             // on: this sheet is a held decision, and the pack's own title has
             // already said what kind of thing is being dealt.
-            shopItemHead(title, blocked ? tag : "", blocked, "", rarity),
+            shopItemHead(title, "", false, "", rarity),
             h("div", { class: "shop-item-text" }, text),
+            // The one warning that does stay on this sheet, and the difference
+            // from the tag it replaced is that this pick does not bounce. A
+            // relic dealt into a full tray is refused and the pack stays open,
+            // so the till can say it afterwards and nothing has been lost; a
+            // Glass E dealt onto a Steel E is honoured, and the Steel is gone
+            // before there is anything to say it to.
+            //
+            // A pack is also where this lands most often, because the pack is
+            // the only thing left that rolls the pairing: the shop sells the
+            // card unaimed and the player picks the letter on the next screen
+            // with the whole alphabet in front of them, while a pack deals three
+            // letters somebody else chose.
+            swap ? swapLine(swap, displaced(item, state)) : null,
             // The price it would have carried in the stock, struck through: the
             // pack already charged for it, and seeing what it would have cost is
             // most of what makes opening one feel like a win.
@@ -1142,25 +1361,73 @@ export function packView(state: RunState, on: Handlers): HTMLElement | null {
  *
  * No skip and no backdrop dismissal, for the reason `packView` has none: the
  * gold is spent, and every legal letter was checked before it was taken.
+ *
+ * One tap on a free letter, two on a taken one. Everything above was already
+ * true and was not enough: the mark saying a letter was carrying something was a
+ * 10px pip and 70% opacity, the sentence saying what that meant was a footnote
+ * under a keyboard, and the footnote was not even drawn for a restricted
+ * modifier — Echo goes on six letters, so its note spent itself naming them and
+ * the only warning about replacement went missing on the card most likely to
+ * land on a letter that already had one. The tap itself said nothing at all: a
+ * $13 Glass could eat a $12 Anchor on a fat thumb, or on the physical keyboard
+ * on a single wrong keystroke, with no gesture in between that could be aimed
+ * badly and no way back afterwards.
+ *
+ * So the taken key arms instead of placing, and the footnote's job moves to a
+ * block that names both modifiers and asks. The free letters — which are most of
+ * the alphabet on most visits, and all of it on the first — keep their one tap,
+ * because a confirmation on a choice that destroys nothing is the kind of thing
+ * a player learns to tap through, and a player who taps through this one is
+ * exactly who it is for.
+ *
+ * `arming` is a UI concern and lives in the UI: it is a half-finished gesture,
+ * not a fact about the run, and putting it in `RunState` would write it into
+ * saves and golden vectors for the sake of a thing that does not survive letting
+ * go of the phone.
  */
-export function placeView(state: RunState, on: Handlers): HTMLElement | null {
+export function placeView(
+  state: RunState,
+  on: Handlers,
+  arming: string | null,
+): HTMLElement | null {
   const held = state.placing
   const modifier = held ? MODIFIER_BY_ID.get(held) : undefined
   if (!modifier) return null
   const allowed = new Set(placeableLetters(state, modifier))
+  // What the armed letter stands to lose, worked out here rather than taken on
+  // the caller's word. The field naming the letter outlives renders that the
+  // sheet does not, so this asks the run the question again: a letter that is no
+  // longer placeable, or no longer carrying anything, is not a trade to confirm,
+  // and `armed` falls back to null rather than drawing a question about nothing.
+  const losing = arming ? displacedAt(state, modifier, arming) : undefined
+  const armed = losing ? arming : null
 
   const key = (letter: string) => {
     const entry = state.letters[letter]
     const current = entry?.mod ? MODIFIER_BY_ID.get(entry.mod) : undefined
+    // Carried for the same reason the board's keys carry it: the figure below is
+    // drawn one way when the letter is worth what it started as and another when
+    // it has been bought up, and this sheet is read straight after the board.
+    const bought = (entry?.etch ?? 0) + rangeChips(state, letter) > 0
     return h(
       "button",
       {
-        class: ["key", "place-key", entry?.destroyed ? "broken" : "", current ? "taken" : ""]
+        class: [
+          "key",
+          "place-key",
+          entry?.destroyed ? "broken" : "",
+          current ? "taken" : "",
+          letter === armed ? "arming" : "",
+          bought ? "etched" : "",
+        ]
           .filter(Boolean)
           .join(" "),
         "data-mod": current?.id,
         type: "button",
         disabled: !allowed.has(letter),
+        // Both taps, and the arming is decided in `app.ts` rather than here:
+        // the physical keyboard answers this sheet too, and a letter typed at it
+        // has to arm on exactly the letters a tap arms on.
         onclick: () => on.placeMod(letter),
       },
       letter.toUpperCase(),
@@ -1170,6 +1437,20 @@ export function placeView(state: RunState, on: Handlers): HTMLElement | null {
       h("span", { class: "place-chips" }, num(baseChips(state, letter))),
       current ? h("span", { class: "mod-pip" }, current.pip) : null,
     )
+  }
+
+  // What the sheet says under the keyboard when nothing is armed. Both sentences
+  // can be true at once, which is the bug the old single-line version had: the
+  // restriction used to be written *instead of* the replacement rule.
+  const notes: string[] = []
+  if (modifier.letters) {
+    notes.push(`${modifier.name} only goes on ${[...modifier.letters].join(" ").toUpperCase()}.`)
+  }
+  // Said only when there is a key on screen it is about. On a run that has
+  // bought one modifier — which is every run, once — it is a rule about a
+  // situation that has not arisen, and the sheet is better off short.
+  if ([...allowed].some((letter) => state.letters[letter]?.mod)) {
+    notes.push("A letter holds one modifier. Tapping one that already has a pip asks first.")
   }
 
   return h(
@@ -1182,16 +1463,53 @@ export function placeView(state: RunState, on: Handlers): HTMLElement | null {
       h("p", { class: "pack-hint" }, `Choose a letter. It ${modifier.text}.`),
       h(
         "div",
-        { class: "keyboard place-keys" },
+        // The incoming modifier's colour, hung on the container so the armed key
+        // can ring itself in it while every other key keeps its own. See the
+        // `--incoming` note in the stylesheet for why it survives the override.
+        { class: "keyboard place-keys", "data-mod": modifier.id },
         ...KEY_ROWS.map((row) => h("div", { class: "key-row" }, ...[...row].map(key))),
       ),
-      h(
-        "p",
-        { class: "place-note" },
-        modifier.letters
-          ? `${modifier.name} only goes on ${[...modifier.letters].join(" ").toUpperCase()}.`
-          : "A letter holds one modifier — choosing one that has one trades it away.",
-      ),
+      armed && losing
+        ? h(
+            "div",
+            // The outgoing modifier's colour, on the block rather than on the
+            // word inside it, so the edge and the name are lit by one decision.
+            { class: "place-swap", "data-mod": losing.id },
+            h(
+              "p",
+              { class: "place-swap-line" },
+              `${armed.toUpperCase()} is carrying `,
+              h("strong", {}, `${losing.name} ${losing.pip}`),
+              // "Gone for the rest of the run" rather than "replaced", because
+              // replaced is what the player is trying to do and says nothing
+              // about the cost. A modifier is bought once and paid off over
+              // every guess after it, so what is being spent here is the rest of
+              // the run's worth of a card that has already been paid for.
+              `. Putting ${modifier.name} here loses it for the rest of the run.`,
+            ),
+            h(
+              "div",
+              { class: "shop-actions" },
+              // Same order and the same shape as the quit sheet: the destructive
+              // answer on the left in the danger ink, the one that changes
+              // nothing on the right wearing the weight. The two buttons name
+              // the two outcomes rather than saying yes and no, so the sentence
+              // above does not have to be re-read to work out which is which.
+              h(
+                "button",
+                { class: "danger", type: "button", onclick: () => on.placeMod(armed) },
+                `Replace ${losing.name}`,
+              ),
+              h(
+                "button",
+                { class: "primary", type: "button", onclick: () => on.cancelPlace() },
+                `Keep ${losing.name}`,
+              ),
+            ),
+          )
+        : notes.length > 0
+          ? h("p", { class: "place-note" }, notes.join(" "))
+          : null,
     ),
   )
 }
@@ -2256,11 +2574,14 @@ export function menuView(on: Handlers, chrome: Chrome): HTMLElement {
       // every key, a pip on every modifier — and that density is the scoring
       // game asking to be played; some of the time the player is doing the other
       // thing entirely, which is working out a five-letter word, and every
-      // number on screen is noise. The switch for it is `plainToggle`, sitting
+      // number on screen is noise. The switch for it is `decorToggle`, sitting
       // beside the chips × mult readout, because it was the one setting on this
       // sheet whose whole effect was hidden behind the sheet while it was being
       // set — and the readout is the densest numbers on the screen, so the
-      // switch is next to the thing it is loudest about.
+      // switch is next to the thing it is loudest about. That it has three
+      // states now is a further reason to leave it there: a segmented control
+      // here would be the readable way to show them, and it would show them on
+      // top of the board the reader needs to see to choose between them.
       h(
         "button",
         { class: "secondary", type: "button", onclick: () => on.openHelp() },

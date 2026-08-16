@@ -27,6 +27,35 @@
   --rare-rare: #3f6fd8;
   --rare-legendary: #a855f7;
 
+  /*
+   * The bottom two rungs of the type scale, named because the floor wants to be
+   * a rule rather than twenty separate judgement calls: nothing in the game is
+   * set smaller than `--type-pip`, and anything made of words starts at
+   * `--type-small`.
+   *
+   * They were 8px and 9px. That was picked on a desktop browser at desk
+   * distance and is the wrong measurement — this is a phone game, read
+   * one-handed, and at 8px a corner pip is a smudge you tilt the screen to
+   * resolve, which is a poor deal for the number telling you what a letter
+   * pays. 10px is the smallest a two-digit figure holds up at in the corner of
+   * a key; 11px is the smallest a line of prose on a card does. Everything that
+   * was below those is now on them, which is why they are variables — the next
+   * person to think the game is squinting at them can move two numbers rather
+   * than go hunting for every `0.5625rem` in the file.
+   */
+  --type-pip: 0.625rem;
+  --type-small: 0.6875rem;
+
+  /*
+   * What a letter is worth, and whether that was bought. Two places print this
+   * figure — the corner of a key on the board, and the corner of a key in the
+   * sheet that asks which letter a modifier should go on — and they have to
+   * agree, because a player reads the rule off one and applies it to the other.
+   * Named here so the pair is one decision rather than two that drift.
+   */
+  --value-base: color-mix(in srgb, var(--fg) 72%, transparent);
+  --value-raised: var(--chips);
+
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
@@ -356,14 +385,26 @@ button {
   }
 }
 
+/* The one label that stays on the pip rung, and not for want of trying. Five
+   cards across a phone leaves 64px of card for a name, and the tray is already
+   losing that argument at this size: `Lexicographer` measures 69px and
+   `Doppelgänger` 67px, so both lose a letter or so to the card's `overflow:
+   hidden` today. At the small rung they measure 76px and 74px and lose two or
+   three, which is the difference between a hairline and a mistake. Two-word
+   names wrap and are unaffected either way.
+
+   Left alone rather than fixed here: the repairs are all tray-shaped — let it
+   scroll, break mid-word, hyphenate, abbreviate — and none of them belong in a
+   change about type sizes. The name is a mnemonic; the tip panel is where a
+   relic is read, and that is the thing that got bigger. */
 .relic-name {
-  font-size: 0.625rem;
+  font-size: var(--type-pip);
   font-weight: 700;
   line-height: 1.15;
 }
 
 .relic .sell {
-  font-size: 0.5625rem;
+  font-size: var(--type-pip);
   color: var(--gold);
 }
 
@@ -373,7 +414,7 @@ button {
  * thing on a relic that is worth re-reading between rounds.
  */
 .relic-detail {
-  font-size: 0.5625rem;
+  font-size: var(--type-pip);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--mult);
@@ -423,8 +464,14 @@ button {
   border: 1px solid var(--line);
   border-top: 2px solid var(--rare, var(--rare-common));
   box-shadow: 0 0.25rem 0.75rem #0009;
-  font-size: 0.6875rem;
-  line-height: 1.35;
+  /* Above the small rung rather than on it. Everything else set this small is a
+     label on a card the player already recognises — a name, a price, a tag — and
+     is being glanced at; this is the one panel in the game that has to be *read*,
+     sentences of it, and it was set smaller than the prose in the help sheet
+     explaining the same mechanics. It has a whole panel to itself and no
+     neighbour to crowd, so the size can come from what it is for. */
+  font-size: 0.8125rem;
+  line-height: 1.4;
   text-align: center;
   /* A letter's tip is a few short lines — what it pays, where that came from,
      what is riding on it — and they are written as lines rather than run
@@ -477,7 +524,7 @@ button {
 }
 
 .consumable-text {
-  font-size: 0.5625rem;
+  font-size: var(--type-small);
   color: var(--muted);
   line-height: 1.2;
 }
@@ -634,7 +681,7 @@ button {
   background: color-mix(in srgb, var(--yellow) 22%, #000);
   border: 1px solid color-mix(in srgb, var(--yellow) 55%, transparent);
   color: var(--yellow);
-  font-size: 0.625rem;
+  font-size: var(--type-small);
   font-weight: 800;
   letter-spacing: 0.02em;
   white-space: nowrap;
@@ -852,13 +899,14 @@ button {
   justify-content: center;
 }
 
-/* The face is the setting: a letter carrying its value, or the letter alone.
-   Baseline-aligned so the digit sits where a value sits on a key, and sized to
-   the same box in both states so nothing twitches when it is pressed.
+/* The face is the setting: a letter carrying its value, a letter carrying a
+   mark, or the letter alone. Baseline-aligned so the digit sits where a value
+   sits on a key, and sized to the same box in all three states so nothing
+   twitches when it is pressed.
    Hung off the right end of the row rather than sitting in it as a second flex
    item, because the chips × mult figure is centred against the board above and a
    button in the row would shove it off that centre by half its own width. */
-.plain-toggle {
+.decor-toggle {
   position: absolute;
   right: 0;
   top: 50%;
@@ -883,14 +931,30 @@ button {
   line-height: 1;
 }
 
-.plain-toggle-value {
-  font-size: 0.5625rem;
-  color: var(--chips);
+/* Drawn as an ordinary letter's value rather than a raised one — off-white, not
+   chip blue — because that is what most of the keyboard looks like, and the face
+   of the switch should be the common case it is turning off. */
+.decor-toggle-value {
+  font-size: var(--type-pip);
+  color: var(--value-base);
 }
 
-/* Off dims rather than empties. The affordance has to survive the state it turns
-   the numbers off in, or the way back is a thing the player has to remember. */
-.plain-toggle.off {
+/* The middle state's face. Larger than the digit it replaces because a bullet
+   at the pip size is a speck rather than a mark, and sitting on the same
+   baseline so the two faces do not shift the letter beside them. Same off-white
+   as the digit: it stands in for the marks a letter would still be showing, and
+   colouring it after any one modifier would name a modifier the letter does not
+   have. */
+.decor-toggle-mark {
+  font-size: 0.75rem;
+  color: var(--value-base);
+}
+
+/* The bare board dims rather than empties. The affordance has to survive the
+   state it turns the numbers off in, or the way back is a thing the player has
+   to remember. Only the last state gets this: the middle one is still a
+   decorated board, and the filled face says so. */
+.decor-toggle.bare {
   background: transparent;
   border-color: var(--line);
   color: var(--muted);
@@ -1216,22 +1280,79 @@ button {
   color: var(--muted);
 }
 
-.key.etched {
-  box-shadow: inset 0 0 0 2px var(--gold);
-}
-
+/*
+ * A bought-up letter has no ring of its own, and that is the second half of a
+ * decision the value pip below makes.
+ *
+ * It used to wear one in `--gold`, which was wrong twice over. Loud: gold is a
+ * signal colour — it is what money is printed in — and an etching buys a whole
+ * group of letters at once, so ten keys would light at full saturation and the
+ * keyboard became the brightest thing on a screen whose subject is five letters
+ * and three colours. And ambiguous: the Gold modifier is drawn in the same
+ * `--gold`, so a letter somebody had etched and a letter carrying a Gold mod
+ * wore the identical ring while meaning unrelated things.
+ *
+ * Dropping it rather than recolouring it, because the ring is the only place a
+ * modifier can say which modifier it is, while "raised" now has a number in the
+ * corner that says both that it is raised and by how much. One mark, one
+ * meaning: the ring is modifier identity, the corner figure is what the letter
+ * pays.
+ */
 .key.broken {
   background: #1b1c20;
   color: #4a4b52;
   text-decoration: line-through;
 }
 
-.etch-pip {
+/*
+ * What the letter is worth, in the corner of every key.
+ *
+ * Off-white while the letter is worth what it started as, and `--chips` blue
+ * once an etching or a range level has raised it. Blue rather than gold, and the
+ * choice is not decorative: a raised letter is *more chips*, and blue is the
+ * colour chips are counted in everywhere else in the game — the readout under
+ * the board, the chip figure on a shop card, the Chip modifier itself. Gold
+ * means money, and money is a different quantity that happens to also be a
+ * number on a card. Two of them next to each other is a question the player has
+ * to answer every time they look.
+ *
+ * That the shared hue with the Chip modifier is fine, where the shared hue with
+ * the Gold one was not, is the whole argument in one line: the Chip modifier
+ * pays chips. Agreeing with it is the point.
+ *
+ * The off-white is mixed toward transparent rather than set to `--muted`, so it
+ * darkens against a light key and lifts against a dark one instead of landing
+ * flat on the gray ones.
+ *
+ * The shadow is not decoration. This used to appear on the handful of keys
+ * somebody had spent money on, and it could be drawn for the neutral key
+ * background those mostly sat on; it is on all twenty-six now, so it spends the
+ * round over green, yellow and gray instead, and 10px of type on a yellow key is
+ * not readable without something behind it.
+ */
+.value-pip {
   position: absolute;
   top: 1px;
   right: 3px;
-  font-size: 0.5rem;
-  color: var(--gold);
+  font-size: var(--type-pip);
+  color: var(--value-base);
+  text-shadow: 0 1px 1px rgb(0 0 0 / 0.6);
+}
+
+/* Bolder as well as bluer. The keyboard is read at a glance and from a distance
+   the weight carries further than the hue does — and it has to, because this is
+   now the only mark saying a letter was bought up. */
+.key.etched .value-pip {
+  color: var(--value-raised);
+  font-weight: 700;
+}
+
+/* Broken keys keep the figure rather than dropping it — the letter is still worth
+   that, it is just no longer typeable — and grey to the same dead colour the
+   modifier pip takes, so the whole key reads as one switched-off thing. */
+.key.broken .value-pip {
+  color: #4a4b52;
+  text-shadow: none;
 }
 
 /*
@@ -1258,10 +1379,40 @@ button {
 [data-mod="glass"] {
   --mod: #7fd8e8;
 }
+/*
+ * The three that arrived with the wider modifier pool and were never given a
+ * colour. `--mod` simply went undeclared on them, so the pip fell back to
+ * whatever it inherited — on a key that is the key's own text colour, which is
+ * to say the pip that names the modifier was drawn in the ink of the letter it
+ * was sitting on, and the ring the key wears was dropped entirely. Three of the
+ * nine modifiers had no mark of their own on the board.
+ *
+ * Picked out of the hues the palette had not spent, rather than for what the
+ * card does, because the glyph is what says which modifier this is — `?` and `↺`
+ * and `⚓` are not confusable with each other at any size — and the colour's job
+ * is to be legible over green, yellow and gray keys alike and to be the same
+ * colour in all three places the modifier appears. Anchor is the one that got to
+ * be about the card: it pays on greens, and it is lightened well clear of the
+ * green key it will most often be read against.
+ */
+[data-mod="lucky"] {
+  --mod: #ff8fd0;
+}
+[data-mod="echo"] {
+  --mod: #f2a65a;
+}
+[data-mod="anchor"] {
+  --mod: #7ee787;
+}
 
-/* After the colour rules above, so a modified green key still shows its ring. */
+/* After the colour rules above, so a modified green key still shows its ring.
+   Held back from full strength for the reason the etched ring was dropped over —
+   a saturated 2px edge is louder than a mark this incidental needs to be — but
+   only held back, not dropped: this is the one thing the ring says now, there
+   are a handful of them rather than a dozen, and each is a different colour
+   naming a different modifier rather than one signal colour repeated. */
 .key[data-mod] {
-  box-shadow: inset 0 0 0 2px var(--mod);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--mod) 62%, transparent);
 }
 
 .key.broken[data-mod] {
@@ -1272,9 +1423,12 @@ button {
   position: absolute;
   bottom: 1px;
   left: 3px;
-  font-size: 0.5rem;
+  font-size: var(--type-pip);
   font-weight: 800;
   color: var(--mod);
+  /* Same reason the value pip carries one: it sits on whatever colour the guess
+     has painted the key. */
+  text-shadow: 0 1px 1px rgb(0 0 0 / 0.6);
 }
 
 .key.broken .mod-pip {
@@ -1296,29 +1450,79 @@ button {
 }
 
 /*
+ * The quiet board: the middle setting, which marks only what is not ordinary.
+ *
+ * One rule — a letter that is still worth what it started as says nothing. The
+ * value goes from the twenty-odd keys nobody has touched and stays on the ones
+ * that were paid for, where it is already drawn in chip blue and is the only
+ * thing left saying they were; modifiers keep their pip, their ring and the dot
+ * they leave on a played tile, because which letter is Gold is a decision the
+ * player made and has to keep making.
+ *
+ * What else goes is the scoring animation — the `+chips +mult` a tile floats as
+ * it turns, and the outline a modifier throws round the tile it fires on. Those
+ * are the board narrating arithmetic while the guess resolves, and they are the
+ * loudest thing on it at exactly the moment there is nothing to decide. The dot
+ * stays and the flash goes, which is the same rule again: what a tile *is*
+ * survives, what it is *doing* does not.
+ *
+ * This is roughly the board the game had before values went on every key, so it
+ * is a screen that is known to work rather than one invented for a third state.
+ */
+.quiet .key:not(.etched) .value-pip,
+.quiet .tile-gain {
+  display: none;
+}
+
+.quiet .tile.fired {
+  outline: none;
+}
+
+/*
  * The plain board, for the half of the game that is only a word puzzle.
  *
+ * Independent of `.quiet` rather than layered on it, though it hides a superset:
+ * the two never appear together, and each block is readable on its own instead
+ * of one of them being half a state whose other half is in `setDecor`. The cost
+ * is that `.tile-gain` and the fired outline are turned off twice.
+ *
  * Every per-letter number and mark goes: the chip value in the corner of a key,
- * the modifier pip beside it, the ring the modifier draws around the key, the
- * dot it leaves on a played tile, and the `+chips +mult` a tile floats as it
- * turns. One rule, easy to state — no number is attached to a letter anywhere.
- * What survives is Wordle, five letters and three colours, plus the whole-guess
- * score, which is the game rather than a decoration of it and which the readout
- * above the keyboard still counts out.
+ * the modifier pip beside it, the dot the modifier leaves on a played tile, and
+ * the `+chips +mult` a tile floats as it turns. One rule, easy to state —
+ * nothing on the board says what a letter is worth. What survives is Wordle,
+ * five letters and three colours, plus the whole-guess score, which is the game
+ * rather than a decoration of it and which the readout above the keyboard still
+ * counts out.
  *
  * Nothing here changes what anything is worth. The letters score exactly what
  * they scored a moment ago, and holding a key still says what that is; they have
  * only stopped announcing it unprompted.
  */
-.plain .etch-pip,
+.plain .value-pip,
 .plain .mod-pip,
 .plain .tile[data-mod]::after,
 .plain .tile-gain {
   display: none;
 }
 
+/*
+ * And the outlines, which are the same claims made in colour rather than in
+ * digits: the modifier's ring on the key, and the outline a modifier throws
+ * round the tile it fires on.
+ *
+ * Hiding the pips and keeping these was the half-measure the setting shipped
+ * with, and it was most wrong exactly where the setting is for — the board still
+ * had a purple K on it, still drew a ring round the tile that just paid, and a
+ * player trying to think about five letters and three colours was being shown a
+ * fourth and a fifth. The Wordle colours stay: they are the word puzzle rather
+ * than a decoration of it.
+ */
 .plain .key[data-mod] {
   box-shadow: none;
+}
+
+.plain .tile.fired {
+  outline: none;
 }
 
 .key:active {
@@ -1390,15 +1594,15 @@ button {
  * scanning five cards for "is there a relic" lands on.
  *
  * Uppercased in CSS rather than in the string, so the tag that has to say
- * something in prose — "Relic · tray full" — is still written as prose in the
- * one place a reader of the view code will look for it.
+ * something in prose — "Consumable · slots full" — is still written as prose in
+ * the one place a reader of the view code will look for it.
  */
 .shop-item-kind {
   /* Yields the width before the name does: the name is the card's identity and
      the tag is a category anyone can also read off the colour of the border. */
   flex: 0 1 auto;
   text-align: right;
-  font-size: 0.5625rem;
+  font-size: var(--type-pip);
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1431,7 +1635,11 @@ button {
 
 /* No seat for it. Mult red, because that is this game's colour for a number
    that is against you, and because the tag is now a warning rather than a
-   label — the purchase will be refused at the till. */
+   label — the purchase will be refused at the till.
+
+   The consumable's alone, since the relic stopped wearing one: a full hand is a
+   wall for the whole shop visit, and a full tray is a thing you can sell your
+   way out of two rows further down the same screen. */
 .shop-item-kind.blocked {
   color: var(--mult);
 }
@@ -1451,6 +1659,29 @@ button {
   font-size: 0.6875rem;
   color: var(--muted);
   line-height: 1.3;
+}
+
+/*
+ * "Replaces Steel ×2" — the only line on a shelf card describing something the
+ * tap takes away rather than something it hands over.
+ *
+ * It used to be the tail of `.shop-item-text`, in muted 11px, at the end of the
+ * longest sentence on the card. That is the wrong place for it twice over: it is
+ * the last thing read on a card that is mostly skimmed, and it is in the ink the
+ * card uses for sales copy. Lifted onto a line of its own, in the outgoing
+ * modifier's own colour, which is the colour the letter it names has been
+ * wearing on the keyboard since it was bought.
+ *
+ * Not `--mult` and not a warning red, though it is a warning. Red is the mult
+ * readout everywhere else in this game, and a shelf card that suddenly speaks in
+ * the scoring palette would be read as a number before it is read as a caution.
+ */
+.shop-item-swap {
+  flex: 0 0 auto;
+  font-size: var(--type-pip);
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--mod);
 }
 
 .shop-item-cost {
@@ -1570,7 +1801,7 @@ button {
   padding: 0 0.25rem;
   border-radius: 0.1875rem;
   background: color-mix(in srgb, var(--gold) 26%, var(--panel));
-  font-size: 0.625rem;
+  font-size: var(--type-small);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -1623,22 +1854,111 @@ button {
      for a whole round. Here it is a single tap, and the sheet has a note under
      it that should not be pushed off a short screen. */
   --key-h: clamp(2.5rem, 6svh, 3rem);
+
+  /*
+   * The colour of the modifier being placed, frozen here so the keys below can
+   * still say what they are already carrying.
+   *
+   * The container wears the incoming modifier's `data-mod`, which sets `--mod`
+   * on it; every key that carries one sets `--mod` again for itself, and after
+   * that there is no way down there to name the incoming colour. This copies it
+   * before the overrides happen — a custom property's `var()` is substituted
+   * against the element it is declared on, so `--incoming` computes to the
+   * incoming colour here and inherits down as that literal, untouched by what
+   * the keys do to `--mod` afterwards.
+   */
+  --incoming: var(--mod);
 }
 
-/* What the letter is already worth, which is the number the choice turns on. */
+/* What the letter is already worth, which is the number the choice turns on —
+   and drawn by the same rule the board draws it by, base against raised, since
+   the player has just come from there. */
 .place-chips {
   position: absolute;
   top: 1px;
   right: 3px;
-  font-size: 0.5rem;
+  font-size: var(--type-pip);
   font-weight: 700;
-  color: var(--chips);
+  color: var(--value-base);
 }
 
-/* Already carrying something, so choosing it is a trade. Dimmed rather than
-   disabled — trading up is a real move, and the pip says what is being given. */
+.place-key.etched .place-chips {
+  color: var(--value-raised);
+  font-weight: 800;
+}
+
+/*
+ * Already carrying something, so choosing it is a trade rather than a placement.
+ *
+ * Dimmed rather than disabled — trading up is a real move, and the pip says what
+ * is being given. What the dimming could never say is that the trade is the
+ * expensive move: on this keyboard the free letters are the loud ones and the
+ * occupied letter reads as the *less* interesting key, which is backwards. It is
+ * left alone anyway, because it is no longer the only thing saying so. A taken
+ * key now takes two taps and the second one is asked for in words.
+ */
 .place-key.taken {
   opacity: 0.7;
+}
+
+/*
+ * Armed: tapped once, waiting on the answer to the question that has appeared
+ * under the keyboard.
+ *
+ * Ringed in the incoming modifier's colour, over the top of the ring it wears in
+ * its own — one key on the board is now wearing the colour of the card in the
+ * player's hand, which is the whole message. Brought back to full strength at
+ * the same time, so the key the question is about is the brightest thing on the
+ * sheet rather than one of the dimmed ones.
+ *
+ * The outgoing pip is struck through, and that is the only place the loss is
+ * drawn rather than written. It is small on purpose: at 10px a strikethrough is
+ * a texture rather than a legible mark, and it is there to agree with the
+ * sentence below for a player who has already read it, not to carry it.
+ */
+.place-key.arming {
+  opacity: 1;
+  box-shadow:
+    inset 0 0 0 2px var(--incoming),
+    0 0 0.5rem color-mix(in srgb, var(--incoming) 45%, transparent);
+}
+
+.place-key.arming .mod-pip {
+  text-decoration: line-through;
+  opacity: 0.75;
+}
+
+/*
+ * The question itself. A block rather than the footnote it replaces, because the
+ * footnote was the version that did not work: this is the one moment on the
+ * sheet where something is about to be destroyed, and it gets the room the rest
+ * of the sheet gives to the keyboard.
+ */
+.place-swap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding: 0.625rem;
+  border-radius: 0.5rem;
+  background: var(--panel-2);
+  /* Edged in the colour of what is being lost, which is the same colour as the
+     struck-through pip on the key above and the name inside this block. Three
+     marks, one colour, one thing being said. */
+  border: 1px solid color-mix(in srgb, var(--mod) 45%, transparent);
+}
+
+.place-swap-line {
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--fg);
+}
+
+/* The outgoing modifier, named in its own ink — the colour the player has been
+   reading off that key since they bought it. */
+.place-swap-line strong {
+  color: var(--mod);
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .place-key:disabled {
@@ -2584,10 +2904,21 @@ button {
    its own pseudo-elements, which makes every key a positioned box at the same
    auto level as this one; document order then decides, the keyboard is written
    after the toast, and the refusal loses. It was being drawn all along,
-   underneath the row of keys the player was about to press again. */
+   underneath the row of keys the player was about to press again.
+
+   Above `.overlay` for the same reason one rung up, and this one is a guard
+   rather than a repair. Nothing reaches it today: the two sheets that dispatch
+   at all pre-empt their own refusals, the pack by refusing to open one it has
+   no room for and the letter picker by disabling every key that would bounce.
+   But a sheet is drawn at 10 over a #000a backdrop, so a refusal fired from
+   inside one was painted at 6 underneath it — technically drawn, two-thirds
+   swallowed, and read by a player as the tap having done nothing. The relic
+   card's own warning came off in favour of the till saying it, which makes this
+   the one channel a refusal has; it should not also depend on every sheet
+   having thought of its refusals in advance. */
 .toast {
   position: fixed;
-  z-index: 6;
+  z-index: 11;
   left: 50%;
   bottom: calc(var(--safe-bottom) + var(--toast-lift, 1rem));
   transform: translateX(-50%);

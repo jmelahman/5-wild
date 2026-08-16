@@ -35,9 +35,9 @@ Mobile first: portrait, thumb-reachable, sheets rising from the bottom edge
 rather than centred. Anything with a `data-tip` gets the hover panel on a mouse
 and a long-press one on a finger, so a new affordance usually only needs the
 attribute. Purely presentational settings live as a class on the document root
-and are switched off in the stylesheet — see `.plain` — rather than threaded
-through the views, which the full rebuild would otherwise make every view's
-business.
+and are switched off in the stylesheet — see `.plain` and `.quiet` — rather than
+threaded through the views, which the full rebuild would otherwise make every
+view's business.
 
 Tests run in Node with no DOM — there is no jsdom. `test/ui` covers pure logic
 only; rendering and interaction get validated in a real browser instead.
@@ -65,10 +65,11 @@ style but not its prose is half-finished.
 
 ## Storage
 
-`5wild:run:v2` (the run save), `5wild:meta:v2` (the record), and five flags:
+`5wild:run:v2` (the run save), `5wild:meta:v2` (the record), and five settings:
 `5wild:seen-help`, `5wild:plain`, `5wild:muted`, `5wild:music`, `5wild:coached`.
-Adding an optional field needs no key bump; changing what an existing field
-means does.
+All are booleans except `5wild:plain`, which holds one of `all`, `minimal` or
+`none` — how much of the scoring game the board draws on itself. Adding an
+optional field needs no key bump; changing what an existing field means does.
 
 `5wild:coached` is the odd one: it is the only flag that is not a setting. It
 records that the first-round tutorial has been spent, and it is deliberately not

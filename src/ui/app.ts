@@ -1,5 +1,5 @@
 import type { Action, GameEvent, RunState, WordSource } from "../engine"
-import { MULT_FOR_COLOR, reduce, startRun } from "../engine"
+import { MODIFIER_BY_ID, MULT_FOR_COLOR, reduce, startRun } from "../engine"
 import { Sound } from "./audio"
 import type { CoachStep } from "./coach"
 import { coachSpent, coachStep } from "./coach"
@@ -8,10 +8,11 @@ import { formatNumber as num } from "./format"
 import { chosenAscension, Profile } from "./meta"
 import type { Mood } from "./music"
 import { Music } from "./music"
-import type { Chrome, Handlers } from "./views"
+import type { Chrome, Decor, Handlers } from "./views"
 import {
   ascendView,
   codexView,
+  displacedAt,
   endView,
   fillCategory,
   fillCoach,
@@ -20,6 +21,7 @@ import {
   introView,
   menuView,
   meterFill,
+  NEXT_DECOR,
   packView,
   placeView,
   quitView,
@@ -60,7 +62,17 @@ const HELP_KEY = "5wild:seen-help"
  */
 const COACH_KEY = "5wild:coached"
 
-/** Set when the player has asked for a board with no numbers on it. */
+/**
+ * How much the board draws on itself: one of `Decor`.
+ *
+ * Still spelled `plain` after the setting grew a third state, because the key
+ * has never shipped — there is no save anywhere holding the `"1"` this used to
+ * write, so there is nothing for a rename to rescue and nothing for the old
+ * spelling to mean. An unreadable value falls back to `all`, which is also what
+ * a first launch gets, so a store that has been blocked or scribbled on lands on
+ * the board the game is designed around rather than a stripped one the player
+ * never asked for.
+ */
 const PLAIN_KEY = "5wild:plain"
 
 /**
@@ -114,10 +126,21 @@ export class App {
   private overlay: "help" | "codex" | "shapes" | "stats" | "menu" | "quit" | "ascend" | null = null
   /** Which rung the open lock is offering. Only meaningful while `overlay` is "ascend". */
   private ascendTo = 0
+  /**
+   * The letter in the picker that has been tapped and is waiting to be confirmed,
+   * because it is already carrying a modifier that placing would destroy.
+   *
+   * Here rather than in `RunState` because it is a half-finished gesture rather
+   * than a fact about the run: it must not be saved, must not reach a golden
+   * vector, and must not survive putting the phone down. The engine's `placing`
+   * is the run's half of this — a modifier is genuinely in hand until it lands,
+   * and that does survive a reload.
+   */
+  private arming: string | null = null
   /** The card or key whose tip is currently up, so re-entering it is not a change. */
   private hovered: HTMLElement | null = null
-  /** True when the player has asked for the letters to stop shouting numbers. */
-  private plain = plainBoard()
+  /** How loudly the letters are allowed to announce what they are worth. */
+  private decor = loadDecor()
   /**
    * True while the first round is still owed its explanation.
    *
@@ -141,9 +164,10 @@ export class App {
     // a null state; it simply is not persisted until the player commits to it.
     this.state = saved ?? startRun(rootSeed(), words).state
     this.atTitle = saved === null
-    // The class is on the document rather than in the render, so it has to be
-    // put back on the way in — the stylesheet is the only thing that remembers.
-    setPlainBoard(this.plain)
+    // The classes are on the document rather than in the render, so they have to
+    // be put back on the way in — the stylesheet is the only thing that
+    // remembers.
+    setDecor(this.decor)
     this.bindPhysicalKeyboard()
     this.bindAudioWake()
     this.bindTips()
@@ -206,6 +230,12 @@ export class App {
     }
 
     this.state = state
+    // Nothing is armed once there is nothing in hand. The commit path clears it
+    // on its way through, so what this catches is the run ending underneath an
+    // armed key — quitting from the menu over the top of the picker — which
+    // would otherwise leave the next run's picker with one letter already half
+    // pressed, and that letter would place on a single tap.
+    if (!this.state.placing) this.arming = null
     this.tally(before)
     // Every arrival at a round from elsewhere gets the intro card, which is the
     // only thing that makes the shop and the board feel like separate places.
@@ -846,9 +876,43 @@ export class App {
     continueRun: () => this.dispatch({ type: "continue_run" }),
     pickPack: (index) => this.dispatch({ type: "pick_pack", index }),
     skipPack: () => this.dispatch({ type: "skip_pack" }),
+    /**
+     * The picker's one tap, or the first of its two.
+     *
+     * A letter with nothing on it places immediately, which is the ordinary case
+     * and the whole alphabet on the first visit. A letter already carrying a
+     * modifier arms instead, and the sheet turns into a question naming what
+     * would be lost; the second tap on the same letter — or the Replace button,
+     * which comes back through here with the same letter — is what places it.
+     *
+     * Both the keys and the physical keyboard land here, which is the reason the
+     * decision is made in this method rather than in the view. Typing a letter
+     * at this sheet is a real input path, and it is the one where a wrong answer
+     * is cheapest to give: a G aimed at an F destroys whatever was on the G with
+     * no gesture in between that could have been aimed badly.
+     */
     placeMod: (letter) => {
       this.sound.key()
+      const armed = this.arming === letter
+      // The same call the sheet makes to decide whether to draw the question, so
+      // that the tap and the screen it produces cannot mean different things.
+      const modifier = this.state.placing ? MODIFIER_BY_ID.get(this.state.placing) : undefined
+      const trade =
+        modifier !== undefined && displacedAt(this.state, modifier, letter) !== undefined
+
+      if (trade && !armed) {
+        this.arming = letter
+        this.render()
+        return
+      }
+      this.arming = null
       this.dispatch({ type: "place_mod", letter })
+    },
+    // The modifier stays in hand — this backs out of the letter, not out of the
+    // purchase, which the engine would not allow anyway.
+    cancelPlace: () => {
+      this.arming = null
+      this.render()
     },
     newRun: () => {
       this.state = startRun(rootSeed(), this.words, chosenAscension(this.profile.stats)).state
@@ -890,9 +954,9 @@ export class App {
       this.music.toggle()
       this.render()
     },
-    togglePlain: () => {
-      this.plain = !this.plain
-      setPlainBoard(this.plain)
+    cycleDecor: () => {
+      this.decor = NEXT_DECOR[this.decor]
+      setDecor(this.decor)
       this.render()
     },
     openMenu: () => {
@@ -965,7 +1029,7 @@ export class App {
     return {
       muted: this.sound.isMuted,
       musicOff: this.music.isOff,
-      plain: this.plain,
+      decor: this.decor,
       coach: this.coach,
     }
   }
@@ -1024,6 +1088,13 @@ export class App {
     // The card the pointer was over is about to stop existing, and a stale node
     // here would read as "still hovering" and suppress the next tip.
     this.hovered = null
+    // Read here, at the top, because everything below this line is the rebuild
+    // that destroys the focused node. The name it carries is the only part of it
+    // that survives, and `holdFocus` spends it on the far side.
+    const keeping =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement.dataset.focus
+        : undefined
     const view = this.atTitle
       ? titleView(this.handlers, this.chrome, this.profile.stats)
       : phase === "round" && this.intro && !as
@@ -1060,16 +1131,18 @@ export class App {
                     : // Both are held decisions the engine will not let the shop move
                       // past, and the two cannot be open at once — buying is refused
                       // while either is. Order is arbitrary; only exclusivity matters.
-                      (placeView(this.state, this.handlers) ?? packView(this.state, this.handlers))
+                      (placeView(this.state, this.handlers, this.arming) ??
+                      packView(this.state, this.handlers))
 
     clear(this.root).append(view)
     if (sheet) this.root.append(sheet)
-    this.holdFocus()
+    this.holdFocus(keeping)
     this.lightCoach()
   }
 
   /**
-   * Put the keyboard inside the sheet, and keep it there.
+   * Put the keyboard inside the sheet, and keep it there — or, with no sheet
+   * open, hand the board's focus back to the control that had it.
    *
    * Called after every render rather than only on the one that opened the sheet,
    * because a render throws the whole screen away and builds a new one — the
@@ -1080,14 +1153,23 @@ export class App {
    * then starts at the title and reads down, where landing on "Open the codex"
    * would announce the last thing in the sheet as though it were the point of it.
    *
-   * Nothing is restored on close, and that is not an oversight — the element that
-   * opened the sheet was destroyed by the render that opened it, so there is no
-   * node left to hand focus back to. Focus falls to the body, which is where the
-   * board wants it anyway: every key the game reads is bound to `window`.
+   * On the board the same rebuild is the problem and a name is the answer. The
+   * node is gone, so there is nothing to hold; what survives is the `data-focus`
+   * it was carrying, and the new screen is asked for the node wearing the same
+   * one. It is opt-in for the reason `data-tip` is: most of the board is letter
+   * keys, focus on those is an accident of a tap rather than a place the player
+   * meant to be, and the game reads every key off `window` anyway. A control the
+   * player deliberately tabbed to is the exception, and it says so itself.
+   *
+   * The sheet still wins where both apply. A button that opens a sheet is asking
+   * for the sheet to be read, not to keep a ring on itself behind the backdrop.
    */
-  private holdFocus(): void {
+  private holdFocus(keeping?: string): void {
     const sheet = this.root.querySelector<HTMLElement>(".sheet")
-    if (!sheet) return
+    if (!sheet) {
+      if (keeping) this.root.querySelector<HTMLElement>(`[data-focus="${keeping}"]`)?.focus()
+      return
+    }
     if (!sheet.contains(document.activeElement)) sheet.focus()
   }
 
@@ -1170,18 +1252,69 @@ export class App {
         return
       }
       if (this.atTitle) return
+      // A control that keeps its focus across a rebuild also owns the two keys
+      // that press it, for the same reason the sheet branch above hands them to
+      // whatever is focused inside it.
+      //
+      // Without this, Enter on the tabbed-to switch never reaches the button at
+      // all: the round below takes it, `preventDefault` cancels the click the
+      // browser was about to synthesise from it, and a keypress the player aimed
+      // at a switch submits their guess instead. Space happened to work, because
+      // the board has no use for Space and lets it fall through — so the switch
+      // answered one of the two keys that mean "press this" and silently did
+      // something else with the other.
+      //
+      // Hung off `data-focus` rather than off "is a button", because the letter
+      // keys are buttons too and Enter over a letter key is how the guess gets
+      // submitted with a hand still on the keyboard.
+      const active = document.activeElement
+      if (
+        (event.key === "Enter" || event.key === " ") &&
+        active instanceof HTMLElement &&
+        active.hasAttribute("data-focus")
+      ) {
+        return
+      }
       // A modifier in hand asks a letter question, and this is where letters
       // come from — the one thing outside a round a keypress can answer.
-      if (this.state.placing && /^[a-zA-Z]$/.test(event.key)) {
-        this.handlers.placeMod(event.key.toLowerCase())
-        event.preventDefault()
-        return
+      if (this.state.placing) {
+        // Escape is the keyboard's Keep button. It is only bound while a
+        // replacement is armed, because that is the only moment this sheet has
+        // anything to back out of — the modifier itself is bought and the engine
+        // will not take it back, so an Escape at the bare picker would be a key
+        // that looks like a way out and is not.
+        if (this.arming && event.key === "Escape") {
+          this.handlers.cancelPlace()
+          event.preventDefault()
+          return
+        }
+        if (/^[a-zA-Z]$/.test(event.key)) {
+          this.handlers.placeMod(event.key.toLowerCase())
+          event.preventDefault()
+          return
+        }
       }
       if (this.state.phase !== "round") return
       if (this.intro) {
         this.handlers.play()
         event.preventDefault()
         return
+      }
+      // Typing a letter is a statement that the round has the player's
+      // attention, so the switch above stops holding it. Without this the two
+      // rules meet in a trap: focus survives the press that set the board the
+      // way you wanted, you type a word into the round the ordinary way, and
+      // Enter presses the button still quietly holding focus instead of playing
+      // the guess. Handing focus back to the body is also where the board wants
+      // it — every key the game reads is bound to `window`.
+      //
+      // Spelled out as the two keys that edit a guess rather than as "anything
+      // that got this far", because Tab gets this far too, and blurring on the
+      // way past would drop the tab order back to the top of the document at the
+      // exact moment the player was trying to walk it.
+      const typing = event.key === "Backspace" || /^[a-zA-Z]$/.test(event.key)
+      if (typing && active instanceof HTMLElement && active.hasAttribute("data-focus")) {
+        active.blur()
       }
       // Through the handlers rather than straight to `dispatch`, so a typed
       // letter takes the same path whichever keyboard it came from.
@@ -1245,28 +1378,42 @@ function clearSave(): void {
 }
 
 /**
- * Whether the per-letter marks are hidden, and the switch for it.
+ * How many of the per-letter marks are drawn, and the switch for it.
  *
  * A class on the root element rather than a flag threaded through the views,
  * for two reasons. The screen is rebuilt from scratch on every render, so
  * anything the views had to remember would have to be passed to all of them;
  * and what this hides is entirely presentational — a pip is still a pip, it is
  * just not being drawn — so the stylesheet is where the decision belongs. The
- * one class covers the keyboard, the board and any decoration added later,
- * without any of them being told the setting exists.
+ * classes cover the keyboard, the board and any decoration added later, without
+ * any of them being told the setting exists.
  */
-function plainBoard(): boolean {
+function loadDecor(): Decor {
   try {
-    return localStorage.getItem(PLAIN_KEY) === "1"
+    const saved = localStorage.getItem(PLAIN_KEY)
+    return saved === "minimal" || saved === "none" ? saved : "all"
   } catch {
-    return false
+    return "all"
   }
 }
 
-function setPlainBoard(plain: boolean): void {
-  document.documentElement.classList.toggle("plain", plain)
+/**
+ * Two independent classes rather than one plus a modifier, and neither implies
+ * the other: `quiet` is the middle state's rules, `plain` is the bare board's,
+ * and exactly one of them is on at a time.
+ *
+ * The nesting version — `plain` always accompanied by `quiet`, since the bare
+ * board hides a superset — spreads one state across two selectors and leaves the
+ * stylesheet depending on this function to keep setting both. Independent
+ * classes cost a repeated `display: none` and make each block readable on its
+ * own, which is what a rule you have to check against a screenshot needs to be.
+ */
+function setDecor(decor: Decor): void {
+  const root = document.documentElement.classList
+  root.toggle("quiet", decor === "minimal")
+  root.toggle("plain", decor === "none")
   try {
-    localStorage.setItem(PLAIN_KEY, plain ? "1" : "0")
+    localStorage.setItem(PLAIN_KEY, decor)
   } catch {
     // The setting lasts the session instead of the install. Nothing else breaks.
   }
