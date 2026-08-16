@@ -1998,20 +1998,34 @@ button {
  *
  * The height is pinned because the box is a stepper and a stepper is held down:
  * a rule that wraps to two lines where the last one wrapped to one moved the
- * Play button under the thumb already on its way to it. Measured across all 101
- * levels at 390 and at 320 — the two ends of the widths this ever renders at —
- * the box runs 78 to 94 with no line under the rule and 128 with the two-line
- * warning, and 128 is the same number at both widths because the rule tops out
- * at two lines either way. So 8rem, and `min-height` rather than `height`: at a
- * root font much larger than 16px the wrap counts are no longer the measured
- * ones, and the failure worth having there is a box that grows rather than one
- * that crops the sentence explaining the lock.
+ * Play button under the thumb already on its way to it. Measured by stepping all
+ * 101 levels at 390 and at 320 — the two ends of the widths this ever renders at
+ * — the box tops out at 85 with no line under the rule and 101 with the note
+ * under it, and both numbers are the same at both widths because the rule tops
+ * out at two lines either way. So 6.375rem, one pixel of slack over the worst
+ * case.
+ *
+ * It was 8rem while a two-line warning could sit under an unearned level, then
+ * 7rem once that line was cut. 7rem was still an inch of air: the warning had
+ * been the tall thing, and with it gone the padding it needed was padding around
+ * nothing. This pass took the last ten pixels out of the chrome rather than the
+ * words — a little off the step buttons, the top and bottom padding, and the two
+ * gaps between the three rows — because the rule text is the only thing in here
+ * anybody reads and shrinking that to buy height is trading the point for the
+ * frame. That is the whole reason the measurement is written down: the next
+ * person to delete a line needs to know these numbers were measured rather than
+ * chosen, or the box will sit at its old height holding nothing forever.
+ *
+ * `min-height` rather than `height`: at a root font much larger than 16px the
+ * wrap counts are no longer the measured ones, and the failure worth having
+ * there is a box that grows rather than one that crops the rule it exists to
+ * explain.
  */
 .ladder {
   width: min(100%, 22rem);
-  min-height: 8rem;
+  min-height: 6.375rem;
   margin-bottom: 0.5rem;
-  padding: 0.5rem 0.625rem 0.625rem;
+  padding: 0.4375rem 0.625rem 0.5rem;
   border-radius: 0.75rem;
   border: 1px solid var(--line);
   background: var(--panel);
@@ -2031,10 +2045,16 @@ button {
   gap: 0.5rem;
 }
 
+/* Wider than it is tall, which is the one place the tightening shows. The row is
+   the tallest thing in the box and the only one whose height is arbitrary, so it
+   gave up the four pixels; the width stayed because the thumb aiming at a `+`
+   beside a `−` is aiming sideways, and it is the horizontal miss that costs a
+   rung. Square at 2.25rem before, and it is still the widest target on the
+   screen after the Play button. */
 .ladder-step {
   flex: 0 0 auto;
   width: 2.25rem;
-  height: 2.25rem;
+  height: 2rem;
   border-radius: 0.5rem;
   background: var(--panel-2);
   color: var(--fg);
@@ -2089,7 +2109,7 @@ button {
    box would hold the Play button still and still let this slide about inside it. */
 .ladder-text {
   min-height: 2rem;
-  margin-top: 0.375rem;
+  margin-top: 0.25rem;
   font-size: 0.75rem;
   line-height: 1.35;
   color: var(--muted);
@@ -2097,20 +2117,10 @@ button {
 
 /* The carrot, and the only forward-looking line on the screen. */
 .ladder-note {
-  margin-top: 0.25rem;
+  margin-top: 0.1875rem;
   font-size: 0.6875rem;
   letter-spacing: 0.04em;
   color: color-mix(in srgb, var(--gold) 80%, var(--muted));
-}
-
-/* Where the carrot goes when the level is above what was earned. Muted rather
-   than red: this is advice, and the second sentence of it grants permission —
-   a warning colour would be the screen arguing with a decision it just allowed. */
-.ladder-warn {
-  margin-top: 0.25rem;
-  font-size: 0.6875rem;
-  line-height: 1.35;
-  color: var(--muted);
 }
 
 /* Dimmed, not alarmed. The box keeps whatever colour its level earned it and
@@ -2219,13 +2229,6 @@ button {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
-}
-
-/* Quieter than the body it sits under, for the sentence that exists to take
-   the weight out of the decision rather than to inform it. */
-.sheet-aside {
-  font-size: 0.75rem;
-  color: color-mix(in srgb, var(--muted) 75%, transparent);
 }
 
 .rule strong {

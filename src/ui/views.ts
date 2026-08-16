@@ -1555,42 +1555,33 @@ function ladder(on: Handlers, meta: MetaState): HTMLElement {
           `${rule.text}${level > 1 ? " Every rule below it, too." : ""}`
         : "The game as it is written, with nothing extra asked of you.",
     ),
-    // One line under the dial, and which one it is says where the player stands
-    // on the ladder: past the climb, at its edge, or partway up it. The warning
-    // displaces the carrot rather than joining it — they are the same line doing
-    // the same job in opposite directions, which is "what to aim at next". Above
-    // the earned rung the line is all that explains the lock on the name, the
-    // sheet that granted the leap being long gone by then.
-    locked
-      ? h(
-          "p",
-          { class: "ladder-warn" },
-          // `top` is zero until a run has been won at all, and "ascension 0
-          // hasn't been won yet" is a true sentence about a thing nobody calls
-          // by that name.
-          top === 0
-            ? "No run has been won yet — these are meant to be climbed one at a time."
-            : `Ascension ${top} hasn't been won yet — these are meant to be climbed one at a time.`,
-        )
-      : ahead
-        ? h("p", { class: "ladder-note" }, `Beat this to unlock ascension ${level + 1}`)
-        : null,
+    // One line under the dial, and only ever the forward-looking one: what
+    // beating this rung would open. The warning that used to displace it here is
+    // gone. It said the player had not won yet, in a box whose lock says the
+    // same thing in a glyph and whose sheet had just said it in a sentence, and
+    // three tellings of "you have not earned this" is the screen holding a
+    // grudge about a choice it offered. Above the earned rung there is now no
+    // line at all, which is the right amount to say to someone who has already
+    // been asked and has already answered.
+    ahead ? h("p", { class: "ladder-note" }, `Beat this to unlock ascension ${level + 1}`) : null,
   )
 }
 
 /**
  * The lock, opened.
  *
- * Three lines: what this rung does, that it is not the recommended way in, and
- * that it costs nothing to try. A sheet standing between a player and a button
- * they have already decided to press earns its place by being read, and every
- * version of this that argued its case at length was skimmed instead.
+ * Two lines: what this rung does, and that it is not the recommended way in. A
+ * sheet standing between a player and a button they have already decided to
+ * press earns its place by being read, and every version of this that argued its
+ * case at length was skimmed instead.
  *
- * What is gone is the line naming the rung that has not been beaten. It was true
- * and it was the wrong sentence for this sheet: the ladder behind it already
- * says which level that is, twice — in the note under the dial and on the lock
- * itself — and repeating it here made the sheet open by telling the player what
- * they have failed to do. The advice does the same work forwards.
+ * Gone from it: the line naming the rung that has not been beaten, and the one
+ * promising the choice was reversible. The first was true and was the wrong
+ * opening — it told the player what they had failed to do before it told them
+ * anything they did not know. The second was answering a question nobody asked;
+ * this is a stepper on a title screen, and a player who wants to know whether it
+ * can be stepped back can step it back. Reassurance nobody needed is still a
+ * line to read before the button.
  *
  * "Recommended" rather than an argument about tuning, for the same reason. It is
  * what the sentence actually means, a player can weigh it in the time it takes
@@ -1629,10 +1620,6 @@ export function ascendView(level: number, on: Handlers): HTMLElement {
           )
         : null,
       h("p", {}, "It is recommended to win before skipping to a higher ascension."),
-      // Said plainly, because the record is the thing a player might reasonably
-      // fear they are spending here, and they are not: the leap changes the next
-      // run, and nothing about what has already been won.
-      h("p", { class: "sheet-aside" }, "You can change it back any time."),
     ),
     h(
       "div",
