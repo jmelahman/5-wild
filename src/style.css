@@ -933,9 +933,15 @@ button {
 
 /* Drawn as an ordinary letter's value rather than a raised one — off-white, not
    chip blue — because that is what most of the keyboard looks like, and the face
-   of the switch should be the common case it is turning off. */
+   of the switch should be the common case it is turning off.
+   Weight 400 for the same reason `.value-pip` takes it: the button sets 800 for
+   its letter, and a digit inheriting that reads as the second character of a
+   two-character label rather than as a value hung off an A. The switch showing
+   the board's own defect was the tell that the defect was in the shared idea and
+   not in either place separately. */
 .decor-toggle-value {
   font-size: var(--type-pip);
+  font-weight: 400;
   color: var(--value-base);
 }
 
@@ -1329,22 +1335,37 @@ button {
  * background those mostly sat on; it is on all twenty-six now, so it spends the
  * round over green, yellow and gray instead, and 10px of type on a yellow key is
  * not readable without something behind it.
+ *
+ * The weight is the load-bearing line here, and it was learned the hard way. The
+ * pip shipped once with no `font-weight` of its own, inheriting the 700 the key
+ * sets for its letter. 10px against 16px is an ordinary annotation ratio — it is
+ * roughly what a superscript runs at — but at matching weight the ratio stops
+ * doing the work, and every key read as a two-character key: "A1", "B3", a
+ * keyboard of pairs rather than of letters with figures on them. Dropping to 400
+ * fixes it without touching either size, which is the right trade, because the
+ * size is what makes a two-digit value legible and the weight was never carrying
+ * anything.
  */
 .value-pip {
   position: absolute;
   top: 1px;
   right: 3px;
   font-size: var(--type-pip);
+  font-weight: 400;
   color: var(--value-base);
   text-shadow: 0 1px 1px rgb(0 0 0 / 0.6);
 }
 
 /* Bolder as well as bluer. The keyboard is read at a glance and from a distance
    the weight carries further than the hue does — and it has to, because this is
-   now the only mark saying a letter was bought up. */
+   now the only mark saying a letter was bought up.
+   600 rather than the letter's own 700: the bought keys are a handful and the
+   blue already separates them, so the step up only has to be visible against the
+   other twenty-odd pips, not against the letter it sits on. Matching the letter
+   exactly is what produced the two-character read in the first place. */
 .key.etched .value-pip {
   color: var(--value-raised);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 /* Broken keys keep the figure rather than dropping it — the letter is still worth
@@ -1872,19 +1893,22 @@ button {
 
 /* What the letter is already worth, which is the number the choice turns on —
    and drawn by the same rule the board draws it by, base against raised, since
-   the player has just come from there. */
+   the player has just come from there. Which now includes the weights: these
+   were 700 and 800 against the same 16px key the board uses, so the picker had
+   the two-character read worse than the board did, on the one screen where the
+   player is reading the number rather than glancing past it. */
 .place-chips {
   position: absolute;
   top: 1px;
   right: 3px;
   font-size: var(--type-pip);
-  font-weight: 700;
+  font-weight: 400;
   color: var(--value-base);
 }
 
 .place-key.etched .place-chips {
   color: var(--value-raised);
-  font-weight: 800;
+  font-weight: 600;
 }
 
 /*
