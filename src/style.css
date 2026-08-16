@@ -1995,9 +1995,21 @@ button {
  * The difficulty dial. Sized to the Play button under it so the two read as one
  * control stack rather than as a widget parked above a button, and boxed the way
  * a shop slot is: this is the one thing on the screen that is being chosen.
+ *
+ * The height is pinned because the box is a stepper and a stepper is held down:
+ * a rule that wraps to two lines where the last one wrapped to one moved the
+ * Play button under the thumb already on its way to it. Measured across all 101
+ * levels at 390 and at 320 — the two ends of the widths this ever renders at —
+ * the box runs 78 to 94 with no line under the rule and 128 with the two-line
+ * warning, and 128 is the same number at both widths because the rule tops out
+ * at two lines either way. So 8rem, and `min-height` rather than `height`: at a
+ * root font much larger than 16px the wrap counts are no longer the measured
+ * ones, and the failure worth having there is a box that grows rather than one
+ * that crops the sentence explaining the lock.
  */
 .ladder {
   width: min(100%, 22rem);
+  min-height: 8rem;
   margin-bottom: 0.5rem;
   padding: 0.5rem 0.625rem 0.625rem;
   border-radius: 0.75rem;
@@ -2034,6 +2046,14 @@ button {
   opacity: 0.3;
 }
 
+/* The `+` when the step it would take is off the earned ladder. Same footprint
+   as the `+` it replaces, so the row does not reflow as the boundary moves, and
+   a size below the glyph beside it: an emoji at 1.125rem is the loudest thing
+   on the title screen, and this is a door, not an alarm. */
+.ladder-step.shut {
+  font-size: 0.875rem;
+}
+
 .ladder-level {
   display: flex;
   flex-direction: column;
@@ -2064,7 +2084,11 @@ button {
   color: var(--mult);
 }
 
+/* Two lines whether the rule needs two or one, so that the line under it — the
+   carrot, or the warning — is at the same height on every rung. Pinning only the
+   box would hold the Play button still and still let this slide about inside it. */
 .ladder-text {
+  min-height: 2rem;
   margin-top: 0.375rem;
   font-size: 0.75rem;
   line-height: 1.35;
@@ -2195,6 +2219,13 @@ button {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
+}
+
+/* Quieter than the body it sits under, for the sentence that exists to take
+   the weight out of the decision rather than to inform it. */
+.sheet-aside {
+  font-size: 0.75rem;
+  color: color-mix(in srgb, var(--muted) 75%, transparent);
 }
 
 .rule strong {

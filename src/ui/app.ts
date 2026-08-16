@@ -8,6 +8,7 @@ import type { Mood } from "./music"
 import { Music } from "./music"
 import type { Chrome, Handlers } from "./views"
 import {
+  ascendView,
   blindView,
   codexView,
   endView,
@@ -85,7 +86,9 @@ export class App {
   /** True when there is no run to return to and the front door is showing. */
   private atTitle: boolean
   /** The modal on top of everything, if any. */
-  private overlay: "help" | "codex" | "shapes" | "stats" | "menu" | "quit" | null = null
+  private overlay: "help" | "codex" | "shapes" | "stats" | "menu" | "quit" | "ascend" | null = null
+  /** Which rung the open lock is offering. Only meaningful while `overlay` is "ascend". */
+  private ascendTo = 0
   /** The card or key whose tip is currently up, so re-entering it is not a change. */
   private hovered: HTMLElement | null = null
   /** True when the player has asked for the letters to stop shouting numbers. */
@@ -882,6 +885,20 @@ export class App {
       this.overlay = "quit"
       this.render()
     },
+    // Mirrors askQuit/quit: the sheet is opened with the thing it is about, and
+    // a second handler commits it. The level is held here rather than passed
+    // back through the button because the sheet is rebuilt on every render and
+    // the button that opened it is long gone by the time the answer arrives.
+    askAscend: (level) => {
+      this.ascendTo = level
+      this.overlay = "ascend"
+      this.render()
+    },
+    ascend: () => {
+      this.profile.chose(this.ascendTo)
+      this.overlay = null
+      this.render()
+    },
     quit: () => {
       clearSave()
       // Back to a run nobody is playing, purely so `state` stays non-null. The
@@ -936,10 +953,12 @@ export class App {
                 ? menuView(this.handlers, this.chrome)
                 : this.overlay === "quit"
                   ? quitView(this.state, this.handlers)
-                  : // Both are held decisions the engine will not let the shop move
-                    // past, and the two cannot be open at once — buying is refused
-                    // while either is. Order is arbitrary; only exclusivity matters.
-                    (placeView(this.state, this.handlers) ?? packView(this.state, this.handlers))
+                  : this.overlay === "ascend"
+                    ? ascendView(this.ascendTo, this.handlers)
+                    : // Both are held decisions the engine will not let the shop move
+                      // past, and the two cannot be open at once — buying is refused
+                      // while either is. Order is arbitrary; only exclusivity matters.
+                      (placeView(this.state, this.handlers) ?? packView(this.state, this.handlers))
 
     clear(this.root).append(view)
     if (sheet) this.root.append(sheet)

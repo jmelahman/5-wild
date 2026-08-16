@@ -99,6 +99,10 @@ export type Handlers = {
   closeOverlay: () => void
   askQuit: () => void
   quit: () => void
+  /** The lock on the ladder, opened far enough to read what is behind it. */
+  askAscend: (level: number) => void
+  /** Past the lock, having read it. */
+  ascend: () => void
 }
 
 /** Presentation state the engine has no opinion about. */
@@ -1474,6 +1478,15 @@ export function streakLine(meta: MetaState): string {
  * answer to that. A lock that states its reason and then lets you past is worth
  * more than a `+` that stops responding and explains nothing.
  *
+ * The lock is worn by the `+` itself, and only on the rung at the edge of what
+ * has been earned. That works out to exactly one rung — `ahead` is true only
+ * when `level === top` — and it is the only step that crosses the line, so it is
+ * the only one that is a decision rather than a nudge. Above the line the `+` is
+ * a plain `+` again: the player has already answered the question, and asking it
+ * once a rung on the way to ascension 12 would be a door that never stops
+ * closing. It sits beside the note that says what beating this rung would earn,
+ * which makes the pair a straight offer — beat it, or take it now.
+ *
  * A stepper rather than a list of buttons, because the ladder is ordered and
  * cumulative — the question is "how far up", not "which one" — and because the
  * ladder no longer has a length a list could have. The level's own rule is
@@ -1485,6 +1498,7 @@ function ladder(on: Handlers, meta: MetaState): HTMLElement {
   const level = chosenAscension(meta)
   const rule = ascensionAt(level)
   const locked = isLocked(meta, level)
+  const ahead = level === top && level < MAX_ASCENSION
 
   const step = (label: string, to: number, live: boolean) =>
     h(
@@ -1519,7 +1533,18 @@ function ladder(on: Handlers, meta: MetaState): HTMLElement {
         ),
         rule && h("span", { class: "ladder-rule" }, rule.name),
       ),
-      step("+", level + 1, level < MAX_ASCENSION),
+      ahead
+        ? h(
+            "button",
+            {
+              class: "ladder-step shut",
+              type: "button",
+              "aria-label": `Skip ahead to ascension ${level + 1}`,
+              onclick: () => on.askAscend(level + 1),
+            },
+            "🔒",
+          )
+        : step("+", level + 1, level < MAX_ASCENSION),
     ),
     h(
       "p",
@@ -1533,18 +1558,91 @@ function ladder(on: Handlers, meta: MetaState): HTMLElement {
     // One line under the dial, and which one it is says where the player stands
     // on the ladder: past the climb, at its edge, or partway up it. The warning
     // displaces the carrot rather than joining it — they are the same line doing
-    // the same job in opposite directions, which is "what to aim at next".
+    // the same job in opposite directions, which is "what to aim at next". Above
+    // the earned rung the line is all that explains the lock on the name, the
+    // sheet that granted the leap being long gone by then.
     locked
       ? h(
           "p",
           { class: "ladder-warn" },
+          // `top` is zero until a run has been won at all, and "ascension 0
+          // hasn't been won yet" is a true sentence about a thing nobody calls
+          // by that name.
           top === 0
-            ? "Meant to be met after a win. You can start here anyway."
+            ? "No run has been won yet — these are meant to be climbed one at a time."
             : `Ascension ${top} hasn't been won yet — these are meant to be climbed one at a time.`,
         )
-      : level === top && top < MAX_ASCENSION
-        ? h("p", { class: "ladder-note" }, `Win this to earn ascension ${top + 1}`)
+      : ahead
+        ? h("p", { class: "ladder-note" }, `Beat this to unlock ascension ${level + 1}`)
         : null,
+  )
+}
+
+/**
+ * The lock, opened.
+ *
+ * It grants what it warns about, and the wording has to carry both without
+ * hedging: what has not been beaten, what would be taken on instead, why the
+ * order exists, and out. Four short lines, because a sheet that stands between a
+ * player and a button they have already decided to press earns its place by
+ * being read, and the longer version of this was skimmed. The button says
+ * "anyway" because that is the honest name for the thing being pressed, and the
+ * way out says "Back" rather than naming the climb — the sheet has made its
+ * case, and repeating it in the button is the screen getting the last word.
+ *
+ * No disabled state, no delay, no second confirmation — the game already decided
+ * a player may start anywhere, and a sheet that grudges the permission it is
+ * granting is worse than no sheet.
+ *
+ * The rule of the rung being stepped onto is quoted rather than only its number,
+ * because "ascension 8" means nothing to a player who has seen three of them and
+ * "Four joker slots, not five" means something to anyone. It is the one piece of
+ * information that turns this from a dare into a decision.
+ *
+ * It is only ever this one rung. The lock sits at the edge of what was earned,
+ * so the leap it grants is always a single step, and past the edge the stepper
+ * is plain again — a player who has crossed the line does not get asked about it
+ * once per rung on the way to ascension 40.
+ */
+export function ascendView(level: number, on: Handlers): HTMLElement {
+  const rule = ascensionAt(level)
+  const below = level - 1
+  return overlay(
+    on,
+    h("h2", { class: "sheet-title" }, `Start at ascension ${level}?`),
+    h(
+      "div",
+      { class: "sheet-body" },
+      h(
+        "p",
+        { class: "sheet-lead" },
+        below === 0 ? "No run has been won yet." : `Ascension ${below} hasn't been beaten yet.`,
+      ),
+      rule
+        ? h(
+            "p",
+            {},
+            h("strong", {}, `${rule.name}: `),
+            rule.text,
+            level > 1 ? " Plus every rule below it." : "",
+          )
+        : null,
+      h("p", {}, "Rungs are meant to be climbed one at a time. Skipped, they arrive together."),
+      // Said plainly, because the record is the thing a player might reasonably
+      // fear they are spending here, and they are not: the leap changes the next
+      // run, and nothing about what has already been won.
+      h("p", { class: "sheet-aside" }, "You can change it back any time."),
+    ),
+    h(
+      "div",
+      { class: "sheet-actions" },
+      h(
+        "button",
+        { class: "danger", type: "button", onclick: () => on.ascend() },
+        `Start at ${level} anyway`,
+      ),
+      h("button", { class: "primary", type: "button", onclick: () => on.closeOverlay() }, "Back"),
+    ),
   )
 }
 
