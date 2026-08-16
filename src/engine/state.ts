@@ -17,9 +17,75 @@ export type Tile = {
   shown: Color
 }
 
+/**
+ * What one tile paid, written down as it was scored.
+ *
+ * Recorded rather than re-derived, for the same reason `note` below is: by the
+ * time anyone asks, the arithmetic no longer exists. `baseChips` still knows
+ * what a letter is worth, but The Miser prices a letter by whether it has
+ * already been spent — so re-running it against the round as it now stands
+ * reports no chips for the very guess that first spent the letter, and the row
+ * would explain itself with a number it never scored. The modifier is worse
+ * still: Lucky is a seeded quarter chance, and the only honest answer to "did it
+ * fire" is the one it gave at the time.
+ */
+export type TileScore = {
+  /**
+   * The tile's own chips, boss included, before its modifier touched them —
+   * which is exactly the figure the tile floats as it turns over.
+   */
+  base: number
+  /**
+   * What the column moved the row's two numbers by: everything from `base`
+   * through the modifier and the relics, measured as the running totals before
+   * and after. Named to match `GuessRecord`'s own `chips` and `mult` because
+   * that is what they are a piece of — the tip sets one against the other and
+   * says "9 of 27".
+   *
+   * A difference rather than a sum, so a multiplicative card lands somewhere
+   * honest: Steel on the fourth tile of a row already at ×7 records 7, because
+   * that is what the row gained where it fired. The same Steel on the first tile
+   * records 1. Both are true and neither is the card's "worth" in the abstract,
+   * which is a number this game does not have — every ×2 is worth whatever was
+   * standing in front of it.
+   */
+  chips: number
+  mult: number
+  /**
+   * What the letter's modifier said here, in the words the animation used:
+   * "+20", "×3 mult". Absent when the letter carries none, when a boss silenced
+   * the layer, and when a chance modifier rolled and lost — three different
+   * silences, which the view tells apart by asking the letter what it carries.
+   */
+  mod?: string
+  /**
+   * The relics that paid on this tile, in the slot order they fired in, each
+   * with the words it used. Only the `onTile` half of the tray: an `onGuess`
+   * relic fires once for the whole row and belongs to no letter in particular,
+   * so hanging it on all five would invent an attribution the pipeline does not
+   * make.
+   *
+   * Absent rather than empty when nothing fired, which is the ordinary case —
+   * most tiles are gray and most relics want something of the tile. A relic that
+   * was asked and declined leaves no trace on purpose: the modifier's silence is
+   * worth reporting because the modifier is stuck to this letter, but a tray of
+   * five would otherwise print five lines of "nothing" under every tile on the
+   * board.
+   */
+  relics?: Array<{ id: string; label: string }>
+}
+
 export type GuessRecord = {
   word: string
   tiles: Tile[]
+  /**
+   * Column by column, what each tile paid; parallel to `tiles`.
+   *
+   * Optional, so a save written before rows kept their arithmetic loads as what
+   * it is — a row that cannot say how it was scored, which is what those rows
+   * were. Written on every guess since, so the gap closes within a round.
+   */
+  paid?: TileScore[]
   chips: number
   mult: number
   /**

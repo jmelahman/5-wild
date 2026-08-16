@@ -747,9 +747,7 @@ export class App {
     this.bindFocusTips()
     if (!window.matchMedia?.("(hover: hover)").matches) return
     this.root.addEventListener("pointerover", (event) => {
-      const target = event.target
-      const host = target instanceof Element ? target.closest<HTMLElement>("[data-tip]") : null
-      this.showTip(host)
+      this.showTip(this.tipHost(event.target))
     })
     // `pointerover` covers every move within the screen; this covers the one
     // move that fires nothing — straight out of the window.
@@ -786,8 +784,7 @@ export class App {
       // leave this armed and eat an unrelated tap later.
       swallow = false
       if (event.pointerType === "mouse") return
-      const target = event.target
-      const host = target instanceof Element ? target.closest<HTMLElement>("[data-tip]") : null
+      const host = this.tipHost(event.target)
       if (!host) return
       from = { x: event.clientX, y: event.clientY }
       timer = setTimeout(() => {
@@ -836,7 +833,7 @@ export class App {
     this.root.addEventListener("focusin", (event) => {
       const target = event.target
       if (!(target instanceof HTMLElement) || !target.matches(":focus-visible")) return
-      const host = target.closest<HTMLElement>("[data-tip]")
+      const host = this.tipHost(target)
       if (host) this.showTip(host)
     })
     // Only the tip that belongs to what is leaving. A pointer resting on a card
@@ -847,6 +844,25 @@ export class App {
       const host = target instanceof Element ? target.closest<HTMLElement>("[data-tip]") : null
       if (host && host === this.hovered) this.showTip(null)
     })
+  }
+
+  /**
+   * The `[data-tip]` a pointer is over, or null.
+   *
+   * A tile still waiting to turn over is not one. The row is drawn complete and
+   * then held back — `.pending` comes off tile by tile as the score walks across
+   * it — so between the submit and the cascade the board is carrying five tips
+   * that describe colours nobody has been shown yet. The stylesheet already
+   * holds the modifier's dot back for exactly this reason; a panel that answered
+   * early would spoil the same reveal in sentences instead of in a dot.
+   *
+   * Cleared rather than deferred, because there is nothing to defer to: the next
+   * pointer move over a tile that has since turned brings its tip up normally,
+   * and a player waiting on the flip is watching it rather than reading.
+   */
+  private tipHost(target: EventTarget | null): HTMLElement | null {
+    const host = target instanceof Element ? target.closest<HTMLElement>("[data-tip]") : null
+    return host?.classList.contains("pending") ? null : host
   }
 
   private showTip(host: HTMLElement | null): void {

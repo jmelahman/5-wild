@@ -1,4 +1,4 @@
-import type { BossTier, Modifier, Range, Rarity, RunState, ShopItem } from "../engine"
+import type { BossTier, GuessRecord, Modifier, Range, Rarity, RunState, ShopItem } from "../engine"
 import {
   ASCENSIONS,
   AUTHORED_ASCENSIONS,
@@ -29,6 +29,7 @@ import {
   MAX_ASCENSION,
   MODIFIER_BY_ID,
   MODIFIERS,
+  MULT_FOR_COLOR,
   modifierOf,
   PACK_BY_ID,
   PACKS,
@@ -410,6 +411,11 @@ function grid(state: RunState, coach: CoachStep | null, on: Handlers): HTMLEleme
             // none did, there is nothing for it to say. The key keeps its pip;
             // the row is a record of what happened.
             "data-mod": tile && !modsOff ? modifierOf(state, tile.letter)?.id : undefined,
+            // And the arithmetic behind the dot, on the same terms the keys
+            // offer it: press and hold, or hover. The mark is the reminder, the
+            // panel is the explanation — see `tileTip`. Held back until the tile
+            // has turned over; `App.tipHost` is where that happens.
+            "data-tip": tileTip(state, played, column),
           },
           (tile?.letter ?? "").toUpperCase(),
         )
@@ -522,6 +528,156 @@ export function fillCoach(slot: Element, coach: CoachStep | null, on: Handlers):
 }
 
 /**
+ * Where a letter's chips came from, or null when it is still worth what it
+ * started as and there is nothing to break down.
+ *
+ * Shared by the two tips rather than written twice, because they are answering
+ * the same question about the same letter from opposite ends of the round — the
+ * key asks before the guess, the played tile asks after it — and two copies of
+ * this sum would eventually disagree about a purchase.
+ */
+function chipBreakdown(state: RunState, letter: string): string | null {
+  const etch = state.letters[letter]?.etch ?? 0
+  const fromRange = rangeChips(state, letter)
+  if (etch === 0 && fromRange === 0) return null
+
+  const range = rangeOf(letter)
+  const parts = [`${LETTER_CHIPS[letter] ?? 0} base`]
+  if (etch > 0) parts.push(`+${etch} etched`)
+  if (fromRange > 0 && range) {
+    parts.push(`+${fromRange} from ${range.name} Lv ${rangeLevelOf(state, range.id)}`)
+  }
+  return parts.join(" ")
+}
+
+/**
+ * How one letter of a played row came to be worth what it was.
+ *
+ * The row's arithmetic is on screen for about a second — the tile floats what it
+ * paid as it turns over, a modifier throws its label across the board — and then
+ * the numbers are gone and the board is a record of colours. Everything the
+ * player might want to check afterwards happens during the one animation they
+ * cannot replay: which letter carried the guess, whether the Lucky landed,
+ * whether the boss was eating the etchings. This is where those numbers go on
+ * being readable, through the panel and the gesture the keys already use.
+ *
+ * It prices the colour off `color`, not `shown`, and so tells a fogged gray that
+ * it was really a yellow. That is a decision and not an oversight, and it was
+ * made the other way first: the tip quoted `shown` exactly as `tileGain` does
+ * while the tile turns, on the reasoning that a panel undoing The Fog sells the
+ * boss's card for the price of a hover.
+ *
+ * Two things settled it the other way. The Fog is punishing enough played
+ * straight — it is the one boss that attacks deduction itself, and a round of it
+ * asks the player to guess blind while the score demands they guess well — so
+ * the hover is a cost paid for the answer rather than a hole in the design: it
+ * is one gesture per tile, after the row is spent, and it never comes to you.
+ * And the round was already leaking. `readout` moves to `event.mult` as each
+ * tile lands, which is the true running mult, so a gray that jumps the
+ * multiplier by one has announced itself to anyone watching the number. What
+ * this panel changes is who catches it: before, the attentive; now, whoever
+ * asks. Making a boss's tell depend on staring at the right corner of the screen
+ * during a one-second animation was never the difficulty that was wanted.
+ *
+ * The rest of the panel follows from the same rule, which is that the tip is the
+ * row's own account of itself. The modifier's line is the label it gave at the
+ * time. The relics that paid are each named, in the order they fired.
+ *
+ * Only the relics that fire per tile. The rest of the tray works on the finished
+ * row and is named in the readout under the board, and listing a ×3 that priced
+ * the whole guess under one of its five letters would be answering the question
+ * wrongly rather than at length.
+ */
+export function tileTip(state: RunState, guess: GuessRecord, index: number): string | undefined {
+  const tile = guess.tiles[index]
+  const paid = guess.paid?.[index]
+  // A row played before guesses started keeping their arithmetic — a save
+  // carried across the change, and only until the round ends. It gets no tip at
+  // all rather than a plausible reconstruction: `baseChips` would answer for
+  // most rounds and lie under The Miser and The Rust, and a tip that is right
+  // except under the bosses is worst exactly where it is most wanted.
+  if (!tile || !paid) return undefined
+
+  const upper = tile.letter.toUpperCase()
+  const lines = [
+    `${upper} · ${paid.base === 0 ? "no chips" : `+${paid.base} chip${paid.base === 1 ? "" : "s"}`}`,
+  ]
+
+  const breakdown = chipBreakdown(state, tile.letter)
+  if (breakdown) lines.push(breakdown)
+
+  // Named only when it actually moved this tile, which — unlike the key's tip —
+  // this can ask about honestly: a played tile knows which column it landed in,
+  // so The Margin is named on the first and last letters and stays quiet in the
+  // middle three, where it did nothing.
+  const boss = getBoss(state.round.bossId)
+  if (boss && paid.base !== baseChips(state, tile.letter)) {
+    lines.push(`${boss.name}: ${boss.text}`)
+  }
+
+  // The colour that scored, which under The Fog and The Mirror is not the colour
+  // on the tile. Deliberate — see above — and it is also the only reading that
+  // squares with the line at the bottom: the mult share is measured off what the
+  // row actually gained, and a panel saying "gray · no mult" over "1 of 12 mult"
+  // would be caught contradicting itself by the same player it was protecting.
+  const mult = MULT_FOR_COLOR[tile.color]
+  lines.push(`${tile.color} · ${mult === 0 ? "no mult" : `+${mult} mult`}`)
+
+  // The letter's modifier as it is now, which is as it was: the shop refuses to
+  // be left with a modifier still in hand, so a round begins with every letter
+  // settled and nothing inside one can move a modifier from a letter to another.
+  const mod = modifierOf(state, tile.letter)
+  if (mod) {
+    lines.push(
+      paid.mod
+        ? `${mod.name} · ${paid.mod}`
+        : boss?.noModifiers
+          ? `${mod.name} · ${mod.text} — silenced this round`
+          : // The third silence, and the only one the player cannot work out from
+            // anywhere else: the card fired and had nothing to say. Lucky rolled
+            // and lost, Anchor wanted a green, Echo wanted the letter twice.
+            `${mod.name} · ${mod.text} — nothing this time`,
+    )
+  }
+
+  // In the order they fired, which is slot order, which is the order the tray
+  // reads left to right — so a player checking a line against the card that
+  // caused it is looking along the row the cards are already in.
+  //
+  // A relic that was asked and declined is not mentioned, unlike the letter's own
+  // modifier above. The asymmetry is the count: one card is stuck to this letter
+  // and its silence is about this letter, where five are asked about every tile
+  // on the board and most of them want something it is not. "Green Thumb —
+  // nothing this time" under all thirty tiles of a lost round is noise wearing
+  // the costume of an explanation.
+  for (const fired of paid.relics ?? []) {
+    const relic = RELIC_BY_ID.get(fired.id)
+    if (relic) lines.push(`${relic.name} · ${fired.label}`)
+  }
+
+  // What this letter put in, against what the row came to. The two totals are
+  // still here — they are the right-hand halves — so the line that used to read
+  // the same on all five tiles now reads differently on each, which is the only
+  // thing a per-tile panel is for.
+  //
+  // Shares of the two numbers rather than a share of the score, though
+  // `chips × mult` would divide exactly and read as points. The reason is what it
+  // would say about a green: a 1-chip letter that tripled the row would be
+  // credited with 7 of 189 and look like the least valuable thing on the board,
+  // when the mult it added is most of why the row scored at all. The game is
+  // played on both numbers and the tip prices both.
+  const chips = `${num(paid.chips)} of ${num(guess.chips)} chips`
+  lines.push(
+    // Mult starts the row at 1 and that 1 belongs to no letter, so a column that
+    // added none says so rather than claiming a share of it.
+    paid.mult === 0
+      ? `${chips} · no mult`
+      : `${chips} · ${num(paid.mult)} of ${num(guess.mult)} mult`,
+  )
+  return lines.join("\n")
+}
+
+/**
  * Everything acting on one letter, in a sentence or four.
  *
  * The key already carries two marks — what the letter is worth and a pip for the
@@ -540,10 +696,6 @@ function letterTip(state: RunState, letter: string): string {
   const upper = letter.toUpperCase()
   if (state.letters[letter]?.destroyed) return `${upper} · broken, no longer typeable`
 
-  const base = LETTER_CHIPS[letter] ?? 0
-  const etch = state.letters[letter]?.etch ?? 0
-  const range = rangeOf(letter)
-  const fromRange = rangeChips(state, letter)
   const boss = getBoss(state.round.bossId)
   // `draftChips` prices a one-letter draft, which is to say the first column —
   // fine for a boss that reads the letter, wrong for one that reads the column.
@@ -554,14 +706,8 @@ function letterTip(state: RunState, letter: string): string {
 
   const lines = [`${upper} · ${now === 0 ? "no chips" : `${now} chip${now === 1 ? "" : "s"}`}`]
 
-  if (etch > 0 || fromRange > 0) {
-    const parts = [`${base} base`]
-    if (etch > 0) parts.push(`+${etch} etched`)
-    if (fromRange > 0 && range) {
-      parts.push(`+${fromRange} from ${range.name} Lv ${rangeLevelOf(state, range.id)}`)
-    }
-    lines.push(parts.join(" "))
-  }
+  const breakdown = chipBreakdown(state, letter)
+  if (breakdown) lines.push(breakdown)
 
   // Only when the boss actually moved this letter — naming a boss that is not
   // touching it would make every key look cursed. A positional one is always
