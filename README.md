@@ -111,3 +111,71 @@ back onto one.
 They are also the portability contract: any reimplementation of these rules — a
 port to another language, a rewrite — is correct exactly when it reproduces this
 file.
+
+### What a vector holds
+
+The input is a seed, an ascension when the run was not the ordinary game, and the
+list of actions. The output is everything the run can still be asked about once
+it is over: a line per scored guess — the stage and round it belonged to, the
+boss it was played against on the one round in three that has one, the word, and
+the chips, mult, solve bonus and score that produced the number — then the gold
+timeline with the reason the engine gave for each delta, the itemised reward for
+every round cleared, and finally the state the run ended holding. That last part
+is relics, etched letters, modifiers, category levels, alphabet ranges, whatever
+the growing relics banked, and which letters were destroyed.
+
+The standard for adding a column is whether a rule can be wrong without moving a
+score. `levels`, `ranges` and `grown` are all there for that reason, and so is
+the boss: `bossForStage` is a shuffle of a difficulty band keyed by seed, and
+five of the fifteen change nothing a guess records — The Fog and The Mirror only
+repaint the feedback, The Tyrant, The Glutton and The Purist only refuse words
+that were never played. A port that shuffled the band differently could meet one
+of those instead of another and score every guess identically. The name is what
+tells them apart.
+
+### What they do not hold
+
+**Permission.** `reduce` refuses an illegal action by returning the state
+untouched and emitting a `rejected` event, so a replay that hits one does not
+stop — it quietly plays a shorter run. A rule that got *stricter* is therefore
+caught, because the guess never lands and the score list comes up short. A rule
+that got *looser* is invisible: every action in the file was legal when it was
+recorded, and permission cannot be tested by exercising it. `golden.test.ts`
+asserts that no replayed action was refused so that the first half at least fails
+by name rather than by a mysteriously truncated run, but the second half needs an
+ordinary unit test asserting the refusal, and always will.
+
+**Anything no bot ever did.** Coverage is a side effect of the scenarios, not a
+property of the format. What fourteen runs and 331 scored guesses currently
+reach:
+
+```
+bosses       15/15
+consumables    4/4
+relics        25/28   bloodhound, anagrammer, keystone unseen
+modifiers      6/9    chip, wild, lucky unseen
+```
+
+Those gaps are luck of the draw rather than anything structural — `chip` is the
+most common entry in the modifier table and is still missing, which is the
+clearest statement of how arbitrary the list is. Closing one means a scenario
+that goes looking, the way `rare-smith` rerolls the shop until it can afford a
+Steel or a Glass, or `mystic` spends consumables in an order that lets The Fool
+have a guess behind it to rescore. Both are worth writing when a rule in that
+corner changes; neither is worth writing speculatively.
+
+Victory is the deliberate hole. No vector ends with `outcome: "victory"` —
+`victor` reaches it on seed 5517 and answers `continue_run`, which the engine
+refuses anywhere else, so what pins the win is the refusal assertion rather than
+the outcome column. Recording a run that stopped at the victory screen would have
+made `continue_run` the one action in the game no vector could contain.
+
+**Correctness.** Everything in `expected` is read back off the engine, so a wrong
+number computed by a wrong engine agrees with itself perfectly and re-records
+without complaint. Vectors detect *change*; they say nothing about whether the
+new number is the right one. The bump-and-diff ritual above is the whole defence,
+and it only works if somebody reads the diff.
+
+**The UI.** Nothing here touches rendering, animation, focus or storage. The
+engine is the portable part and the vectors are its contract; the browser is
+tested in a browser.

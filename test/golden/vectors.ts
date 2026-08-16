@@ -23,6 +23,23 @@ import { placeMod } from "./scenarios"
 export type GuessVector = {
   stage: number
   round: number
+  /**
+   * Who this guess was scored against, on the one round in three that has
+   * someone. Recorded because the draw is a rule like any other and it was the
+   * last one nothing wrote down: `bossForStage` is a shuffle of a band keyed by
+   * seed, so a port that shuffled differently would meet a different boss — and
+   * five of the fifteen would score identically anyway. The Fog and The Mirror
+   * touch only `shown`; The Tyrant, The Glutton and The Purist only refuse words
+   * that were never played. None of the three columns a guess records can tell
+   * those five apart. This can.
+   *
+   * On the guess rather than on the round because that is where the diff wants
+   * it — a boss that starts biting shows up as a changed score on a line that
+   * says whose it was, instead of a changed score and a hunt for the round.
+   * Omitted on the other two rounds in three, so the field costs nothing where
+   * there is no boss to name.
+   */
+  boss?: string
   word: string
   chips: number
   mult: number
@@ -32,7 +49,8 @@ export type GuessVector = {
    * What the boss told the player instead of showing it. Recorded because it is
    * a rule's output that a player can act on, so a reimplementation that counted
    * it wrong would be wrong in a way no score here would catch. Omitted when
-   * there is none, which is every guess under eleven of the twelve bosses.
+   * there is none, which is every guess under fourteen of the fifteen bosses —
+   * The Silence is still the only one that says anything.
    */
   note?: string
 }
@@ -131,33 +149,60 @@ function summarise(
 }
 
 /**
+ * An action the engine turned down, and where in the list it was.
+ *
+ * Never expected to be non-empty: every action in a vector was accepted at the
+ * moment it was recorded. It is kept out of `expected` for exactly that reason
+ * — an always-empty array in the JSON would be re-recorded as an always-empty
+ * array, so a rule that started refusing something would launder itself through
+ * the next `npm run golden`. Asserted as a property instead, which re-recording
+ * cannot quietly agree with.
+ */
+export type Refusal = { index: number; action: Action; reason: string }
+
+export type Replayed = { expected: Vector["expected"]; refused: Refusal[] }
+
+/**
  * Replays a recorded action list. This is what the test runs, and it never
  * consults a scenario — the JSON is the input, so the bots that wrote it can
  * change freely without moving the baseline.
+ *
+ * Note what a refusal does here: `reduce` returns the state untouched and emits
+ * a `rejected` event, so a replay that hits one does not stop, it silently plays
+ * a shorter run. That is the asymmetry these vectors live with. A rule that got
+ * *stricter* is caught — the guess never lands and the score list comes up short
+ * — but a rule that got *looser* is invisible, because every action recorded here
+ * was already legal and permission cannot be tested by exercising it. The
+ * refusals are collected so the first half at least fails by name.
  */
 export function replay(
   seed: number,
   actions: readonly Action[],
   words: WordSource,
   ascension = 0,
-): Vector["expected"] {
+): Replayed {
   let state = startRun(seed, words, ascension).state
   const guesses: GuessVector[] = []
   const gold: GoldVector[] = []
   const rewards: RewardBreakdown[] = []
+  const refused: Refusal[] = []
 
-  for (const action of actions) {
+  actions.forEach((action, index) => {
     // The round is read *before* the action, because clearing one swaps the
     // round out and a guess scored on the way belongs to the round it was
     // played in, not the one that replaced it.
     const stage = state.stage
     const round = state.roundIndex
+    const boss = state.round.bossId
     const before = state.round.guesses.length
     const wasRewarding = state.phase === "reward"
 
     const result = reduce(state, action, words)
     state = result.state
     collectGold(result.events, gold)
+    for (const event of result.events) {
+      if (event.type === "rejected") refused.push({ index, action, reason: event.reason })
+    }
     if (!wasRewarding && state.phase === "reward" && state.reward) rewards.push(state.reward)
 
     const scored = state.round.guesses[before]
@@ -165,6 +210,7 @@ export function replay(
       guesses.push({
         stage,
         round,
+        ...(boss ? { boss } : {}),
         word: scored.word,
         chips: scored.chips,
         mult: scored.mult,
@@ -173,9 +219,9 @@ export function replay(
         ...(scored.note ? { note: scored.note } : {}),
       })
     }
-  }
+  })
 
-  return summarise(state, guesses, gold, rewards)
+  return { expected: summarise(state, guesses, gold, rewards), refused }
 }
 
 function collectGold(events: readonly GameEvent[], into: GoldVector[]): void {
@@ -194,8 +240,13 @@ export function record(scenario: Scenario, words: WordSource, contentVersion: nu
   let state = startRun(scenario.seed, words, ascension).state
   const actions: Action[] = []
 
-  for (let step = 0; step < 2000; step++) {
-    if (state.phase === "game_over" || state.phase === "victory") break
+  for (let step = 0; step < 4000; step++) {
+    // Only defeat ends a recording outright. Victory used to as well, which
+    // made `continue_run` the one action in the game no vector could contain —
+    // the recorder stopped at the exact screen the action is offered on. Every
+    // bot that does not want to play on returns null there anyway, so letting
+    // the scenario answer costs nothing and buys the other half of the ending.
+    if (state.phase === "game_over") break
     // A modifier in hand is not a decision a bot may defer: the shop refuses
     // every other action until it is placed. Handled here rather than in each
     // scenario because it is forced, and because a bot that bought one by
@@ -217,6 +268,6 @@ export function record(scenario: Scenario, words: WordSource, contentVersion: nu
     ...(ascension > 0 ? { ascension } : {}),
     contentVersion,
     actions,
-    expected: replay(scenario.seed, actions, words, ascension),
+    expected: replay(scenario.seed, actions, words, ascension).expected,
   }
 }

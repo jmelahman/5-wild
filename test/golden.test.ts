@@ -52,17 +52,35 @@ describe("golden vectors", () => {
     const rerun = () => replay(vector.seed, vector.actions, realWords, vector.ascension)
     describe(`${vector.name} — ${vector.covers}`, () => {
       it("replays to the same scores", () => {
-        expect(rerun().guesses).toEqual(vector.expected.guesses)
+        expect(rerun().expected.guesses).toEqual(vector.expected.guesses)
       })
 
       it("replays to the same gold timeline", () => {
-        expect(rerun().gold).toEqual(vector.expected.gold)
+        expect(rerun().expected.gold).toEqual(vector.expected.gold)
       })
 
       it("replays to the same outcome and holdings", () => {
-        const { guesses: _g, gold: _gold, ...rest } = rerun()
+        const { guesses: _g, gold: _gold, ...rest } = rerun().expected
         const { guesses: _eg, gold: _egold, ...expected } = vector.expected
         expect(rest).toEqual(expected)
+      })
+
+      /*
+       * Every action here was legal when it was recorded, so this asserts a
+       * property rather than a number — and that is the point of asserting it
+       * separately instead of adding an always-empty list to `expected`. A
+       * re-record would write the new empty list as happily as the old one; a
+       * rule that quietly started refusing something would then reach the diff
+       * as nothing but a shorter run and a pile of moved scores.
+       *
+       * `reduce` returns the state untouched on a refusal, so without this the
+       * replay just plays on with one fewer action and the failure surfaces
+       * several rounds later wearing someone else's clothes.
+       */
+      it("replays without a refused action", () => {
+        const refused = rerun().refused
+        const named = refused.map((r) => `#${r.index} ${r.action.type}: ${r.reason}`)
+        expect(named).toEqual([])
       })
     })
   }

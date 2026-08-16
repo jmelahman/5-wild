@@ -11,7 +11,7 @@
  * could never reproduce.
  */
 
-import type { Action, RunState, WordSource } from "../../src/engine"
+import type { Action, ModId, RunState, WordSource } from "../../src/engine"
 import {
   AUTHORED_ASCENSIONS,
   baseChips,
@@ -20,6 +20,7 @@ import {
   MODIFIER_BY_ID,
   placeableLetters,
   reduce,
+  rerollCost,
   solveBonusFor,
 } from "../../src/engine"
 
@@ -102,6 +103,14 @@ function modTiles(state: RunState, word: string): number {
  * what a recorded vector needs.
  */
 const BY_USE = "etaoinsrhldcumfpgwybvkxjqz"
+
+/**
+ * The two rare modifiers, and what it costs to be able to buy one. The price is
+ * the dearer of the pair rather than either in particular: a bot that stopped
+ * rerolling with exactly Steel money in hand would walk away from a Glass.
+ */
+const RARE_MODS: readonly ModId[] = ["steel", "glass"]
+const RARE_PRICE = Math.max(...RARE_MODS.map((id) => MODIFIER_BY_ID.get(id)?.choiceCost ?? 0))
 
 /**
  * Put the modifier in hand on the most-typed letter still open to it.
@@ -241,6 +250,66 @@ export const SCENARIOS: readonly Scenario[] = [
       return null
     },
   },
+  /*
+   * The consumables, actually spent.
+   *
+   * `shopkeeper` uses index 0 before its first guess of a round, which reaches
+   * exactly one of the four: The Magician. The other three were bought, carried
+   * and thrown away unused across every vector in the file — and The Fool is the
+   * reason why, because it rescores the previous guess and there is no previous
+   * guess before the first one. A bot that only ever spends at the top of a
+   * round cannot use it at all, so the card's whole arithmetic went unrecorded.
+   *
+   * This one spends whatever the engine will take, whenever it will take it,
+   * which is what turns the order into coverage rather than a rule: Oracle and
+   * Hermit are accepted before a guess and go first, and The Fool becomes legal
+   * only once there is something behind it. The probe is there for the same
+   * reason — the Fool doubling a real score is the case worth pinning, and a
+   * bot that solved on sight would have handed it a solve to copy instead.
+   *
+   * Spending all four is not the hard part once the order is right — 160 of the
+   * first 400 seeds manage it, and only four spend nothing. Seed 126 is simply
+   * the shortest of the 160, which is the whole basis for the choice: at this
+   * hit rate the seed is not buying an outcome, it is buying fewer lines of
+   * JSON for the same coverage.
+   */
+  {
+    name: "mystic",
+    covers: "consumables spent rather than hoarded, including the one that needs a guess behind it",
+    seed: 126,
+    next: (state, words) => {
+      if (state.phase === "round") {
+        // Whichever card the engine will take right now, in slot order. Trying
+        // them rather than knowing them is the point: the legality is the rule
+        // under test, and a bot that hardcoded which card works when would stop
+        // noticing when that changed.
+        const index = state.consumables.findIndex((_, slot) =>
+          accepted(state, words, [{ type: "use_consumable", index: slot }]),
+        )
+        if (index >= 0) return [{ type: "use_consumable", index }]
+
+        const spent = state.round.guesses.length
+        const candidates =
+          spent === 0 ? [...decoys(state, words, 19), state.round.answer] : [state.round.answer]
+        return firstPlayable(state, words, candidates)
+      }
+      if (state.phase === "reward") return [{ type: "collect" }]
+      if (state.phase === "shop") {
+        const items = state.shop?.items ?? []
+        // Cards first, then relics to stay alive long enough to draw more of
+        // them. Consumables are the one item that can be bought while already
+        // holding one, so the slot cap does the throttling here, not the bot.
+        for (const kind of ["consumable", "relic"] as const) {
+          const index = items.findIndex((item) => item?.kind === kind && item.cost <= state.gold)
+          if (index >= 0 && accepted(state, words, [{ type: "buy", index }])) {
+            return [{ type: "buy", index }]
+          }
+        }
+        return [{ type: "next_round" }]
+      }
+      return null
+    },
+  },
   {
     name: "letter-smith",
     covers: "letter modifiers bought, and then landed on tiles often enough to score",
@@ -271,6 +340,67 @@ export const SCENARIOS: readonly Scenario[] = [
         const index = items.findIndex((item) => item && item.cost <= state.gold)
         if (index >= 0 && accepted(state, words, [{ type: "buy", index }])) {
           return [{ type: "buy", index }]
+        }
+        return [{ type: "next_round" }]
+      }
+      return null
+    },
+  },
+  /*
+   * The rare modifier pair, which nothing else here ever holds.
+   *
+   * `letter-smith` buys the first modifier it can afford, and the first
+   * affordable modifier is a common one. Steel and Glass are one entry each in
+   * an eleven-entry table behind a slot that is itself three rolls in four, so
+   * a given visit offers a particular one about 7% of the time. Across every
+   * other vector that came to zero: the two dearest cards in the letter line,
+   * the two whose numbers get argued over most, and no recorded run had ever
+   * put one on a letter.
+   *
+   * So this bot solves on sight — the fastest income line there is, five unused
+   * guesses and the round's base — and then spends the whole pile hunting. It
+   * works: 386 of the first 600 seeds end holding one. Both at once is the rare
+   * part, 21 of 600, and 397 is the best of those — three rare cards landed on
+   * e, t and a, and seventeen guesses scored through them before the run dies.
+   *
+   * It dies shallow, and that is the trade being made on purpose. Depth is what
+   * every other vector already has; what this one is for is the pair that only
+   * turns up if you go looking and can still pay the reroll when it does.
+   */
+  {
+    name: "rare-smith",
+    covers: "the rare modifier pair, hunted down with rerolls and played through",
+    seed: 397,
+    next: (state, words) => {
+      if (state.phase === "round") {
+        // Solve on sight until there is a card to fire, then spend one guess a
+        // round on the word that fires it most. Before the first purchase every
+        // guess left unspent is a gold towards the hunt; after it, a modifier
+        // nobody ever plays through is a shop test rather than a scoring one,
+        // and the second is what this vector is for. The trade is one gold a
+        // round, which is what an unused guess pays.
+        const armed = Object.values(state.letters).some((letter) => letter.mod)
+        const probes =
+          armed && state.round.guesses.length === 0
+            ? [...decoys(state, words, 23)].sort((a, b) => modTiles(state, b) - modTiles(state, a))
+            : []
+        return firstPlayable(state, words, [...probes, state.round.answer])
+      }
+      if (state.phase === "reward") return [{ type: "collect" }]
+      if (state.phase === "shop") {
+        const items = state.shop?.items ?? []
+        const rare = items.findIndex(
+          (item) => item?.kind === "mod" && RARE_MODS.includes(item.id) && item.cost <= state.gold,
+        )
+        if (rare >= 0 && accepted(state, words, [{ type: "buy", index: rare }])) {
+          return [{ type: "buy", index: rare }]
+        }
+        // Keep hunting only while the gold left over could still pay for what is
+        // being hunted. Without the second term the bot rerolls itself broke and
+        // walks past the card it was looking for on the visit it finally appears.
+        const reroll = rerollCost(state.shop ?? { items: [], rerolls: 0 })
+        if (state.gold >= reroll + RARE_PRICE && accepted(state, words, [{ type: "reroll" }])) {
+          return [{ type: "reroll" }]
         }
         return [{ type: "next_round" }]
       }
@@ -415,6 +545,50 @@ export const SCENARIOS: readonly Scenario[] = [
       return null
     },
   },
+  /*
+   * The run that wins, and the only one. Every other vector here ends in
+   * `game_over`, which left the whole back half of the ending — the `victory`
+   * phase, `continue_run`, and the stages past `STAGES` that have no authored
+   * target — asserted by nothing at all. A rewrite could have dropped the win
+   * condition on the floor and this file would have agreed with it.
+   *
+   * Nothing here records `outcome: "victory"` even so, because this bot walks
+   * through the win rather than stopping on it. What pins the win instead is the
+   * refusal test: `continue_run` is refused unless the phase is `victory`, so an
+   * engine that stopped awarding the win would refuse the action, and the
+   * assertion that no recorded action is ever refused would name it.
+   *
+   * Picking a seed to get an outcome is normally how a vector stops being about
+   * the rules and starts being about the bot, so the choice is defended rather
+   * than asserted. Winning is genuinely rare — the climber's line takes 156 of
+   * the first 12,000 seeds — and the spread is not a curve but two piles: 238
+   * runs of 300 dead in stage one, against a tail that reaches stage eight
+   * almost intact. No bot wins on an arbitrary seed, so a seed had to be
+   * chosen. What 5517 was chosen *for*:
+   *
+   *   - Six of those 156 meet, in one run, every boss the other ten vectors miss
+   *     between them. This is one of the six.
+   *   - Of the six it is the only one that also wins under all five shop
+   *     policies measured — relic-first, relic-then-level, level-first,
+   *     relics-then-upgrades, packs-and-relics. It is a seed where the run is
+   *     winnable, not a seed tuned to this bot's quirks.
+   *   - It goes the deepest of them, dying on stage 11's boss round.
+   *
+   * That last point is why one run can close the boss gap at all, and the reason
+   * is structural rather than lucky. The late band is drawn without replacement
+   * and indexed from stage 7, so a run reaching stage 11's boss has met all five
+   * of them in order. Those bosses were uncovered *because* nothing survived
+   * past stage 7 — no shallow vector could have reached them, and no number of
+   * shallow vectors would have helped.
+   */
+  {
+    name: "victor",
+    covers:
+      "the run won and then played past, the computed targets beyond stage 8, and the whole " +
+      "late boss band nothing else survives to meet",
+    seed: 5517,
+    next: climb,
+  },
   {
     name: "ascendant",
     covers:
@@ -462,6 +636,11 @@ export const SCENARIOS: readonly Scenario[] = [
  * ones is what makes the pair of vectors a comparison rather than two runs.
  */
 function climb(state: RunState, words: WordSource): Action[] | null {
+  // Take the win and keep going. Only `victor` ever gets here — the two
+  // ascension runs die well short — but it belongs to the line rather than to
+  // one scenario: a climber is the bot that would carry on, and this is the
+  // only place `continue_run` is reachable at all.
+  if (state.phase === "victory") return [{ type: "continue_run" }]
   if (state.phase === "round") {
     const round = state.round
     const left = round.maxGuesses - round.guesses.length - 1
