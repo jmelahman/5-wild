@@ -81,12 +81,11 @@ const LETTER_TABLE = ["mod", "mod", "mod", "consumable"] as const
  * the strong three are 3 in 16 now rather than 3 in 11, and the cheap reliable
  * ones fill the gap.
  *
- * Wild is deliberately *not* among the ones made commoner. It pays at most +3
- * mult and only on a tile that did not land green, against Mult's flat +4 on
- * every tile for a gold less and a tier down — a card strictly dominated by a
- * common, measured at 85 points a guess against Mult's 305. Dealing it more
- * often would only spend more slots on it. It wants a number, not a weight, and
- * that is its own pass.
+ * Wild kept its single entry through that pass, on the grounds that dealing a
+ * dominated card more often only spends more slots on it — it wanted a number
+ * rather than a weight. It has since been given the number, and the entry is
+ * still right for the reason it was originally: one is what an uncommon that can
+ * anchor a build should be worth waiting for.
  */
 const MOD_TABLE: readonly ModId[] = [
   "chip",
