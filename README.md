@@ -186,12 +186,16 @@ reach:
 bosses       15/15
 consumables    4/4
 relics        25/28   bloodhound, anagrammer, keystone unseen
-modifiers      6/9    chip, wild, lucky unseen
+modifiers      6/9    chip, lucky, anchor unseen
 ```
 
 Those gaps are luck of the draw rather than anything structural — `chip` is the
 most common entry in the modifier table and is still missing, which is the
-clearest statement of how arbitrary the list is. Closing one means a scenario
+clearest statement of how arbitrary the list is. The set also moves under
+balance work without anyone aiming at it: reweighting `MOD_TABLE` from eleven
+entries to sixteen swapped `wild` into the covered column and `anchor` out of
+it, at an unchanged 6 of 9. A count is not the thing to watch here; the names
+are. Closing one means a scenario
 that goes looking, the way `rare-smith` rerolls the shop until it can afford a
 Steel or a Glass, or `mystic` spends consumables in an order that lets The Fool
 have a guess behind it to rescore. Both are worth writing when a rule in that

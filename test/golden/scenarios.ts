@@ -351,17 +351,25 @@ export const SCENARIOS: readonly Scenario[] = [
    *
    * `letter-smith` buys the first modifier it can afford, and the first
    * affordable modifier is a common one. Steel and Glass are one entry each in
-   * an eleven-entry table behind a slot that is itself three rolls in four, so
-   * a given visit offers a particular one about 7% of the time. Across every
+   * a sixteen-entry table behind a slot that is itself three rolls in four, so
+   * a given visit offers a particular one about 5% of the time. Across every
    * other vector that came to zero: the two dearest cards in the letter line,
    * the two whose numbers get argued over most, and no recorded run had ever
    * put one on a letter.
    *
    * So this bot solves on sight — the fastest income line there is, five unused
    * guesses and the round's base — and then spends the whole pile hunting. It
-   * works: 386 of the first 600 seeds end holding one. Both at once is the rare
-   * part, 21 of 600, and 397 is the best of those — three rare cards landed on
-   * e, t and a, and seventeen guesses scored through them before the run dies.
+   * works: 302 of the first 600 seeds end holding one, and 65 hold both at some
+   * point in the run. Only 9 of the 600 *end* holding both, which is not the
+   * hunt failing but the Glass doing what it says — it shatters on a gray, so
+   * counting the final board undercounts every run that played one and lost it.
+   * The measurement that matters here is what the letters carried while the
+   * guesses were being scored, and 397 carries both.
+   *
+   * These numbers moved once already. At the eleven-entry table it was 7% a
+   * visit and 386 of 600, and the reweighting that made the strong cards 3 in 16
+   * is what took it to 5% and 302 — so treat them as a reading of the current
+   * shelf rather than a fact about the bot.
    *
    * It dies shallow, and that is the trade being made on purpose. Depth is what
    * every other vector already has; what this one is for is the pair that only
