@@ -58,9 +58,13 @@ export type Policy =
  * How many guesses the farmer keeps in hand to actually find the word with.
  *
  * Four, which leaves it two to farm — and four because the income line gets
- * monotonically worse the harder it is played. Over 60 seeds, median stage
- * reached: reserve 2 → 1, reserve 3 → 3, reserve 4 → 4. The solver, which never
- * farms at all, reaches 5.
+ * worse the harder it is played. Over 60 seeds at v21, median stage reached:
+ * reserve 2 → 1, reserve 3 → 3, reserve 4 → 5, against the solver's 5.
+ *
+ * Median saturates there, so it is the wrong column to read at the top end: at
+ * reserve 4 the farmer ties the solver on it. Over 300 seeds the run win rate
+ * separates them and the ordering holds — 7.3% for the solver against 3.3% for
+ * this farmer, which is as close as the income line ever gets.
  *
  * That ordering is not a quirk of this policy, it is the scoring rule showing
  * through. Mult comes from colours and colours come from being right, so a

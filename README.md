@@ -245,13 +245,13 @@ every line of shop code, so a gap between them is attributable to the guessing.
 
 This answers what the vectors cannot. Not "does the engine still compute 471"
 but "how far does somebody who has to *find* the word actually get". At
-`CONTENT_VERSION` 20, over 300 seeds:
+`CONTENT_VERSION` 21, over 300 seeds:
 
 ```
                 solver   farmer
 won run           7.3%     3.3%
 median stage         4        4
-rounds banked     3565     2876
+rounds banked     3563     2875
 by solving       92.2%    87.1%
 guesses/round     4.30     5.55
 ```
