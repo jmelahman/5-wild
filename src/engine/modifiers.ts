@@ -1,4 +1,3 @@
-import { MULT_FOR_COLOR } from "../content/letters"
 import type { ScoreCtx } from "./scoring"
 import type { Rarity, RunState, Tile } from "./state"
 
@@ -117,16 +116,17 @@ const GLASS_BREAK = 0.25
 const LUCKY_CHANCE = 0.25
 
 /**
- * What a wild letter's tile is worth in mult, whatever colour it landed.
+ * What a wild letter adds, by the colour its tile landed.
  *
- * A floor rather than a bonus: the tile contributes exactly this instead of its
- * colour's mult, so colour still moves the card — 12 on a gray, 9 on top of a
- * green's 3 — but by three rather than by everything. The guard in `onTile`
- * survives as long as this stays above every entry in `MULT_FOR_COLOR`; it is
- * kept because the day someone rescales that table is the day it stops being
- * dead code.
+ * Read it as a ladder rather than three numbers: the ratio decides what the card
+ * is *for* and the base decides what it is worth, and the two are independent to
+ * a degree worth knowing about. Six ladders in the 3:2:1 shape, from 9/6/3 up to
+ * 21/14/7, all measured the same 1.25x tilt toward the guesses that missed while
+ * their rate ran from 6 to 15 points a gold. So price this by scaling all three
+ * together and re-aim it by changing their spacing; touching one number does
+ * both at once and is almost never what is wanted.
  */
-const WILD_MULT = 12
+const WILD_MULT = { gray: 24, yellow: 14, green: 4 } as const
 
 export const MODIFIERS: readonly Modifier[] = [
   {
@@ -181,7 +181,7 @@ export const MODIFIERS: readonly Modifier[] = [
   {
     id: "wild",
     name: "Wild",
-    text: "scores 12 mult whatever it lands, instead of its colour's",
+    text: "scores +24 mult on a gray, +14 on a yellow, +4 on a green",
     pip: "★",
     rarity: "uncommon",
     cost: 6,
@@ -190,34 +190,48 @@ export const MODIFIERS: readonly Modifier[] = [
     // decide. It used to read that as "always counts as green", which capped it
     // at +3 mult and only on a tile that had missed — 12 points a guess against
     // Mult's 55, last on the shelf by a factor of four, and dominated outright
-    // by a common that cost a gold less. `WILD_MULT` is what it pays instead.
+    // by a common that cost a gold less. The ladder is what it pays instead.
     //
-    // The floor is the whole repair, and it had to be a floor rather than a
-    // bigger colour swing. Measured over 8,333 guesses, the old card paid 15
-    // points on a guess that missed and *nothing at all* on the guess that
-    // solved the round, because a solving guess is five greens by definition and
-    // there was nothing left to promote: 15x tilted onto the guesses that went
-    // badly. The two obvious ways to make that matter — greening the whole word,
-    // or paying per gray tile — take the tilt to infinity, which is a card that
-    // pays you to stop looking for the answer. Farming to the target without
-    // ever solving is already a legal line here (see `resolveRound`, and what
-    // ascension 10 takes away), so a card aimed squarely at it is not a new
-    // strategy but a subsidy for the one the game is most fragile to.
+    // The card's job is to crutch a guess that went badly, so it has to pay most
+    // where the tile did worst, and the whole difficulty is in how much most is.
+    // Two shapes were built and measured over 6,714 recorded guesses before this
+    // one. Paying only for the miss — the old card's shape with a bigger number —
+    // keeps the identity and destroys the price: a solving guess is five greens
+    // by definition, so there is nothing left to promote and the card pays
+    // literally nothing on the guess that wins the round. At x6 that is a 93x
+    // tilt onto the guesses that went badly and still only 71 points a guess, 8 a
+    // gold, under a common costing a gold less. Buying the identity back needed a
+    // multiple around x10, which is +30 mult on a gray for a card that goes dead
+    // the moment you find the word. A flat floor of 12 fixes the price the other
+    // way and overshoots in the other direction: 118 points a guess at 13 a gold,
+    // but a 0.76x tilt, paying *more* on the solve than on the miss. That is a
+    // well-priced card that is no longer this card.
     //
-    // A floor of 12 leaves colour worth a 3-mult swing across the whole range
-    // instead of 15, and the measured tilt lands at 0.66x — it pays *more* on
-    // the guess that solves, like Chip and Anchor do, because that is the guess
-    // where the rest of the word is scoring. 135 points a guess, 15 a gold
-    // against a rebuilt Mult's 14: a modest premium for a dearer card a tier up,
-    // rather than a card nobody buys.
+    // 24/14/4 is both at once — 119 points a guess and 13 a gold, the floor's
+    // rate to within the noise, at a 2.14x tilt. It pays double on a probe and
+    // still pays four on a green, which is the part that keeps it honest: a card
+    // that pays nothing when you solve is a card telling you not to.
     //
-    // It also stays out of the colour-reading relics' way, which the alternatives
-    // did not: this adds mult and never rewrites `tile.color`, so Masochist and
-    // Greedy Grammarian still see the gray they are paid for.
-    onTile: (ctx, tile) => {
-      const gap = WILD_MULT - MULT_FOR_COLOR[tile.color]
-      if (gap > 0) ctx.addMult(gap)
-    },
+    // How far the tilt could go was measured rather than guessed, because the
+    // fear it answers is that a miss-paying card makes farming to the target beat
+    // solving on sight. Over 900 seeds with wilds on E/T/A, farming *loses*
+    // either way: -0.079 stages with no wild at all, -0.024 under the floor,
+    // -0.022 under this ladder, and -0.021 under a deliberately absurd 48/28/8.
+    // The premium never turns positive because the solve bonus multiplies the
+    // whole round total (`1 + guessesLeft`), so one more probe only pays when it
+    // beats the round-so-far divided by the guesses left — a bar that rises as
+    // the round scores. The card narrows that gap and cannot close it, which is
+    // the right amount of subsidy for the line it is meant to rescue.
+    //
+    // A promotion card looked like it would reward hiding a wild on a letter that
+    // never lands green. It does not: Q, J, X and Z are the four worst letters to
+    // wild under every variant tried, floor and ladder alike, because a letter
+    // that never gets typed never fires. The best letters stay E, A, R, O, L, T.
+    //
+    // It also stays out of the colour-reading relics' way, which some of the
+    // alternatives did not: this adds mult and never rewrites `tile.color`, so
+    // Masochist and Greedy Grammarian still see the gray they are paid for.
+    onTile: (ctx, tile) => ctx.addMult(WILD_MULT[tile.color]),
   },
   {
     id: "lucky",

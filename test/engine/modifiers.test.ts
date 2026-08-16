@@ -79,13 +79,15 @@ describe("letter modifiers", () => {
 
   it("Wild pays on every colour, and pays a worse one more", () => {
     // Against BRAID, QUAZY's Q is gray and its A is green — the two ends of the
-    // range the card flattens. Both pay, because the card is a floor rather than
-    // a promotion: the tile is worth the same either way, so what colour costs
-    // is the difference between the floor and what the colour was already worth.
+    // ladder. Both pay, and the gray pays far more, which is the whole shape:
+    // the card is for the guess that went wrong, but a card paying *nothing* on
+    // a green is a card telling you not to solve, so the green rung is load
+    // bearing and the assertion below is not a formality.
     //
-    // Read as a shape. The floor has been resized once already — it was three,
-    // which made this assertion "green pays nothing" — and the golden vectors
-    // are what pin the number.
+    // Read as a shape. The numbers have been resized twice — once from a pure
+    // promotion, where "green pays nothing" was true and this assertion would
+    // have failed, and once from a flat floor that paid more on the solve than
+    // on the miss. The golden vectors are what pin them.
     const plain = apply(startRun(1, words).state, type("quazy")).round.guesses[0]
     if (!plain) throw new Error("no guess was scored")
 
