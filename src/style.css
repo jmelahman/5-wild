@@ -2000,21 +2000,29 @@ button {
  * a rule that wraps to two lines where the last one wrapped to one moved the
  * Play button under the thumb already on its way to it. Measured by stepping all
  * 101 levels at 390 and at 320 — the two ends of the widths this ever renders at
- * — the box tops out at 85 with no line under the rule and 101 with the note
- * under it, and both numbers are the same at both widths because the rule tops
- * out at two lines either way. So 6.375rem, one pixel of slack over the worst
- * case.
+ * — the tallest rung comes to 108: the earned edge, whose rule wraps to two lines
+ * and whose carrot sits under it. Both widths agree, because the rule tops out at
+ * two lines either way. So 7rem, four pixels of slack over the worst case.
  *
  * It was 8rem while a two-line warning could sit under an unearned level, then
- * 7rem once that line was cut. 7rem was still an inch of air: the warning had
- * been the tall thing, and with it gone the padding it needed was padding around
- * nothing. This pass took the last ten pixels out of the chrome rather than the
- * words — a little off the step buttons, the top and bottom padding, and the two
- * gaps between the three rows — because the rule text is the only thing in here
- * anybody reads and shrinking that to buy height is trading the point for the
- * frame. That is the whole reason the measurement is written down: the next
- * person to delete a line needs to know these numbers were measured rather than
- * chosen, or the box will sit at its old height holding nothing forever.
+ * 7rem once that line was cut, then 6.375rem when the padding that warning had
+ * needed turned out to be padding around nothing. It is back at 7rem now, and the
+ * four pixels bought there are the difference between the tallest rung being
+ * exact and being cramped — at 6.75rem the sentence cleared the dial by 3px.
+ *
+ * What changed under it: the box is a column now, and the rule text takes the
+ * slack instead of the foot of the box (see `.ladder-text`). A pin sized to the
+ * tallest rung leaves every shorter rung holding the difference, and the height
+ * that stops the Play button moving should not decide where the white sits
+ * inside a card that isn't that tall. Stepping all 101 rungs at both widths: box
+ * 112 throughout, Play at a constant 462, the dial's row at a constant 10 from
+ * the top, nothing overflowing. The sentence lands 21px clear of the dial on a
+ * one-line rung, 13 on a two-line one, 5 on the earned edge where the carrot is
+ * also in the box.
+ *
+ * That is the whole reason the measurement is written down: the next person to
+ * delete a line needs to know these numbers were measured rather than chosen, or
+ * the box will sit at its old height holding nothing forever.
  *
  * `min-height` rather than `height`: at a root font much larger than 16px the
  * wrap counts are no longer the measured ones, and the failure worth having
@@ -2022,10 +2030,12 @@ button {
  * explain.
  */
 .ladder {
+  display: flex;
+  flex-direction: column;
   width: min(100%, 22rem);
-  min-height: 6.375rem;
+  min-height: 7rem;
   margin-bottom: 0.5rem;
-  padding: 0.4375rem 0.625rem 0.5rem;
+  padding: 0.5625rem 0.625rem 0.5rem;
   border-radius: 0.75rem;
   border: 1px solid var(--line);
   background: var(--panel);
@@ -2127,12 +2137,28 @@ button {
   color: color-mix(in srgb, var(--gold) 80%, var(--muted));
 }
 
-/* Two lines whether the rule needs two or one, so that the line under it — the
-   carrot, or the warning — is at the same height on every rung. Pinning only the
-   box would hold the Play button still and still let this slide about inside it. */
+/* Takes the slack rather than leaving it at the foot of the box, and centres
+   itself in whatever it took.
+
+   It used to reserve two lines whether the rule needed two or one, so that the
+   line under it sat at a constant height on every rung. That was worth its 16px
+   when every unearned rung had a line under it; now exactly one rung does — the
+   earned edge — and there is no second note anywhere to hold level with. What
+   the reservation actually bought, at the end, was a blank line above 17px of
+   dead box: 41px of white under a one-line rule against 8px over the dial.
+
+   The dial keeps its anchor at the top, because it is the thing a thumb aims at
+   and it is the only part of the box that is pressed. Everything the pin does
+   not need goes here instead, split above and below the sentence: 21px either
+   side on a one-line rung, 13 on a two-line one. Centring the whole column
+   instead would have shared the slack the same way and taken the dial with it,
+   sliding the buttons 8px up the box on whichever rung happened to wrap. */
 .ladder-text {
-  min-height: 2rem;
-  margin-top: 0.25rem;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.375rem;
   font-size: 0.75rem;
   line-height: 1.35;
   color: var(--muted);
