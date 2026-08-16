@@ -747,17 +747,43 @@ export class App {
    * Hover is the desktop half. Touch gets `bindHeldTips`, because there is no
    * hovering a phone. The keyboard gets `bindFocusTips`, because it has neither
    * gesture and the tray is otherwise a row of cards it can reach and not read.
+   *
+   * Which half a pointer gets is decided per event, on `pointerType`, and not
+   * once at startup on `(hover: hover)` — which is what this used to do, and
+   * which is wrong on the one device the game ships as an app. An Android
+   * WebView answers that query `true` on a phone with no mouse anywhere near it:
+   * it reports the pointer capabilities of a desktop because nothing plumbs the
+   * real ones through to it, and Chrome for Android on the same handset answers
+   * `false`. Bound on that answer, the touch path ran *and* the hover path ran,
+   * and the hover path is fatal to it — Chromium fires `pointerover` as the
+   * finger lands and the whole `pointerleave` chain as it lifts. Traced in the
+   * APK's engine with the query forced true: panel up at 48ms on the touch-down,
+   * down at 49ms on the `pointerdown` that follows it, up again at 399ms when
+   * the hold finally fired, and gone at 964ms the instant the finger left. A
+   * player holding a key to ask what it pays got the answer snatched away on
+   * release, and a plain tap got a panel flashed at them for one frame.
+   *
+   * `pointerType` cannot lie in the same way: it is a property of the event that
+   * actually happened rather than a guess about the hardware. A hybrid — a
+   * touchscreen laptop, a tablet with a trackpad — was mishandled by the old
+   * gate for the same reason and is now simply two pointers, each with the half
+   * that suits it. A pen is left to the hold: it can hover, but it taps far more
+   * often than it hovers, and one that opened a panel on every tap would be the
+   * WebView bug again with a smaller audience.
    */
   private bindTips(): void {
     this.bindHeldTips()
     this.bindFocusTips()
-    if (!window.matchMedia?.("(hover: hover)").matches) return
     this.root.addEventListener("pointerover", (event) => {
+      if (event.pointerType !== "mouse") return
       this.showTip(this.tipHost(event.target))
     })
     // `pointerover` covers every move within the screen; this covers the one
     // move that fires nothing — straight out of the window.
-    this.root.addEventListener("pointerleave", () => this.showTip(null))
+    this.root.addEventListener("pointerleave", (event) => {
+      if (event.pointerType !== "mouse") return
+      this.showTip(null)
+    })
   }
 
   /**

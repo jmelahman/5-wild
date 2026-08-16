@@ -39,10 +39,23 @@ render, splicing the new screen in around it. Neither reaches the views: the
 reused node is an empty box, and everything drawn inside it is still built from
 scratch.
 
+The defect is Gecko's alone, which is worth knowing before blaming it for the
+next flash: driven through the same renders at 20× CPU throttle, Blink never
+once laid the board out at the fallback size — not with `reuseBoard` and not
+without it. A board misbehaving in the APK is a different bug wearing the same
+face.
+
 Mobile first: portrait, thumb-reachable, sheets rising from the bottom edge
 rather than centred. Anything with a `data-tip` gets the hover panel on a mouse
 and a long-press one on a finger, so a new affordance usually only needs the
-attribute. Purely presentational settings live as a class on the document root
+attribute. Which of the two a pointer gets is decided per event on
+`pointerType`, and never on a media query: the Android WebView the APK runs in
+answers `(hover: hover)` like a desktop, on a phone with no mouse in the room,
+and a gate built on that answer handed a thumb both halves at once — see
+`bindTips` for what that did to the panel. Anything the app has to ask about the
+*input* is worth distrusting; the queries about the screen are sound.
+
+Purely presentational settings live as a class on the document root
 and are switched off in the stylesheet — see `.plain` and `.quiet` — rather than
 threaded through the views, which the full rebuild would otherwise make every
 view's business.
