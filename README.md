@@ -179,27 +179,33 @@ by name rather than by a mysteriously truncated run, but the second half needs a
 ordinary unit test asserting the refusal, and always will.
 
 **Anything no bot ever did.** Coverage is a side effect of the scenarios, not a
-property of the format. What fourteen runs and 331 scored guesses currently
+property of the format. What sixteen runs and 391 scored guesses currently
 reach:
 
 ```
 bosses       15/15
 consumables    4/4
 relics        25/28   bloodhound, anagrammer, keystone unseen
-modifiers      6/9    chip, lucky, anchor unseen
+modifiers      8/9    chip unseen
 ```
 
-Those gaps are luck of the draw rather than anything structural — `chip` is the
-most common entry in the modifier table and is still missing, which is the
-clearest statement of how arbitrary the list is. The set also moves under
-balance work without anyone aiming at it: reweighting `MOD_TABLE` from eleven
-entries to sixteen swapped `wild` into the covered column and `anchor` out of
-it, at an unchanged 6 of 9. A count is not the thing to watch here; the names
-are. Closing one means a scenario
-that goes looking, the way `rare-smith` rerolls the shop until it can afford a
-Steel or a Glass, or `mystic` spends consumables in an order that lets The Fool
-have a guess behind it to rescore. Both are worth writing when a rule in that
-corner changes; neither is worth writing speculatively.
+Those gaps are luck of the draw rather than anything structural, and `chip`
+being the survivor makes the point: it is the *most* common entry in the
+modifier table and no recorded run has ever carried one.
+
+Watch the names rather than the count, because the count hides the movement.
+Reweighting `MOD_TABLE` from eleven entries to sixteen swapped `wild` into the
+covered column and `anchor` out of it while the total sat unchanged at 6 of 9 —
+and the card that fell out was the one that pass had just resized. Nothing went
+red; the diff read as a shop change, which it was.
+
+Closing a gap means a scenario that goes looking. `rare-smith` rerolls until it
+can afford a Steel or a Glass, `wild-smith` and `anchor-smith` do the same for
+their cards, and `mystic` spends consumables in an order that lets The Fool have
+a guess behind it to rescore. Worth writing when a rule in that corner changes;
+not worth writing speculatively. The three hunters are also near-identical in
+shape by now, and want folding into one helper before a fourth is copied from
+them.
 
 Victory is the deliberate hole. No vector ends with `outcome: "victory"` —
 `victor` reaches it on seed 5517 and answers `continue_run`, which the engine
