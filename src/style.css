@@ -496,6 +496,15 @@ button {
   min-height: 0;
   container-type: size;
   display: flex;
+  /* The anchor for `.coach-slot`, and it has to be said out loud.
+     `container-type: size` reads as though it covered this — it applies layout
+     containment, and layout containment makes a box a containing block for its
+     absolutely positioned descendants — but the two were split deliberately, and
+     Chromium 147 agrees: probed side by side on a static box, `contain: layout`
+     anchors an abspos child to the box and `container-type: size` leaves it on
+     the viewport. The card was landing over the keyboard, 227px below the board
+     it is meant to be lying on. */
+  position: relative;
 }
 
 .grid {
@@ -651,6 +660,101 @@ button {
 @keyframes flip {
   50% {
     transform: scaleY(0.04);
+  }
+}
+
+/* ----------------------------------------------------------------- coach */
+
+/*
+ * The first round explaining itself, laid over the rows it has not reached yet.
+ *
+ * Absolute, and unconditionally so — even while it is empty. `.grid-wrap` is a
+ * flex container whose only child centres itself with `margin: auto`, and a
+ * second child in the flow would take a share of the main axis and push the
+ * board off its own centre. Out of flow it costs nothing either way, which is
+ * the point: the card appears and disappears five times in the first round, and
+ * a board that resized on each of those would be a board that moves under the
+ * thumb aiming at it.
+ *
+ * The containing block is `.grid-wrap`, which had to be told to be one — see the
+ * note on `position: relative` there. So this pins to the board's own bottom
+ * edge, whichever axis the board turned out to be bound by.
+ */
+.coach-slot {
+  position: absolute;
+  z-index: 3;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  /* The empty slot spans the board's full width and must not intercept the long
+     press that reads a boss's note off the row underneath it. */
+  pointer-events: none;
+}
+
+.coach {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.5rem;
+  /* Nearly opaque rather than a wash: it is over tiles, and a translucent panel
+     with a grid of squares showing through it is the one thing on this screen
+     that would be harder to read than the numbers it is explaining. */
+  background: color-mix(in srgb, var(--panel-2) 94%, transparent);
+  border: 1px solid color-mix(in srgb, var(--chips) 40%, var(--line));
+  animation: coach-in 220ms ease;
+}
+
+.coach-text {
+  flex: 1 1 auto;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--fg);
+}
+
+/* Quiet, and out at the edge. It ends the tutorial rather than advancing it, so
+   it must not sit where a thumb goes looking for "next". */
+.coach-skip {
+  flex: 0 0 auto;
+  align-self: center;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+@keyframes coach-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.375rem);
+  }
+}
+
+/*
+ * The thing the card is pointing at, marked so the sentence has a referent.
+ *
+ * An outline rather than a border or a padded background, for one reason: three
+ * of the four anchors are inside lines whose spacing is already measured to the
+ * pixel — the readout's chips and mult, the HUD's score block — and outline is
+ * the only ring in CSS that is drawn outside the box without occupying any. The
+ * mark can be added and removed on every keystroke without a single figure on
+ * the screen shifting.
+ */
+.coached {
+  outline: 2px solid color-mix(in srgb, var(--chips) 70%, transparent);
+  outline-offset: 3px;
+  border-radius: 0.25rem;
+  animation: coach-mark 1800ms ease-in-out infinite;
+}
+
+/* Breathing rather than blinking. The eye is meant to find it once and then get
+   on with reading the card; a hard flash keeps calling the eye back. */
+@keyframes coach-mark {
+  50% {
+    outline-color: color-mix(in srgb, var(--chips) 22%, transparent);
   }
 }
 

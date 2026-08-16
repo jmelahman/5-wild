@@ -1,6 +1,8 @@
 import type { Action, GameEvent, RunState, WordSource } from "../engine"
 import { MULT_FOR_COLOR, reduce, startRun } from "../engine"
 import { Sound } from "./audio"
+import type { CoachStep } from "./coach"
+import { coachSpent, coachStep } from "./coach"
 import { clear, h, wait } from "./dom"
 import { formatNumber as num } from "./format"
 import { chosenAscension, Profile } from "./meta"
@@ -12,6 +14,7 @@ import {
   codexView,
   endView,
   fillCategory,
+  fillCoach,
   fillReadout,
   helpView,
   introView,
@@ -44,6 +47,18 @@ const SAVE_KEY = "5wild:run:v2"
 
 /** Set the first time the rules have been shown, so they only interrupt once. */
 const HELP_KEY = "5wild:seen-help"
+
+/**
+ * Set once the first round has been coached, or the coaching waved off.
+ *
+ * A second key rather than a second meaning for `HELP_KEY`, because the two are
+ * spent at different moments and one of them can be spent without the other
+ * having happened: the rules sheet is closed at the title screen, possibly
+ * before a run exists at all, and the coaching is only finished by playing three
+ * guesses. Folding them together would silence the board's half for anyone who
+ * had ever opened the menu.
+ */
+const COACH_KEY = "5wild:coached"
 
 /** Set when the player has asked for a board with no numbers on it. */
 const PLAIN_KEY = "5wild:plain"
@@ -103,6 +118,15 @@ export class App {
   private hovered: HTMLElement | null = null
   /** True when the player has asked for the letters to stop shouting numbers. */
   private plain = plainBoard()
+  /**
+   * True while the first round is still owed its explanation.
+   *
+   * The only piece of the coaching that is remembered anywhere. Everything else
+   * — which beat is up, whether it has been seen before — is read off the run,
+   * so this is one boolean rather than a cursor that could disagree with the
+   * board. See `src/ui/coach.ts`.
+   */
+  private coachOwed = !seenCoach()
   private readonly sound = new Sound()
   private readonly music = new Music()
   /** The one thing here that outlives the run being played. */
@@ -277,6 +301,14 @@ export class App {
     if (slot) fillCategory(slot, this.state, this.handlers)
     const readout = this.root.querySelector(".readout")
     if (readout) fillReadout(readout, this.state)
+    // Third thing, and the one with a number in it: the coaching card quotes the
+    // running chip count while the word is being built. It also moves its own
+    // anchor as it goes, which is why the light is reapplied rather than left —
+    // and it has to be reapplied *after* `fillReadout` in any case, since that
+    // rebuilds the readout's children and takes the class down with them.
+    const coach = this.root.querySelector(".coach-slot")
+    if (coach) fillCoach(coach, this.coach, this.handlers)
+    this.lightCoach()
     return true
   }
 
@@ -875,6 +907,14 @@ export class App {
       markHelpSeen()
       this.render()
     },
+    // Spent rather than dismissed: a card that came back on the next keystroke
+    // would make the button a lie, and there is nothing here worth reading twice
+    // by someone who has already said they have it.
+    skipCoach: () => {
+      this.coachOwed = false
+      markCoachSeen()
+      this.render()
+    },
     openCodex: () => {
       this.overlay = "codex"
       this.render()
@@ -922,12 +962,64 @@ export class App {
   }
 
   private get chrome(): Chrome {
-    return { muted: this.sound.isMuted, musicOff: this.music.isOff, plain: this.plain }
+    return {
+      muted: this.sound.isMuted,
+      musicOff: this.music.isOff,
+      plain: this.plain,
+      coach: this.coach,
+    }
+  }
+
+  /**
+   * The coaching card the board should be showing, if any.
+   *
+   * `coachStep` decides what the *run* has to say; everything ANDed in front of
+   * it is what the *screen* is doing, and each one is a screen the card would be
+   * wrong on. Mid-animation is the interesting one: the beat after a guess lands
+   * is true the instant the guess is recorded, and showing it then would put the
+   * card's `chips × mult = score` on screen several seconds before the tiles
+   * finish turning over to reveal it — the arithmetic spoiled ahead of the thing
+   * it is describing.
+   */
+  private get coach(): CoachStep | null {
+    if (!this.coachOwed || this.busy || this.intro || this.overlay || this.atTitle) return null
+    return coachStep(this.state)
+  }
+
+  /**
+   * Mark the anchor the card is talking about.
+   *
+   * Run after the render rather than inside the views, because the anchor is a
+   * selector into a screen that does not exist until the render has finished —
+   * and because the thing being marked belongs to another view entirely. The
+   * card is over the board; the `?` it names is in the readout, and the score it
+   * names is up in the HUD. Nothing else on the screen ties two views together,
+   * so nothing else needs the class threaded through both.
+   *
+   * Clearing first covers the patch path, where the previous beat's anchor is
+   * still lit and is very often a different element — typing the first letter
+   * moves the card from the readout as a whole to the chip count inside it.
+   */
+  private lightCoach(): void {
+    for (const lit of this.root.querySelectorAll(".coached")) lit.classList.remove("coached")
+    const step = this.coach
+    if (!step) return
+    this.root.querySelector(step.anchor)?.classList.add("coached")
   }
 
   /** `as` forces the round board to stay on screen while its scoring plays out. */
   private render(as?: "round"): void {
     const phase = as ?? this.state.phase
+    // Checked here rather than beside the card, and it is deliberately the wider
+    // question of the two: `coach` goes quiet on plenty of screens the tutorial
+    // has not finished with — a sheet, the intro card, the scoring animation —
+    // and retiring it on any of those would end it early. This asks whether the
+    // round it lives in has gone past it for good, which only a run can answer,
+    // so the title screen's scaffolding run is excluded rather than consulted.
+    if (this.coachOwed && !this.atTitle && coachSpent(this.state)) {
+      this.coachOwed = false
+      markCoachSeen()
+    }
     this.music.set(this.mood)
     // The card the pointer was over is about to stop existing, and a stale node
     // here would read as "still hovering" and suppress the next tip.
@@ -973,6 +1065,7 @@ export class App {
     clear(this.root).append(view)
     if (sheet) this.root.append(sheet)
     this.holdFocus()
+    this.lightCoach()
   }
 
   /**
@@ -1194,6 +1287,24 @@ function markHelpSeen(): void {
     localStorage.setItem(HELP_KEY, "1")
   } catch {
     // See above.
+  }
+}
+
+function seenCoach(): boolean {
+  try {
+    return localStorage.getItem(COACH_KEY) === "1"
+  } catch {
+    // Same trade as `seenHelp`, and cheaper here: being wrong costs a returning
+    // player five short cards on the first round of a run and nothing after.
+    return false
+  }
+}
+
+function markCoachSeen(): void {
+  try {
+    localStorage.setItem(COACH_KEY, "1")
+  } catch {
+    // The coaching lasts the session instead of the install.
   }
 }
 

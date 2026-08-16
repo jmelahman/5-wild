@@ -51,6 +51,7 @@ import {
   solveBonusFor,
   TIER_STAGES,
 } from "../engine"
+import type { CoachStep } from "./coach"
 import { h } from "./dom"
 import { money, formatNumber as num } from "./format"
 import type { MetaState } from "./meta"
@@ -91,6 +92,8 @@ export type Handlers = {
   togglePlain: () => void
   openMenu: () => void
   openHelp: () => void
+  /** Retire the first-round coaching, now and for good. */
+  skipCoach: () => void
   openCodex: () => void
   /** The shape panel, from the board or from the shop. */
   openShapes: () => void
@@ -105,8 +108,22 @@ export type Handlers = {
   ascend: () => void
 }
 
-/** Presentation state the engine has no opinion about. */
-export type Chrome = { muted: boolean; musicOff: boolean; plain: boolean }
+/**
+ * Presentation state the engine has no opinion about.
+ *
+ * `coach` is the odd one out — it is derived from the run rather than from a
+ * setting — and it rides here anyway, because the question it answers is a
+ * presentation one: whether this player has been shown the first round yet. The
+ * engine cannot know that, the view must not decide it, and putting it here is
+ * what keeps `roundView`'s signature the same three arguments every other
+ * screen takes.
+ */
+export type Chrome = {
+  muted: boolean
+  musicOff: boolean
+  plain: boolean
+  coach: CoachStep | null
+}
 
 const KEY_ROWS = ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
 
@@ -261,7 +278,7 @@ function consumableRow(state: RunState, on: Handlers): HTMLElement | null {
 
 /* --------------------------------------------------------------- the round */
 
-function grid(state: RunState): HTMLElement {
+function grid(state: RunState, coach: CoachStep | null, on: Handlers): HTMLElement {
   const round = state.round
   const width = round.answer.length
   const active = round.guesses.length
@@ -332,6 +349,67 @@ function grid(state: RunState): HTMLElement {
     "div",
     { class: "grid-wrap" },
     h("div", { class: "grid", style: `--rows:${round.maxGuesses};--cols:${width}` }, ...rows),
+    // The coaching card, laid over the board's unplayed rows. See `coachSlot`
+    // for why this is the one place on the round screen with room for it.
+    coachSlot(coach, on),
+  )
+}
+
+/**
+ * Where the first round explains itself.
+ *
+ * Inside the board rather than anywhere else on the screen, because there is
+ * nowhere else: measured at 390×844 the round screen runs board 115–567,
+ * category 573–590, readout 596–630, solve hint 636–656, keyboard 662–836.
+ * Between the board's bottom edge and the keyboard there are twenty pixels of
+ * gap and three lines of numbers, and the card is about those numbers — putting
+ * it there would mean covering the thing it is pointing at. The strip above the
+ * keyboard is already spoken for by the toast, which is where a refusal lands.
+ *
+ * The board is the opposite: at the moment each beat fires, the rows below the
+ * one being typed are empty by definition, so the card is laid over blank
+ * squares and nothing the player needs is hidden. It costs no layout either — it
+ * is absolutely positioned inside `.grid-wrap` — so the board does not resize
+ * when the card appears, which on this screen would be the board *moving*.
+ *
+ * The slot is always in the document, empty or not, for `fillCategory`'s
+ * reason: the draft row is patched rather than re-rendered, the card's text
+ * changes with the letters being typed, and a node that came and went would
+ * leave the patch with nowhere to write.
+ */
+function coachSlot(coach: CoachStep | null, on: Handlers): HTMLElement {
+  const slot = h("div", { class: "coach-slot" })
+  fillCoach(slot, coach, on)
+  return slot
+}
+
+/**
+ * Refill the coaching card. Called on every keystroke, like `fillCategory` and
+ * `fillReadout`, because two of the five beats are about the word being typed —
+ * one of them quotes its running chip count — and a card a keystroke behind the
+ * number it is pointing at would be teaching the wrong lesson.
+ */
+export function fillCoach(slot: Element, coach: CoachStep | null, on: Handlers): void {
+  slot.replaceChildren()
+  if (!coach) return
+  slot.append(
+    h(
+      "div",
+      { class: "coach", "data-step": coach.id },
+      h("p", { class: "coach-text" }, coach.text),
+      // One press ends the whole tutorial rather than advancing it, and it says
+      // so: "skip" on a five-card sequence would otherwise read as "next".
+      h(
+        "button",
+        {
+          class: "coach-skip",
+          type: "button",
+          "aria-label": "Stop showing tips",
+          onclick: () => on.skipCoach(),
+        },
+        "got it",
+      ),
+    ),
   )
 }
 
@@ -610,7 +688,7 @@ export function roundView(state: RunState, on: Handlers, chrome: Chrome): HTMLEl
     boss && h("div", { class: "boss" }, h("strong", {}, boss.name), h("span", {}, ` ${boss.text}`)),
     relicRow(state, on),
     consumableRow(state, on),
-    grid(state),
+    grid(state, chrome.coach, on),
     categorySlot(state, on),
     // The toggle is the readout's sibling and not its child on purpose:
     // `fillReadout` calls `replaceChildren` on every keystroke, so a button

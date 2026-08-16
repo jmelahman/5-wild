@@ -65,9 +65,18 @@ style but not its prose is half-finished.
 
 ## Storage
 
-`5wild:run:v2` (the run save), `5wild:meta:v2` (the record), and four flags:
-`5wild:seen-help`, `5wild:plain`, `5wild:muted`, `5wild:music`. Adding an
-optional field needs no key bump; changing what an existing field means does.
+`5wild:run:v2` (the run save), `5wild:meta:v2` (the record), and five flags:
+`5wild:seen-help`, `5wild:plain`, `5wild:muted`, `5wild:music`, `5wild:coached`.
+Adding an optional field needs no key bump; changing what an existing field
+means does.
+
+`5wild:coached` is the odd one: it is the only flag that is not a setting. It
+records that the first-round tutorial has been spent, and it is deliberately not
+folded into `5wild:seen-help` even though both mean "has been here before" —
+help is seen at the title screen before a run exists, the coaching is only
+finished by playing, and one key would let opening the sheet retire a tutorial
+that never ran. Everything else about the coaching is derived from the run; see
+`src/ui/coach.ts`.
 
 Renaming a field is the case in between, and the two keys answered it
 differently when antes became stages and jokers became relics. The run save
