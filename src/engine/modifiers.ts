@@ -53,7 +53,7 @@ export type ModCtx = ScoreCtx & {
 export type Modifier = {
   id: ModId
   name: string
-  /** Reads after the letter: "K scores ×1.5 mult". */
+  /** Reads after the letter: "K scores ×2 mult". */
   text: string
   /** What the key wears in the corner. One or two glyphs — keys are small. */
   pip: string
@@ -101,7 +101,16 @@ export type Modifier = {
   onTile: (ctx: ModCtx, tile: Tile) => void
 }
 
-/** How often a glass letter shatters on a tile that shattering is allowed on. */
+/**
+ * How often a glass letter shatters on a tile that shattering is allowed on.
+ *
+ * Rarer in practice than a quarter sounds, because the tile has to be gray
+ * *and* the letter genuinely absent: measured over 19,315 recorded guesses, a
+ * glass E broke on 3.31% of them, a glass S on 0.79%, a glass K on 5.85%. Left
+ * where it is with the ×3 — the per-guess rate is small, but it compounds over
+ * a run of fifty, and losing a common letter outright is the price the number
+ * is charging for.
+ */
 const GLASS_BREAK = 0.25
 
 /** How often a lucky letter pays. */
@@ -229,25 +238,48 @@ export const MODIFIERS: readonly Modifier[] = [
   {
     id: "steel",
     name: "Steel",
-    text: "scores ×1.5 mult",
-    pip: "×1.5",
+    text: "scores ×2 mult",
+    pip: "×2",
     rarity: "rare",
     cost: 8,
     choiceCost: 12,
-    // Multiplicative and per tile, so a doubled steel letter is ×2.25. That is
-    // the whole build: steel a letter you can repeat, then find words that do.
-    onTile: (ctx) => ctx.timesMult(1.5),
+    // ×1.5 was the same card as Mult, sold a tier up and for half again the
+    // price. Installed on the same board across 19,315 recorded guesses, steel
+    // paid 165 points a guess on E against +4 mult's 164, 52 against 52 on S,
+    // and 77 against 84 on K — a rare a common matched everywhere and beat on
+    // the middling letters. The reason is that the multiply lands on a mult the
+    // relics have already grown (38 by the finish, averaged), so ×1.5 was
+    // arriving exactly where a flat +4 does rather than anywhere above it.
+    //
+    // ×2 pays 346 on those same guesses: 2.1x the common card for 1.5x its
+    // price, and still comfortably beneath Glass, which is where the safe half
+    // of a risk pair belongs.
+    //
+    // Multiplicative and per tile, so a doubled steel letter is ×4. That is the
+    // whole build: steel a letter you can repeat, then find words that do.
+    onTile: (ctx) => ctx.timesMult(2),
   },
   {
     id: "glass",
     name: "Glass",
-    text: "scores ×2 mult, and can shatter when it lands gray",
-    pip: "×2",
+    text: "scores ×3 mult, and can shatter when it lands gray",
+    pip: "×3",
     rarity: "rare",
-    cost: 7,
-    choiceCost: 11,
+    cost: 9,
+    choiceCost: 13,
+    // The risky half of the rare pair, and it has to out-pay the safe half by
+    // enough that the letter is worth gambling. Sweeping the factor over the
+    // same 19,315 guesses read 165 / 346 / 543 / 757 / 1237 points on E for
+    // ×1.5 / ×2 / ×2.5 / ×3 / ×4 — superlinear, because a repeated letter
+    // multiplies once per copy. ×3 is 757, comfortably clear of Steel's 346;
+    // ×4 was where the card stopped reading as a rare and started reading as
+    // Anchor, which the run already has one of.
+    //
+    // Dearer than Steel now, which it was not before: it was ×2 at $7 against
+    // Steel's ×1.5 at $8 — cheaper *and* stronger on every letter measured,
+    // which left the pair with no decision in it at all.
     onTile: (ctx, tile) => {
-      ctx.timesMult(2)
+      ctx.timesMult(3)
       // Only a gray tile can break it, and only when the letter is genuinely
       // absent from the answer. Gray is not proof of absence — a second E is
       // gray when the answer holds one — and burning a letter the answer needs

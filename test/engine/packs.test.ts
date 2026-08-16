@@ -93,7 +93,10 @@ describe("opening a pack", () => {
   it("charges for it and lays its cards out, without applying any of them", () => {
     const before = inShop(1)
     const state = apply(offering(before, "alphabet"), [{ type: "buy", index: 0 }])
-    expect(state.gold).toBe(999 - 8)
+    // Read off the card rather than written out, so a repricing moves this with
+    // the catalogue. What is under test is that the gold goes at all, not what
+    // the alphabet pack happens to cost this week.
+    expect(state.gold).toBe(before.gold - (PACK_BY_ID.get("alphabet")?.cost ?? 0))
     expect(state.pack?.id).toBe("alphabet")
     expect(state.pack?.options).toHaveLength(3)
     expect(state.pack?.picks).toBe(1)

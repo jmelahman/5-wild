@@ -65,15 +65,16 @@ describe("letter modifiers", () => {
   it("Steel multiplies what the word has scored so far", () => {
     // The multiply lands where the tile does, so position is worth real mult:
     // CRANE's E is last and multiplies the finished 7, its C is first and
-    // multiplies the 1 that was there at the time.
-    expect(play("e", "steel", "crane").last.mult).toBe(10.5)
-    expect(play("c", "steel", "crane").last.mult).toBe(7.5)
+    // multiplies the 1 that was there at the time — and the 6 between those two
+    // is the whole reason the rule is worth having.
+    expect(play("e", "steel", "crane").last.mult).toBe(14)
+    expect(play("c", "steel", "crane").last.mult).toBe(8)
   })
 
   it("Steel multiplies once per copy of the letter", () => {
-    // SASSY's three Ss each multiply in turn: 1 ×1.5, +1 for the yellow A,
-    // then ×1.5 twice more.
-    expect(play("s", "steel", "sassy").last.mult).toBe(5.625)
+    // SASSY's three Ss each multiply in turn: 1 ×2, +1 for the yellow A, then
+    // ×2 twice more.
+    expect(play("s", "steel", "sassy").last.mult).toBe(12)
   })
 
   it("Wild scores its tile as green whatever it landed", () => {
@@ -83,10 +84,10 @@ describe("letter modifiers", () => {
     expect(play("a", "wild", "quazy").last.mult).toBe(4)
   })
 
-  it("Glass doubles the mult", () => {
-    // Q is QUAZY's first tile, so the ×2 lands on the 1 that is there then; the
+  it("Glass triples the mult", () => {
+    // Q is QUAZY's first tile, so the ×3 lands on the 1 that is there then; the
     // green A adds its 3 afterwards.
-    expect(play("q", "glass", "quazy").last.mult).toBe(5)
+    expect(play("q", "glass", "quazy").last.mult).toBe(6)
   })
 
   it("Glass can shatter on a gray tile, and says so", () => {
@@ -116,11 +117,11 @@ describe("letter modifiers", () => {
   })
 
   it("fires before the relics see the tile", () => {
-    // Both land on CRANE's A: 4 mult standing, +3 for the green, ×1.5 from steel
-    // is 10.5, and only then Vowel Hoarder's +4 — twice over, counting the E.
-    // The other order would have multiplied the relic's mult too, for 20.5.
+    // Both land on CRANE's A: 4 mult standing, +3 for the green, ×2 from steel
+    // is 14, and only then Vowel Hoarder's +4 — twice over, counting the E. The
+    // other order would have multiplied the relic's mult too, for 26.
     const state = { ...withMod("a", "steel"), relics: [{ id: "vowel_hoarder" }] }
-    expect(apply(state, type("crane")).round.guesses[0]?.mult).toBe(18.5)
+    expect(apply(state, type("crane")).round.guesses[0]?.mult).toBe(22)
   })
 
   it("gives every modifier a distinct id, name and price", () => {
