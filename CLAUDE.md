@@ -25,11 +25,19 @@ No framework. `h()` in `src/ui/dom.ts` builds DOM, `views.ts` is pure
 `state → HTMLElement`, `app.ts` owns dispatch.
 
 **Every dispatch rebuilds the whole screen** — `clear(this.root).append(view)`.
-The lone exception is `patchDraft`, which patches the current row per keystroke.
 Two things follow: view code can assume it builds from scratch, and any state the
 browser owns — focus, scroll position, an open `<details>` — is destroyed on
 every render and has to be restored deliberately. `holdFocus()` is that
 restoration for open sheets.
+
+Two exceptions, both bought by the same defect: `.grid` sizes itself in
+container-query units, and Gecko cannot resolve those against a container built
+in the same pass, so a board that is rebuilt is a board that flashes at the wrong
+size for a frame. `patchDraft` redraws the row being typed in place, and
+`reuseBoard` keeps `.grid-wrap` — the container itself — across a round-to-round
+render, splicing the new screen in around it. Neither reaches the views: the
+reused node is an empty box, and everything drawn inside it is still built from
+scratch.
 
 Mobile first: portrait, thumb-reachable, sheets rising from the bottom edge
 rather than centred. Anything with a `data-tip` gets the hover panel on a mouse

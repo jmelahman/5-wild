@@ -298,6 +298,12 @@ export class App {
    * Patching sidesteps the question rather than betting on the answer: the grid is
    * never rebuilt, so there is never a second pass to be late.
    *
+   * This covers typing and nothing else, which was the whole of the report at the
+   * time. Every other render still built a new container and still flashed — see
+   * `reuseBoard`, which keeps the old one instead. That is the general answer and
+   * this is the cheap one; the two overlap here on purpose, since a keystroke has
+   * no reason to rebuild five rows to move one letter either way.
+   *
    * Returns false if the board on screen is not the one this expects, leaving the
    * caller to fall back to a full render.
    */
@@ -1184,10 +1190,85 @@ export class App {
                       (placeView(this.state, this.handlers, this.arming) ??
                       packView(this.state, this.handlers))
 
-    clear(this.root).append(view)
+    if (!this.reuseBoard(view)) clear(this.root).append(view)
     if (sheet) this.root.append(sheet)
     this.holdFocus(keeping)
     this.lightCoach()
+  }
+
+  /**
+   * Hang the new screen around the old board's container rather than building a
+   * new one.
+   *
+   * `.grid-wrap` is a size container and `.grid` takes its width and its
+   * font-size from `cqh`/`cqw`, so the board cannot be styled until the wrap has
+   * been measured — and a wrap this render built has not been. On Gecko the
+   * first pass over the new board finds no container to ask, drops both `cq`
+   * declarations as unresolvable and lands on the fallbacks underneath them:
+   * `width: 100%` at `font-size: 1.25rem`. Measured at 360×800, which is what
+   * most Android phones report, that is 344×413 where the board is 337×404, with
+   * 20px letters where they should be 30.3px — a board seven pixels wider and
+   * nine taller than the one beside it a frame ago, with the letters visibly
+   * jumping inside it. A second pass corrects it. On a desktop both land in the
+   * same frame and nothing shows; on a phone the correction arrives late, and
+   * late is what makes it a flash. `patchDraft` already sidesteps this for
+   * typing, which is where it was first seen; this is the same sidestep for
+   * every other render.
+   *
+   * It was reported against the decoration switch, which is the cleanest case
+   * there is: it toggles two classes on the document root, everything those
+   * classes hide is absolutely positioned or drawn inside a fixed box, so not
+   * one thing on the round screen changes size — and the board jumped anyway.
+   * That is the tell that the trigger is the rebuild rather than anything being
+   * rebuilt.
+   *
+   * So the container is the one node the rebuild is not allowed to have. It is
+   * emptied and refilled with this render's own board, and the rest of the
+   * screen is spliced in around it, which leaves it holding a frame — and so a
+   * size worth reading — from one render to the next. Nothing else is kept:
+   * every other node is thrown away as before, views still build from scratch,
+   * and none of them need to know this happens.
+   *
+   * Reusing it is safe because it holds nothing worth rebuilding. It carries no
+   * listeners, no attributes but its class, and — this is the part that makes it
+   * work rather than merely tidy — its size cannot depend on what is inside it,
+   * because that is what `container-type: size` means. The measurement it hands
+   * the new board is the one the new board would have been given.
+   *
+   * Only a round following a round qualifies. A screen change rebuilds the wrap
+   * with everything else, so the first frame of a round still resolves against
+   * an unmeasured container — but that is a whole screen arriving, not a board
+   * moving under a thumb that is already aiming at it.
+   */
+  private reuseBoard(view: HTMLElement): boolean {
+    const live = this.root.firstElementChild
+    // The same kind of screen on both sides, or there is nothing to line up. A
+    // board only ever stands in for a board.
+    if (!(live instanceof HTMLElement) || live.className !== view.className) return false
+    const kept = live.querySelector(":scope > .grid-wrap")
+    const built = view.querySelector(":scope > .grid-wrap")
+    if (!kept || !built) return false
+
+    // The board is this render's, as it always was. Only the box it is drawn in
+    // is last render's.
+    kept.replaceChildren(...built.childNodes)
+    // Everything else goes, including any sheet that was open over it — removed
+    // one at a time rather than by `replaceChildren`, which would take the kept
+    // node out with the rest and put it back afterwards. A node that leaves the
+    // document loses the frame this whole exercise is about.
+    for (const node of [...this.root.children]) if (node !== live) node.remove()
+    for (const node of [...live.childNodes]) if (node !== kept) node.remove()
+    // What is left is a screen holding one node, so the new screen is dealt out
+    // either side of it, in the order the view put them in. That order is not
+    // cosmetic: the wrap is a flex item that claims whatever the items above and
+    // below it leave, which is the space the board measures itself against.
+    let above = true
+    for (const node of [...view.childNodes]) {
+      if (node === built) above = false
+      else if (above) live.insertBefore(node, kept)
+      else live.append(node)
+    }
+    return true
   }
 
   /**
