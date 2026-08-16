@@ -477,6 +477,7 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
       round.guesses.push({
         word,
         tiles,
+        paid: result.paid,
         chips: result.chips,
         mult: result.mult,
         solveBonus: result.solveBonus,

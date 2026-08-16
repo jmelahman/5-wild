@@ -7,7 +7,7 @@ import { rangeChips } from "./ranges"
 import { RELIC_BY_ID } from "./relics"
 import type { Rng } from "./rng"
 import { derive } from "./rng"
-import type { GameEvent, RunState, Tile } from "./state"
+import type { GameEvent, RunState, Tile, TileScore } from "./state"
 
 /**
  * The scoring pipeline.
@@ -77,6 +77,13 @@ export type ScoreResult = {
   solveBonus: number
   score: number
   gold: number
+  /**
+   * What each tile paid, column by column, so the row can still say it once the
+   * animation has gone by. Collected here rather than read back off the events
+   * because it is the same two numbers the events are built from, and a second
+   * reader of that stream would be a second thing to keep in step with it.
+   */
+  paid: TileScore[]
   /**
    * Letters a breaking modifier retired. Applied by the caller rather than
    * here: scoring prices a guess, it does not edit the run.
@@ -290,7 +297,15 @@ export function scoreGuess(params: {
 
   const relics = state.relics.map((instance) => RELIC_BY_ID.get(instance.id))
 
+  /** The row's own record of itself, filled in as the cadence walks across it. */
+  const paid: TileScore[] = []
+
   tiles.forEach((tile, index) => {
+    // Where the row stood before this column touched it. The two totals are read
+    // again once the modifier and the relics have had it, and the difference is
+    // what the column was worth — see `TileScore`.
+    const opened = { chips: ctx.chips, mult: ctx.mult }
+
     const base = boss?.tileChips
       ? boss.tileChips(baseChips(state, tile.letter), tile, round, index)
       : baseChips(state, tile.letter)
@@ -298,6 +313,12 @@ export function scoreGuess(params: {
     ctx.chips += base
     ctx.mult += MULT_FOR_COLOR[tile.color]
     events.push({ type: "tile", index, gained: base, chips: ctx.chips, mult: ctx.mult })
+    // The colour is deliberately not written down beside the chips: it is on the
+    // tile already, and a boss that rewrites what a row *shows* leaves `color`
+    // and `shown` disagreeing. Whoever explains this later has to choose between
+    // them, and copying one of them here would quietly make that choice for them.
+    const record: TileScore = { base, chips: 0, mult: 0 }
+    paid.push(record)
 
     // The Vandal switches the whole layer off. Asked here rather than inside
     // each modifier so the tile emits no `mod` event at all: the letter still
@@ -319,6 +340,13 @@ export function scoreGuess(params: {
           chips: ctx.chips,
           mult: ctx.mult,
         })
+        // The label rather than the numbers it moved, because the label is what
+        // the tile said out loud and the whole point of keeping this is that the
+        // row goes on saying it. A modifier that scored twice on one tile would
+        // leave only the last thing it said — none do, and the first one that
+        // does will want a sentence written for it rather than two labels
+        // concatenated by accident.
+        record.mod = label
       }
       modifier.onTile(ctx, tile)
       firing = null
@@ -334,12 +362,23 @@ export function scoreGuess(params: {
       // and changing it reshuffles every seed. See `derive` in `rng.ts`.
       roll = derive(state.seed, "joker", state.stage, state.roundIndex, guessIndex, slot, index)
       slotFiring = slot
-      firing = (label) =>
+      firing = (label) => {
         events.push({ type: "relic", slot, id: relic.id, label, chips: ctx.chips, mult: ctx.mult })
+        // Appended rather than assigned, which is where this parts company with
+        // the modifier above. A letter carries one card; the tray carries five,
+        // and a green Q pays Green Thumb and Q's Bargain both — a row that kept
+        // only the last of them would answer a narrower question than the one
+        // being asked of it. Two firings from the same slot append twice for the
+        // same reason: that is what the tile did.
+        record.relics = [...(record.relics ?? []), { id: relic.id, label }]
+      }
       relic.onTile(ctx, tile, index, base)
       firing = null
       slotFiring = null
     })
+
+    record.chips = ctx.chips - opened.chips
+    record.mult = ctx.mult - opened.mult
   })
 
   // The word's category, after the tiles and before the relics. That position is
@@ -389,6 +428,7 @@ export function scoreGuess(params: {
     solveBonus,
     score: Math.round(ctx.chips * ctx.mult),
     gold: ctx.gold,
+    paid,
     broken,
     relicData: [...grown].map(([slot, data]) => ({ slot, data })),
   }

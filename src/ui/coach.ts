@@ -5,13 +5,14 @@ import { formatNumber as num } from "./format"
 /**
  * The first round, taught while it is being played.
  *
- * The rules sheet already exists and is opened on first launch, and it is not
- * enough: it is read at the title screen with no board in front of it, it says
- * "green is +3 mult" to a player who has not yet seen a mult, and by the time
- * any of it is true they have closed it. Nothing in it is wrong; it is simply
- * being read at the wrong moment. This says a fifth as much at the moment each
- * piece first becomes true, with the live number it is about on screen beside
- * it — which is the half a sheet can never do.
+ * The rules sheet already exists, and it used to open itself on first launch,
+ * and that was not enough: it is read at the title screen with no board in front
+ * of it, it says "green is +3 mult" to a player who has not yet seen a mult, and
+ * by the time any of it is true they have closed it. Nothing in it is wrong; it
+ * was simply being read at the wrong moment. This says a fifth as much at the
+ * moment each piece first becomes true, with the live number it is about on
+ * screen beside it — which is the half a sheet can never do. The sheet stayed,
+ * as a button rather than a greeting.
  *
  * So the beats are not a script with a cursor. Each one is a *state* the first
  * round passes through, and the card shows whichever beat the run is standing in

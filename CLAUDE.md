@@ -35,9 +35,9 @@ Mobile first: portrait, thumb-reachable, sheets rising from the bottom edge
 rather than centred. Anything with a `data-tip` gets the hover panel on a mouse
 and a long-press one on a finger, so a new affordance usually only needs the
 attribute. Purely presentational settings live as a class on the document root
-and are switched off in the stylesheet — see `.plain` — rather than threaded
-through the views, which the full rebuild would otherwise make every view's
-business.
+and are switched off in the stylesheet — see `.plain` and `.quiet` — rather than
+threaded through the views, which the full rebuild would otherwise make every
+view's business.
 
 Tests run in Node with no DOM — there is no jsdom. `test/ui` covers pure logic
 only; rendering and interaction get validated in a real browser instead.
@@ -65,18 +65,22 @@ style but not its prose is half-finished.
 
 ## Storage
 
-`5wild:run:v2` (the run save), `5wild:meta:v2` (the record), and five flags:
-`5wild:seen-help`, `5wild:plain`, `5wild:muted`, `5wild:music`, `5wild:coached`.
-Adding an optional field needs no key bump; changing what an existing field
-means does.
+`5wild:run:v2` (the run save), `5wild:meta:v2` (the record), and four settings:
+`5wild:plain`, `5wild:muted`, `5wild:music`, `5wild:coached`. All are booleans
+except `5wild:plain`, which holds one of `all`, `minimal` or `none` — how much of
+the scoring game the board draws on itself. Adding an optional field needs no key
+bump; changing what an existing field means does.
 
 `5wild:coached` is the odd one: it is the only flag that is not a setting. It
-records that the first-round tutorial has been spent, and it is deliberately not
-folded into `5wild:seen-help` even though both mean "has been here before" —
-help is seen at the title screen before a run exists, the coaching is only
-finished by playing, and one key would let opening the sheet retire a tutorial
-that never ran. Everything else about the coaching is derived from the run; see
-`src/ui/coach.ts`.
+records that the first-round tutorial has been spent. There was a
+`5wild:seen-help` beside it, meaning the rules sheet had already interrupted a
+first launch, and the two were kept apart because a sheet closed at the title
+screen is not a round played. It is gone: the sheet no longer opens itself, so
+nothing was left to remember. The coaching teaches the scoring half at the moment
+each piece of it first becomes true, and the rest of the sheet — shops, bosses,
+ascensions — is a button on the title screen and in the pause menu for whoever
+wants it. Old installs keep the orphaned key; nothing reads it. Everything else
+about the coaching is derived from the run; see `src/ui/coach.ts`.
 
 Renaming a field is the case in between, and the two keys answered it
 differently when antes became stages and jokers became relics. The run save
