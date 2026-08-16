@@ -116,6 +116,18 @@ const GLASS_BREAK = 0.25
 /** How often a lucky letter pays. */
 const LUCKY_CHANCE = 0.25
 
+/**
+ * What a wild letter's tile is worth in mult, whatever colour it landed.
+ *
+ * A floor rather than a bonus: the tile contributes exactly this instead of its
+ * colour's mult, so colour still moves the card — 12 on a gray, 9 on top of a
+ * green's 3 — but by three rather than by everything. The guard in `onTile`
+ * survives as long as this stays above every entry in `MULT_FOR_COLOR`; it is
+ * kept because the day someone rescales that table is the day it stops being
+ * dead code.
+ */
+const WILD_MULT = 12
+
 export const MODIFIERS: readonly Modifier[] = [
   {
     id: "chip",
@@ -132,12 +144,26 @@ export const MODIFIERS: readonly Modifier[] = [
   {
     id: "mult",
     name: "Mult",
-    text: "scores +4 mult",
-    pip: "+4",
+    text: "scores +8 mult",
+    pip: "+8",
     rarity: "common",
     cost: 5,
     choiceCost: 8,
-    onTile: (ctx) => ctx.addMult(4),
+    // +4 made this the worst card on the shelf at either end of a run, which is
+    // not what the other common is for. Over 8,333 recorded guesses Chip on E
+    // paid 202 points a guess for $6 and Mult on E paid 55 for $8 — 34 a gold
+    // against 7. The gap narrows with depth and never closes: chips outgrow mult
+    // over a run, so a point of mult is worth about 14 chips at stage two and
+    // about 76 by the end, and even at the far end Mult was 38 a gold against
+    // Chip's 82.
+    //
+    // Doubled rather than discounted, because the price was not the problem —
+    // $4 buys the same card at 12 a gold and it is still the thing you take
+    // last. At +8 the two commons stop being ranked and start being a choice:
+    // Chip is worth more in the first two stages, Mult is worth more once the
+    // relics have grown the chips it multiplies, and which one is right depends
+    // on where the run is. That is the decision the slot is for.
+    onTile: (ctx) => ctx.addMult(8),
   },
   {
     id: "gold",
@@ -155,17 +181,41 @@ export const MODIFIERS: readonly Modifier[] = [
   {
     id: "wild",
     name: "Wild",
-    text: "scores as if it were green, whatever it lands",
+    text: "scores 12 mult whatever it lands, instead of its colour's",
     pip: "★",
     rarity: "uncommon",
     cost: 6,
     choiceCost: 9,
-    // Colour is this game's suit, so the wild card changes colour rather than
-    // suit. It pays most on the guesses that went worst, which makes a throwaway
-    // probe cost less — the one thing that reliably softens the game's central
-    // tension without touching the tension itself.
+    // Colour is this game's suit, and a wild card is the one the suit does not
+    // decide. It used to read that as "always counts as green", which capped it
+    // at +3 mult and only on a tile that had missed — 12 points a guess against
+    // Mult's 55, last on the shelf by a factor of four, and dominated outright
+    // by a common that cost a gold less. `WILD_MULT` is what it pays instead.
+    //
+    // The floor is the whole repair, and it had to be a floor rather than a
+    // bigger colour swing. Measured over 8,333 guesses, the old card paid 15
+    // points on a guess that missed and *nothing at all* on the guess that
+    // solved the round, because a solving guess is five greens by definition and
+    // there was nothing left to promote: 15x tilted onto the guesses that went
+    // badly. The two obvious ways to make that matter — greening the whole word,
+    // or paying per gray tile — take the tilt to infinity, which is a card that
+    // pays you to stop looking for the answer. Farming to the target without
+    // ever solving is already a legal line here (see `resolveRound`, and what
+    // ascension 10 takes away), so a card aimed squarely at it is not a new
+    // strategy but a subsidy for the one the game is most fragile to.
+    //
+    // A floor of 12 leaves colour worth a 3-mult swing across the whole range
+    // instead of 15, and the measured tilt lands at 0.66x — it pays *more* on
+    // the guess that solves, like Chip and Anchor do, because that is the guess
+    // where the rest of the word is scoring. 135 points a guess, 15 a gold
+    // against a rebuilt Mult's 14: a modest premium for a dearer card a tier up,
+    // rather than a card nobody buys.
+    //
+    // It also stays out of the colour-reading relics' way, which the alternatives
+    // did not: this adds mult and never rewrites `tile.color`, so Masochist and
+    // Greedy Grammarian still see the gray they are paid for.
     onTile: (ctx, tile) => {
-      const gap = MULT_FOR_COLOR.green - MULT_FOR_COLOR[tile.color]
+      const gap = WILD_MULT - MULT_FOR_COLOR[tile.color]
       if (gap > 0) ctx.addMult(gap)
     },
   },

@@ -112,6 +112,9 @@ const BY_USE = "etaoinsrhldcumfpgwybvkxjqz"
 const RARE_MODS: readonly ModId[] = ["steel", "glass"]
 const RARE_PRICE = Math.max(...RARE_MODS.map((id) => MODIFIER_BY_ID.get(id)?.choiceCost ?? 0))
 
+/** What it costs to walk out of a shop holding a Wild. */
+const WILD_PRICE = MODIFIER_BY_ID.get("wild")?.choiceCost ?? 0
+
 /** What it costs to walk out of a shop holding an Anchor. */
 const ANCHOR_PRICE = MODIFIER_BY_ID.get("anchor")?.choiceCost ?? 0
 
@@ -506,6 +509,79 @@ export const SCENARIOS: readonly Scenario[] = [
         const reroll = rerollCost(state.shop ?? { items: [], rerolls: 0 })
         if (state.gold >= reroll + RARE_PRICE && accepted(state, words, [{ type: "reroll" }])) {
           return [{ type: "reroll" }]
+        }
+        return [{ type: "next_round" }]
+      }
+      return null
+    },
+  },
+  /*
+   * Wild, which nothing else here has ever held either.
+   *
+   * The same gap `rare-smith` was written to close, found the same way: Wild is
+   * one entry in the sixteen-entry table, `letter-smith` buys the first card it
+   * can afford and that is a common, and across every other vector no letter had
+   * ever carried one. That mattered less when the card paid at most +3 mult on a
+   * tile that had missed; it matters now that the floor makes it a card a build
+   * can be pointed at, because the number is exactly the kind that gets argued
+   * over and the vectors are what settle those arguments.
+   *
+   * Hunted rather than waited for, on `rare-smith`'s terms — solve on sight for
+   * the unused-guess gold, spend it on rerolls, and stop rerolling while the
+   * change still covers the card. One difference: this bot keeps probing after
+   * it is armed, every round rather than the first. Wild pays per tile carrying
+   * it and the letters worth putting it on are the ones a probe is full of, so a
+   * vector that solved on sight would record the card sitting on a letter
+   * instead of firing.
+   *
+   * 362 of the first 600 seeds end holding one, and 244 of those also run 12 to
+   * 30 guesses and reach stage three — a far easier hunt than the rare pair's,
+   * which is what one entry at $9 rather than one at $12 buys. Seed 130 is a
+   * middling run of those rather than a lucky one: it is armed at the first shop
+   * it visits, so all 27 of its guesses are scored with the card in play, and it
+   * dies at stage five on a score in the middle of the pack. Buying early is the
+   * half worth pinning — a vector that bought a Wild in stage four would record
+   * the purchase and almost none of the arithmetic.
+   *
+   * It ends holding four of them, on A, E, O and T, which is not the bot losing
+   * the plot: `placeableLetters` only bars the letter already carrying the same
+   * card, so a bot that hunts one modifier stacks it across the alphabet by
+   * frequency. That turns out to be the useful case to have recorded — the
+   * floor is per tile, so four of them is where a mistake in it shows up
+   * loudest.
+   */
+  {
+    name: "wild-smith",
+    covers: "Wild bought over and over, aimed by letter frequency, and fired on every colour",
+    seed: 130,
+    next: (state, words) => {
+      if (state.phase === "round") {
+        const armed = Object.values(state.letters).some((letter) => letter.mod === "wild")
+        const probes =
+          armed && state.round.guesses.length === 0
+            ? [...decoys(state, words, 11)].sort((a, b) => modTiles(state, b) - modTiles(state, a))
+            : []
+        return firstPlayable(state, words, [...probes, state.round.answer])
+      }
+      if (state.phase === "reward") return [{ type: "collect" }]
+      if (state.phase === "shop") {
+        const items = state.shop?.items ?? []
+        const wild = items.findIndex(
+          (item) => item?.kind === "mod" && item.id === "wild" && item.cost <= state.gold,
+        )
+        if (wild >= 0 && accepted(state, words, [{ type: "buy", index: wild }])) {
+          return [{ type: "buy", index: wild }]
+        }
+        const reroll = rerollCost(state.shop ?? { items: [], rerolls: 0 })
+        if (state.gold >= reroll + WILD_PRICE && accepted(state, words, [{ type: "reroll" }])) {
+          return [{ type: "reroll" }]
+        }
+        // Unlike the rare hunt, this one spends what is left over on relics. A
+        // card that pays per tile wants a run long enough to play tiles in, and
+        // rerolling to broke every visit buys depth in nothing.
+        const relic = items.findIndex((item) => item?.kind === "relic" && item.cost <= state.gold)
+        if (relic >= 0 && accepted(state, words, [{ type: "buy", index: relic }])) {
+          return [{ type: "buy", index: relic }]
         }
         return [{ type: "next_round" }]
       }

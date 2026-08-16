@@ -53,7 +53,7 @@ describe("letter modifiers", () => {
   })
 
   it("Mult pays flat mult", () => {
-    expect(play("c", "mult", "crane").last).toMatchObject({ chips: 7, mult: 11 })
+    expect(play("c", "mult", "crane").last).toMatchObject({ chips: 7, mult: 15 })
   })
 
   it("Gold pays into the run, not into the score", () => {
@@ -77,11 +77,25 @@ describe("letter modifiers", () => {
     expect(play("s", "steel", "sassy").last.mult).toBe(12)
   })
 
-  it("Wild scores its tile as green whatever it landed", () => {
-    // QUAZY's Q is gray and worth no mult at all; wild makes it worth three.
-    expect(play("q", "wild", "quazy").last).toMatchObject({ chips: 26, mult: 7 })
-    // A green tile is already scoring as green, so there is nothing to add.
-    expect(play("a", "wild", "quazy").last.mult).toBe(4)
+  it("Wild pays on every colour, and pays a worse one more", () => {
+    // Against BRAID, QUAZY's Q is gray and its A is green — the two ends of the
+    // range the card flattens. Both pay, because the card is a floor rather than
+    // a promotion: the tile is worth the same either way, so what colour costs
+    // is the difference between the floor and what the colour was already worth.
+    //
+    // Read as a shape. The floor has been resized once already — it was three,
+    // which made this assertion "green pays nothing" — and the golden vectors
+    // are what pin the number.
+    const plain = apply(startRun(1, words).state, type("quazy")).round.guesses[0]
+    if (!plain) throw new Error("no guess was scored")
+
+    const onGray = play("q", "wild", "quazy").last
+    const onGreen = play("a", "wild", "quazy").last
+    expect(onGray.mult).toBeGreaterThan(onGreen.mult)
+    expect(onGreen.mult).toBeGreaterThan(plain.mult)
+    // Mult only — the tile keeps the colour it landed, which is what leaves the
+    // relics that read gray something to read.
+    expect(onGray.chips).toBe(plain.chips)
   })
 
   it("Glass triples the mult", () => {
