@@ -13,11 +13,11 @@ acorn
 acted
 actor
 acute
+adage
 adapt
 added
 adept
 adieu
-adios
 admin
 admit
 adopt
@@ -34,6 +34,7 @@ aging
 agony
 agree
 ahead
+ahold
 aided
 aimed
 aired
@@ -47,11 +48,11 @@ alibi
 alien
 align
 alike
+alive
 alley
 allow
 alloy
 aloft
-aloha
 alone
 along
 aloof
@@ -62,11 +63,9 @@ alter
 amaze
 amber
 amend
-amigo
 amino
 amiss
 among
-amour
 ample
 amuse
 angel
@@ -85,6 +84,7 @@ apart
 apple
 apply
 apron
+aptly
 arbor
 arena
 argue
@@ -98,7 +98,6 @@ arrow
 arson
 artsy
 ascot
-asher
 aside
 asked
 aspen
@@ -109,7 +108,6 @@ atone
 attic
 audio
 audit
-aught
 augur
 avail
 avert
@@ -157,9 +155,7 @@ bebop
 beech
 beefy
 began
-begat
 begin
-begum
 begun
 beige
 being
@@ -179,7 +175,6 @@ bicep
 biddy
 bidet
 bigot
-bijou
 biker
 bilge
 billy
@@ -207,6 +202,7 @@ blend
 bless
 blimp
 blind
+bling
 blink
 bliss
 blitz
@@ -247,7 +243,6 @@ bowel
 bower
 boxed
 boxer
-boyer
 brace
 braid
 brain
@@ -267,6 +262,7 @@ bribe
 brick
 bride
 brief
+brill
 brine
 bring
 brink
@@ -305,6 +301,7 @@ cabal
 cabin
 cable
 cache
+caddy
 cadet
 caged
 cagey
@@ -314,11 +311,11 @@ canal
 candy
 canoe
 canon
-canst
 caped
 caper
 carat
 cared
+carer
 cargo
 carol
 carry
@@ -350,6 +347,7 @@ check
 cheek
 cheep
 cheer
+chemo
 chess
 chest
 chewy
@@ -361,7 +359,6 @@ chill
 chime
 chimp
 china
-ching
 chink
 chino
 chirp
@@ -461,7 +458,6 @@ cream
 creed
 creek
 creep
-creme
 crepe
 crept
 crest
@@ -486,7 +482,6 @@ crypt
 cubic
 cumin
 cupid
-cuppa
 cured
 curie
 curly
@@ -497,6 +492,7 @@ curvy
 cushy
 cuter
 cutie
+cyber
 cycle
 cynic
 daddy
@@ -513,6 +509,7 @@ dealt
 death
 debit
 debut
+decaf
 decay
 decor
 decoy
@@ -524,14 +521,15 @@ delve
 demon
 denim
 dense
+depot
 depth
 derby
 deter
+detox
 deuce
 devil
 diary
 dicey
-didst
 digit
 dilly
 dined
@@ -555,14 +553,15 @@ dogma
 doing
 dolly
 donor
+donut
 doped
 dopey
+dorky
 dosed
 dotty
 doubt
 dough
 douse
-dover
 dowry
 dozed
 dozen
@@ -595,13 +594,12 @@ ducky
 dummy
 dumpy
 dunce
-dunno
 duped
-durst
 dusty
 dutch
 duvet
 dwarf
+dweeb
 dwell
 dying
 eager
@@ -622,7 +620,6 @@ elbow
 elder
 elect
 elite
-elmer
 elope
 elude
 elves
@@ -630,6 +627,7 @@ email
 ember
 emcee
 emery
+emoji
 empty
 enact
 ended
@@ -639,6 +637,7 @@ enjoy
 enter
 entry
 envoy
+epoch
 equal
 equip
 erase
@@ -654,7 +653,6 @@ event
 every
 evict
 evoke
-ewing
 exact
 excel
 exert
@@ -670,7 +668,6 @@ fairy
 faith
 faked
 faker
-fakir
 false
 famed
 fancy
@@ -764,6 +761,7 @@ force
 forge
 forgo
 forte
+forth
 forty
 forum
 found
@@ -799,12 +797,13 @@ funny
 furry
 fused
 fussy
+futon
 fuzzy
 gabby
 gable
 gamer
 gamma
-ganja
+gammy
 gassy
 gated
 gator
@@ -815,6 +814,7 @@ gauze
 gavel
 gazed
 gecko
+geeky
 geese
 genie
 genre
@@ -823,7 +823,6 @@ ghost
 ghoul
 giant
 giddy
-gimme
 girly
 girth
 given
@@ -849,15 +848,12 @@ godly
 going
 golly
 goner
-gonna
 gonzo
 goody
 gooey
 goofy
 goose
 gorge
-goths
-gotta
 gouge
 gourd
 grace
@@ -905,6 +901,7 @@ guild
 guile
 guilt
 guise
+gulag
 gully
 gumbo
 gummy
@@ -916,7 +913,6 @@ gypsy
 habit
 haiku
 hairy
-hajji
 hammy
 handy
 happy
@@ -1003,12 +999,16 @@ idiot
 igloo
 image
 imply
+inbox
 incur
 index
+indie
 inept
 inert
 infer
+inlet
 inner
+input
 intel
 inter
 intro
@@ -1018,9 +1018,7 @@ itchy
 ivory
 jaded
 japan
-jared
 jazzy
-jello
 jelly
 jenny
 jerky
@@ -1041,7 +1039,6 @@ jumbo
 jumpy
 junta
 juror
-kanji
 kappa
 kaput
 karma
@@ -1073,20 +1070,19 @@ laced
 laden
 ladle
 lager
-laird
 laker
 lance
 lanky
 lapel
 lapse
 large
-largo
 larva
 laser
 lasso
 latch
 later
 latex
+latte
 laugh
 layer
 leach
@@ -1145,7 +1141,6 @@ louse
 lousy
 loved
 lover
-lovey
 lower
 lowly
 loyal
@@ -1172,9 +1167,11 @@ madly
 mafia
 magic
 magma
+magus
 maize
 major
 maker
+mamba
 mambo
 mamma
 mammy
@@ -1202,7 +1199,6 @@ matte
 mauve
 maxim
 maybe
-mayer
 mayor
 meant
 meaty
@@ -1224,7 +1220,6 @@ midge
 midst
 might
 milky
-milly
 mimic
 mince
 mined
@@ -1278,7 +1273,6 @@ mucky
 mucus
 muddy
 mulch
-multi
 mummy
 mumps
 munch
@@ -1369,7 +1363,6 @@ owner
 oxide
 ozone
 paddy
-padre
 pagan
 paged
 pager
@@ -1386,7 +1379,6 @@ pappy
 parka
 parry
 party
-pasha
 pasta
 paste
 pasty
@@ -1412,6 +1404,7 @@ perch
 peril
 perky
 pesky
+pesto
 petal
 peter
 petty
@@ -1428,6 +1421,8 @@ piggy
 piled
 pilot
 pinch
+piney
+pinky
 pinto
 pious
 piper
@@ -1459,7 +1454,6 @@ pokey
 polar
 polio
 polka
-polly
 ponce
 pooch
 poppa
@@ -1540,10 +1534,10 @@ racer
 radar
 radio
 raged
-rager
 rainy
 raise
 rally
+ramen
 ranch
 randy
 range
@@ -1565,6 +1559,7 @@ recon
 reeve
 refer
 regal
+rehab
 reign
 relax
 relay
@@ -1572,8 +1567,12 @@ relic
 remix
 renal
 renew
+repay
 repel
 reply
+rerun
+reset
+resin
 retro
 revel
 revue
@@ -1630,11 +1629,9 @@ rural
 rusty
 saber
 sable
-sadhu
 sadly
 safer
 saggy
-sahib
 saint
 salad
 sally
@@ -1688,7 +1685,6 @@ seedy
 seine
 seize
 senna
-senor
 sense
 serge
 serum
@@ -1706,7 +1702,6 @@ shake
 shaky
 shale
 shall
-shalt
 shame
 shank
 shape
@@ -1744,6 +1739,7 @@ shrew
 shrug
 shunt
 shush
+sicko
 sided
 sidle
 siege
@@ -1820,6 +1816,7 @@ snore
 snort
 snout
 snowy
+snuck
 snuff
 soapy
 sober
@@ -1831,6 +1828,7 @@ solve
 sonar
 sonic
 sonny
+soppy
 sorry
 sound
 south
@@ -1858,12 +1856,14 @@ spike
 spiky
 spill
 spine
+spire
 spite
 splat
 split
 spoil
 spoke
 spook
+spool
 spoon
 sport
 spout
@@ -1951,7 +1951,6 @@ surge
 surly
 sushi
 swain
-swami
 swamp
 swank
 swarm
@@ -1976,6 +1975,7 @@ swore
 sworn
 swung
 synod
+synth
 syrup
 tabby
 table
@@ -2008,6 +2008,7 @@ teach
 tease
 teddy
 teeny
+teeth
 telex
 telly
 tempo
@@ -2028,7 +2029,6 @@ theta
 thick
 thief
 thigh
-thine
 thing
 think
 third
@@ -2040,13 +2040,13 @@ threw
 throw
 thumb
 thump
+thunk
 thyme
 tiara
 tibia
 tidal
 tiger
 tight
-tilly
 timed
 timer
 timid
@@ -2059,7 +2059,6 @@ toast
 today
 toddy
 token
-tolly
 toned
 toner
 tonic
@@ -2121,7 +2120,6 @@ tuned
 tunic
 turbo
 tutor
-tutti
 twain
 tweak
 tweed
@@ -2144,8 +2142,10 @@ unify
 union
 unite
 unity
+untie
 until
 unwed
+unzip
 upped
 upper
 upset
@@ -2170,7 +2170,6 @@ vegan
 venom
 venue
 verge
-versa
 verse
 vexed
 vicar
@@ -2193,7 +2192,6 @@ vocal
 vodka
 vogue
 voice
-voila
 vomit
 voted
 voter
@@ -2201,6 +2199,7 @@ vouch
 vowed
 vowel
 vying
+wacko
 wacky
 wafer
 waged
@@ -2211,7 +2210,6 @@ waive
 waken
 wally
 waltz
-wanna
 waste
 watch
 water
@@ -2251,6 +2249,7 @@ width
 wield
 wight
 willy
+wimpy
 winch
 windy
 wiped
@@ -2259,6 +2258,7 @@ wired
 wiser
 witch
 witty
+woken
 woman
 women
 wonky

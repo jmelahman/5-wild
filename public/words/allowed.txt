@@ -1796,6 +1796,7 @@ blier
 blimp
 blimy
 blind
+bling
 blini
 blink
 bliny
@@ -2691,6 +2692,7 @@ cheke
 cheki
 chela
 chelp
+chemo
 chena
 cheng
 chera
@@ -3668,6 +3670,7 @@ debus
 debut
 debye
 decad
+decaf
 decal
 decan
 decap
@@ -3783,6 +3786,7 @@ detat
 detax
 deter
 detin
+detox
 dette
 detur
 deuce
@@ -4048,6 +4052,7 @@ doria
 doric
 doris
 dorje
+dorky
 dorms
 dormy
 dorps
@@ -4296,6 +4301,7 @@ dwale
 dwalm
 dwang
 dwarf
+dweeb
 dwell
 dwelt
 dwine
@@ -4473,6 +4479,7 @@ emlen
 emmer
 emmet
 emmew
+emoji
 emong
 emony
 emory
@@ -4705,6 +4712,7 @@ exlex
 exode
 exody
 exopt
+expat
 expdt
 expel
 expos
@@ -5407,6 +5415,7 @@ fusil
 fussy
 fusty
 fusus
+futon
 futwa
 fuzed
 fuzee
@@ -5567,6 +5576,7 @@ gecko
 gecks
 gedds
 geeks
+geeky
 geese
 geest
 gehey
@@ -5766,6 +5776,7 @@ glint
 glisk
 gliss
 glist
+glitz
 gloam
 gloat
 globe
@@ -6079,6 +6090,7 @@ guiro
 guise
 gujar
 gulae
+gulag
 gular
 gulas
 gulch
@@ -6850,6 +6862,7 @@ inapt
 inark
 inarm
 inbow
+inbox
 inbye
 incan
 incas
@@ -6866,6 +6879,7 @@ indew
 index
 india
 indic
+indie
 indii
 indin
 indiv
@@ -7895,6 +7909,7 @@ latin
 latke
 laton
 latro
+latte
 latus
 lauan
 laude
@@ -9656,6 +9671,7 @@ nudie
 nudum
 nudzh
 nugae
+nuked
 nukes
 nullo
 nulls
@@ -10297,6 +10313,7 @@ penes
 pengo
 penis
 penna
+penne
 penni
 penny
 pense
@@ -10333,6 +10350,7 @@ pesah
 pesky
 pesos
 peste
+pesto
 pests
 petal
 peter
@@ -11117,6 +11135,7 @@ raman
 rambo
 ramed
 ramee
+ramen
 ramet
 ramex
 ramie
@@ -11301,6 +11320,7 @@ regle
 regma
 regna
 regur
+rehab
 rehem
 rehid
 rehoe
@@ -11907,6 +11927,7 @@ sasse
 sassy
 satai
 satan
+satay
 sated
 satem
 sates
@@ -12421,6 +12442,7 @@ sicel
 sicer
 sices
 sicht
+sicko
 sicks
 sicle
 sided
@@ -13543,6 +13565,7 @@ synch
 syncs
 synod
 synop
+synth
 syren
 syria
 syrma
@@ -13982,6 +14005,7 @@ thumb
 thump
 thund
 thung
+thunk
 thuoc
 thurl
 thurm
@@ -14255,6 +14279,7 @@ trame
 tramp
 trams
 trank
+tranq
 trans
 trant
 trapa
@@ -15149,6 +15174,7 @@ waapa
 waasi
 wabby
 wacke
+wacko
 wacks
 wacky
 waddy
@@ -15452,6 +15478,7 @@ willi
 wills
 willy
 wilts
+wimpy
 wince
 winch
 winds
@@ -15602,6 +15629,7 @@ wudge
 wunna
 wurly
 wurst
+wussy
 wuzzy
 wyled
 wyles

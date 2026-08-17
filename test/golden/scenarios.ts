@@ -390,18 +390,26 @@ export const SCENARIOS: readonly Scenario[] = [
    * tiles that carry the card above tiles that fire it, which for a color-gated
    * card are different sets.
    *
-   * Over the first 600 seeds, 194 end holding at least one, 143 fire one off a
-   * guess that did not solve, and 47 do both with two or more on the board. Seed
-   * 32 is the best of the 47 by a distance: five Anchors placed, fifteen greens
-   * fired outside a solve across 28 guesses, and it lives to stage 5.2. Five
+   * Over the first 1,200 seeds, 367 end holding at least one, 260 fire one off a
+   * guess that did not solve, and 87 do both with two or more on the board. Seed
+   * 801 is the best of the 87 by a distance: five Anchors placed, fifteen greens
+   * fired outside a solve across 27 guesses, and it lives to stage 6.0. Five
    * copies is what makes it useful rather than merely green. The card is a flat
    * +125 per firing tile, so a run carrying five of them is where an error in
    * that number is loudest instead of roundable.
+   *
+   * The seed was 32, on the same numbers to within a guess, until the word-list
+   * audit removed 52 answers and added 52 others. That reshuffles which words
+   * this bot is dealt, and a bot filtered on "would this guess fire an Anchor"
+   * is a bot whose whole run hangs on the words available to it: 32 now places
+   * one Anchor, fires it once, and is dead at stage 2.1 after six guesses. This
+   * is the failure the scenario was written to catch, arriving by the other door
+   * the file warns about. Nothing went red then either.
    */
   {
     name: "anchor-smith",
     covers: "Anchor stacked across letters, fired on greens no solve handed it",
-    seed: 32,
+    seed: 801,
     next: (state, words) => {
       if (state.phase === "round") {
         // The probe is chosen to land the card green rather than merely to carry
@@ -450,26 +458,33 @@ export const SCENARIOS: readonly Scenario[] = [
    *
    * So this bot solves on sight, the fastest income line there is, with five
    * unused guesses and the round's base, and then spends the whole pile hunting. It
-   * works: 302 of the first 600 seeds end holding one, and 65 hold both at some
-   * point in the run. Only 9 of the 600 *end* holding both, which is not the
-   * hunt failing but the Glass doing what it says: it breaks on a gray, so
-   * counting the final board undercounts every run that played one and lost it.
-   * The measurement that matters here is what the letters carried while the
-   * guesses were being scored.
+   * works: 303 of the first 600 seeds end holding one, and 17 of the 600 end
+   * holding both. Counting the final board undercounts the pairing either way,
+   * since Glass does what it says and breaks on a gray, so a run that played one
+   * and lost it reads here as a run that never had it. The measurement that
+   * matters is what the letters carried while the guesses were being scored.
    *
-   * Seed 490 is one of the nine that keeps both to the end, and is picked over
-   * the other eight for holding three rare cards at once (Steel on a and t,
-   * Glass on e) so the vector records the two of them scoring side by side
-   * rather than in different runs. It replaced 397, which was chosen against the
-   * eleven-entry table and degraded to a single Steel and a stage-two death when
-   * the shelf was reweighted. That is the failure mode to expect from any seed
-   * picked for what it happens to draw: it is not wrong afterwards, just weaker,
-   * and the vector goes on passing while covering less than its comment claims.
+   * Seed 586 is one of the seventeen, and is picked over the other sixteen for
+   * holding four rare cards at once (Glass on a, e and t, Steel on o) so the
+   * vector records the two of them scoring side by side rather than in different
+   * runs. It replaced 490, and 490 replaced 397, and both replacements are the
+   * same story told by a different upstream change: 397 was chosen against the
+   * eleven-entry modifier table and degraded to a single Steel and a stage-two
+   * death when the shelf was reweighted; 490 was chosen against the old answer
+   * list and degraded to three Steel and no Glass at all when the word-list
+   * audit swapped 52 answers out. A seed picked for what it happens to draw is
+   * not wrong afterwards, just weaker, and the vector goes on passing while
+   * covering less than its comment claims. Assume the next edit to a shelf or a
+   * list breaks this one too, and re-measure rather than re-record.
    *
-   * These numbers moved once already. At the eleven-entry table it was 7% a
-   * visit and 386 of 600, and the reweighting that made the strong cards 3 in 16
-   * is what took it to 5% and 302, so treat them as a reading of the current
-   * shelf rather than a fact about the bot.
+   * These numbers have moved twice, and they moved for two different reasons.
+   * At the eleven-entry table it was 7% a visit and 386 of 600, and the
+   * reweighting that made the strong cards 3 in 16 is what took it to 5% and
+   * 302: the shelf deciding how often the card is offered. Then the word-list
+   * audit left 302 alone, at 303, and took the runs ending with both from 9 to
+   * 17, because Glass breaks on a gray letter the answer genuinely lacks, and
+   * which letters an answer lacks is a fact about the answer list. So these read
+   * the current shelf *and* the current list, and neither is a fact about the bot.
    *
    * It dies shallow, and that is the trade being made on purpose. Depth is what
    * every other vector already has; what this one is for is the pair that only
@@ -478,7 +493,7 @@ export const SCENARIOS: readonly Scenario[] = [
   {
     name: "rare-smith",
     covers: "the rare modifier pair, hunted down with rerolls and played through",
-    seed: 490,
+    seed: 586,
     next: (state, words) => {
       if (state.phase === "round") {
         // Solve on sight until there is a card to fire, then spend one guess a
@@ -741,33 +756,42 @@ export const SCENARIOS: readonly Scenario[] = [
    *
    * Picking a seed to get an outcome is normally how a vector stops being about
    * the rules and starts being about the bot, so the choice is defended rather
-   * than asserted. Winning is genuinely rare, since the climber's line takes 156
-   * of the first 12,000 seeds, and the spread is not a curve but two piles: 238
-   * runs of 300 dead in stage one, against a tail that reaches stage eight
-   * almost intact. No bot wins on an arbitrary seed, so a seed had to be
-   * chosen. What 5517 was chosen *for*:
+   * than asserted. Winning is genuinely rare, and the spread is not a curve but
+   * two piles: over the first 3,000 seeds, 2,356 die in stage one against 50
+   * that reach stage nine. No bot wins on an arbitrary seed, so a seed had to be
+   * chosen. What 2111 was chosen *for*:
    *
-   *   - Six of those 156 meet, in one run, every boss the other ten vectors miss
-   *     between them. This is one of the six.
-   *   - Of the six it is the only one that also wins under all five shop
-   *     policies measured: relic-first, relic-then-level, level-first,
-   *     relics-then-upgrades, packs-and-relics. It is a seed where the run is
-   *     winnable, not a seed tuned to this bot's quirks.
-   *   - It goes the deepest of them, dying on stage 11's boss round.
+   *   - It supplies all three bosses the other fifteen vectors miss between
+   *     them, which two of the 3,000 do. Measured, not assumed: the check is
+   *     the union of every `boss` this file records against `BOSSES`.
+   *   - It goes the deepest of any of them, dying on stage 11's boss round,
+   *     and meets eleven of the fifteen in that one run.
+   *   - It is not tuned to this bot. Six other scenarios' bots run on it reach
+   *     stage 6.0 to 8.2, every one of them further than they got on the seed
+   *     this replaced. The run is winnable; the climber is not being carried.
    *
-   * That last point is why one run can close the boss gap at all, and the reason
-   * is structural rather than lucky. The late band is drawn without replacement
-   * and indexed from stage 7, so a run reaching stage 11's boss has met all five
-   * of them in order. Those bosses were uncovered *because* nothing survived
-   * past stage 7. No shallow vector could have reached them, and no number of
-   * shallow vectors would have helped.
+   * That second point is why one run can close the boss gap at all, and the
+   * reason is structural rather than lucky. The late band is drawn without
+   * replacement and indexed from stage 7, so a run reaching stage 11's boss has
+   * met all five of them in order. Those bosses were uncovered *because* nothing
+   * survived past stage 7. No shallow vector could have reached them, and no
+   * number of shallow vectors would have helped.
+   *
+   * The seed was 5517, chosen the same way against the old answer list. The
+   * word-list audit that dropped SENOR and GONNA and added TEETH and EMOJI
+   * changed which word every seed deals, and 5517 went from a 75-guess win to
+   * dying in stage one, taking The Miser, The Rust and The Plateau out of the
+   * file with it. Nothing went red: the vector re-recorded cleanly and went on
+   * asserting six guesses' worth of stage one. That is the standing hazard of a
+   * seed picked for what it draws, and the check that catches it is coverage,
+   * not a test. Re-run it after anything that moves the deal.
    */
   {
     name: "victor",
     covers:
       "the run won and then played past, the computed targets beyond stage 8, and the whole " +
       "late boss band nothing else survives to meet",
-    seed: 5517,
+    seed: 2111,
     next: climb,
   },
   {
