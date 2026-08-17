@@ -1870,11 +1870,21 @@ export function endView(state: RunState, on: Handlers): HTMLElement {
         ),
     ),
     offering &&
-      h("button", { class: "primary", type: "button", onclick: () => on.continueRun() }, "Play on"),
+      h(
+        "button",
+        { class: "primary", type: "button", onclick: () => on.continueRun() },
+        "Endless mode",
+      ),
+    // Banking the win ends the run for good, so it goes where a finished run
+    // goes: the title screen, with the save cleared behind it.
     h(
       "button",
-      { class: offering ? "secondary" : "primary", type: "button", onclick: () => on.newRun() },
-      offering ? "Bank the win" : "New run",
+      {
+        class: offering ? "secondary" : "primary",
+        type: "button",
+        onclick: () => (offering ? on.quit() : on.newRun()),
+      },
+      offering ? "Main menu" : "New run",
     ),
   )
 }
