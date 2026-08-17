@@ -8,6 +8,7 @@ import { formatNumber as num } from "./format"
 import { chosenAscension, Profile } from "./meta"
 import type { Mood } from "./music"
 import { Music } from "./music"
+import { atSpeed, loadSpeed, NEXT_SPEED, setSpeed } from "./speed"
 import type { Chrome, Decor, Handlers } from "./views"
 import {
   ascendView,
@@ -76,6 +77,11 @@ const PLAIN_KEY = "5wild:plain"
 /**
  * Per-event pacing, in ms. Slow enough to read, fast enough to not be a cutscene.
  *
+ * These, and every other duration below that is a motion rather than a reading
+ * time, are what the game is *authored* at. What it plays at is these divided by
+ * the animation speed the player chose; `beat` is where that happens and
+ * `./speed` is why. Nothing here changes when the setting does.
+ *
  * `solve` is the outlier on purpose: it is the last beat before the reward screen
  * takes the board away, and it has to outlast `COUNT_UP` by enough that the pile's
  * new total is legible standing still rather than glimpsed mid-climb.
@@ -119,12 +125,13 @@ const reducedMotion = (): boolean =>
 /**
  * Classes the app puts on a live screen that no freshly-built view will carry.
  *
- * There is exactly one, and it is here rather than inlined because the next one
- * will be added by somebody who has never read `reuseBoard` and will not think
- * to. What they all have in common is that they describe what is *happening* to
- * a screen rather than which screen it is.
+ * They are here rather than inlined because the next one will be added by
+ * somebody who has never read `reuseBoard` and will not think to. What they all
+ * have in common is that they describe what is *happening* to a screen rather
+ * than which screen it is: one names a shake in progress, the other a rebuild
+ * that brought nothing new, and a board is a board through both.
  */
-const TRANSIENT_SCREEN = ["shaking"]
+const TRANSIENT_SCREEN = ["shaking", "settled"]
 
 /** Which screen this is, ignoring whatever is currently happening to it. */
 const screenKind = (node: Element): string =>
@@ -142,6 +149,13 @@ export class App {
   private atTitle: boolean
   /** The modal on top of everything, if any. */
   private overlay: "help" | "codex" | "shapes" | "stats" | "menu" | "quit" | "ascend" | null = null
+  /**
+   * Which sheet the last render put on screen, so this one can tell a sheet
+   * arriving from the same sheet being rebuilt underneath the player's thumb.
+   * Not `overlay` itself: that field has already been changed by the time a
+   * render reads it, and two of the sheets are not named by it at all.
+   */
+  private sheetShown: string | null = null
   /** Which rung the open lock is offering. Only meaningful while `overlay` is "ascend". */
   private ascendTo = 0
   /**
@@ -161,6 +175,11 @@ export class App {
   private toastTimer: ReturnType<typeof setTimeout> | undefined
   /** How loudly the letters are allowed to announce what they are worth. */
   private decor = loadDecor()
+  /**
+   * How fast the game plays what it has to say. Every duration below that is an
+   * animation rather than a reading time goes through `beat`; see `./speed`.
+   */
+  private speed = loadSpeed()
   /**
    * True while the first round is still owed its explanation.
    *
@@ -184,10 +203,11 @@ export class App {
     // a null state; it simply is not persisted until the player commits to it.
     this.state = saved ?? startRun(rootSeed(), words).state
     this.atTitle = saved === null
-    // The classes are on the document rather than in the render, so they have to
-    // be put back on the way in, since the stylesheet is the only thing that
-    // remembers.
+    // The class and the property are on the document rather than in the render,
+    // so they have to be put back on the way in, since the stylesheet is the
+    // only thing that remembers.
     setDecor(this.decor)
+    setSpeed(this.speed)
     this.bindPhysicalKeyboard()
     this.bindAudioWake()
     this.bindTips()
@@ -582,7 +602,7 @@ export class App {
       note.classList.remove("pending")
       return
     }
-    setTimeout(() => note.classList.remove("pending"), FLIP.half)
+    setTimeout(() => note.classList.remove("pending"), this.beat(FLIP.half))
   }
 
   /**
@@ -605,8 +625,8 @@ export class App {
     // Timers rather than awaits: the flips are meant to overlap, so this one
     // must keep running while the next tile starts. Both are harmless if the
     // screen is replaced first, since the node is simply detached by then.
-    setTimeout(() => tile.classList.remove("pending"), FLIP.half)
-    setTimeout(() => tile.classList.remove("flip"), FLIP.total)
+    setTimeout(() => tile.classList.remove("pending"), this.beat(FLIP.half))
+    setTimeout(() => tile.classList.remove("flip"), this.beat(FLIP.total))
   }
 
   /**
@@ -647,7 +667,7 @@ export class App {
       node.append(h("span", { class: "gain-chips" }, `+${chips}`))
       if (mult > 0) node.append(h("span", { class: "gain-mult" }, `+${mult}`))
       row.append(node)
-      setTimeout(() => node.remove(), GAIN)
+      setTimeout(() => node.remove(), this.beat(GAIN))
     }
 
     // Skipping runs the whole guess at once, so the badges would all land
@@ -655,7 +675,7 @@ export class App {
     // is noise, not information. The player asked for the end; give them it.
     if (this.skipping) return
     if (reducedMotion()) show()
-    else setTimeout(show, FLIP.half)
+    else setTimeout(show, this.beat(FLIP.half))
   }
 
   /**
@@ -677,8 +697,11 @@ export class App {
       return
     }
     const started = performance.now()
+    // Read once rather than per frame: the setting cannot change mid-count, and
+    // a climb whose span moved under it would ease out of the wrong number.
+    const span = this.beat(COUNT_UP)
     const tick = (now: number) => {
-      const progress = Math.min(1, (now - started) / COUNT_UP)
+      const progress = Math.min(1, (now - started) / span)
       // Ease out: most of the distance is covered early, so the number reads as
       // arriving rather than crawling.
       const eased = 1 - (1 - progress) ** 3
@@ -710,11 +733,28 @@ export class App {
     if (ratio < 0.5 || reducedMotion()) return
     screen.style.setProperty("--shake", `${Math.min(8, 3 + ratio * 4).toFixed(1)}px`)
     screen.classList.add("shaking")
-    setTimeout(() => screen.classList.remove("shaking"), 420)
+    setTimeout(() => screen.classList.remove("shaking"), this.beat(420))
+  }
+
+  /**
+   * A duration as authored, at the speed the player asked for.
+   *
+   * Everything the scoring animation waits on comes through here, and every one
+   * of those numbers has a partner in the stylesheet scaled by `--pace` from the
+   * same setting, so a class still comes off its element exactly when the
+   * animation it names ends. The constants keep their authored values rather
+   * than being scaled once at load, because they are what the stylesheet is
+   * written against and a `380` that sometimes means 127 is a comment that lies.
+   *
+   * It is deliberately not on the toast, the long press, or anything else that
+   * is a duration without being a motion; see `./speed`.
+   */
+  private beat(ms: number): number {
+    return atSpeed(ms, this.speed)
   }
 
   private pace(ms: number): Promise<void> {
-    return this.skipping ? Promise.resolve() : wait(ms)
+    return this.skipping ? Promise.resolve() : wait(this.beat(ms))
   }
 
   private floater(screen: HTMLElement, text: string): void {
@@ -724,7 +764,7 @@ export class App {
     node.className = "floater"
     node.textContent = text
     host.append(node)
-    setTimeout(() => node.remove(), 900)
+    setTimeout(() => node.remove(), this.beat(900))
   }
 
   /**
@@ -748,7 +788,7 @@ export class App {
     // Forcing a reflow restarts the animation when two of these land in a row.
     void node.offsetWidth
     node.classList.add(name)
-    setTimeout(() => node.classList.remove(name), ms)
+    setTimeout(() => node.classList.remove(name), this.beat(ms))
   }
 
   private bump(selector: string): void {
@@ -1091,6 +1131,11 @@ export class App {
       setDecor(this.decor)
       this.render()
     },
+    cycleSpeed: () => {
+      this.speed = NEXT_SPEED[this.speed]
+      setSpeed(this.speed)
+      this.render()
+    },
     openMenu: () => {
       // Mid-animation the screen belongs to the scoring; the button is on the
       // HUD the whole time, so this is a reachable tap rather than a theory.
@@ -1167,6 +1212,7 @@ export class App {
       muted: this.sound.isMuted,
       musicOff: this.music.isOff,
       decor: this.decor,
+      speed: this.speed,
       coach: this.coach,
       coachOffer: this.coachOffer,
     }
@@ -1286,10 +1332,70 @@ export class App {
                       (placeView(this.state, this.handlers, this.arming) ??
                       packView(this.state, this.handlers))
 
+    // Which sheet that is, since the answer decides whether it may announce
+    // itself below. `overlay` names seven of them. The two the fallback builds
+    // have no name of their own, and are told apart by the run field that
+    // decides which of the pair exists at all, which is `placeView`'s own guard.
+    const kind = this.overlay ?? (!sheet ? null : this.state.placing ? "place" : "pack")
+    // Asked before the swap, because it is a question about the screen that is
+    // about to stop being the one on screen.
+    const settled = this.settled(view, kind)
+    // The sheet's half of the same question, and the simpler one: this node is
+    // always the one this render built, since nothing reuses a sheet.
+    if (sheet && kind === this.sheetShown) sheet.classList.add("settled")
+    this.sheetShown = kind
+
     if (!this.reuseBoard(view)) clear(this.root).append(view)
     if (sheet) this.root.append(sheet)
+    // On whatever is standing there afterwards rather than on `view`, because
+    // `reuseBoard` may have kept the live screen and used this one only for its
+    // children, and a mark left on a node that was thrown away is no mark at
+    // all. Toggled rather than added for the same reason from the other side: a
+    // kept screen is still carrying whatever the last render decided, and this
+    // render may have decided otherwise. Nothing is painted between the append
+    // and this line, so an animation suppressed here never had a frame.
+    this.root.firstElementChild?.classList.toggle("settled", settled)
     this.holdFocus(keeping)
     this.lightCoach()
+  }
+
+  /**
+   * Whether this render is rebuilding the screen rather than bringing one.
+   *
+   * Every dispatch rebuilds the whole screen, so a node that has not changed is
+   * still a new node, and a new node plays its entry animation. That is what an
+   * entry animation is for and it is right nearly everywhere, because nearly
+   * every render is a screen the player has just arrived at. It is wrong in the
+   * one place the player is looking hardest: a button inside a sheet. Sound,
+   * music and the animation speed change one word of one label, and the render
+   * behind that word dropped the backdrop to `opacity: 0` and rebuilt the sheet
+   * 24px low, so the sheet blinked out and rose again on every tap. Over the
+   * shop it took the shelf with it, all five cards to `opacity: 0` and dealt
+   * back in one at a time behind a sheet that was not going anywhere.
+   *
+   * The two halves of that are two different questions, so they are asked
+   * separately and answered on two different nodes. A *sheet* is settled when
+   * the same sheet was up before this render: menu to help still rises, because
+   * that is a different sheet, and so does the first one over a screen. A
+   * *screen* is settled when it is the same screen as the live one and a sheet
+   * is open on one side of the render or the other, which is the whole of "the
+   * player is working in a sheet and the scenery behind them did not move". Both
+   * sides matter: without the second the shelf re-deals when the menu closes,
+   * and without the first it re-deals when it opens.
+   *
+   * Deliberately not "the same screen" on its own, which would be shorter and
+   * would silence the two renders that are the point of the animation: a reroll
+   * deals a new shelf, and it is the same shop screen it was dealt onto.
+   *
+   * What the marks do is in the stylesheet, and the rule for what may listen to
+   * them is written there: the animation has to mean "this just appeared", and
+   * the node has to be one a view builds rather than one a handler decorates
+   * after the fact.
+   */
+  private settled(view: HTMLElement, kind: string | null): boolean {
+    if (kind === null && this.sheetShown === null) return false
+    const live = this.root.firstElementChild
+    return live instanceof HTMLElement && screenKind(live) === screenKind(view)
   }
 
   /**
@@ -1348,11 +1454,13 @@ export class App {
     // render that ends the cascade is awaited on `PACE.total`, which is 400.
     // Twenty milliseconds is not a race, it is a rule: the render lands inside
     // the shake every time, found a class the new view had no reason to carry,
-    // and refused the reuse. The board was rebuilt against an unmeasured
-    // container on the one guess in the round worth watching, which is both the
-    // most conspicuous moment available and the hardest to catch, since the
-    // screen is already moving. Keeping the node fixes the shake too: it used to
-    // be thrown away mid-animation and stop dead.
+    // and refused the reuse. It stays a rule at every animation speed, since
+    // both numbers are divided by the same setting; at ×3 the margin is seven
+    // milliseconds and the ordering is the one it always was. The board was
+    // rebuilt against an unmeasured container on the one guess in the round
+    // worth watching, which is both the most conspicuous moment available and
+    // the hardest to catch, since the screen is already moving. Keeping the node
+    // fixes the shake too: it used to be thrown away mid-animation and stop dead.
     if (!(live instanceof HTMLElement) || screenKind(live) !== screenKind(view)) return false
     const kept = live.querySelector(":scope > .grid-wrap")
     const built = view.querySelector(":scope > .grid-wrap")

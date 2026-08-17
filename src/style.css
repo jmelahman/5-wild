@@ -56,6 +56,25 @@
   --value-base: color-mix(in srgb, var(--fg) 72%, transparent);
   --value-raised: var(--chips);
 
+  /*
+   * How long everything takes, as a scale on every animation duration below.
+   *
+   * A scale on *duration* rather than a speed, so it runs the other way from the
+   * setting a player chooses: ×2 as fast is `--pace: 0.5`. `setSpeed` in
+   * `src/ui/speed.ts` writes it, from the same number `app.ts` divides its own
+   * timers by, which is what keeps a class coming off a tile exactly when the
+   * flip it names ends. The `1` here is the speed every duration in this file is
+   * authored at, and is what a first launch and a blocked store both get.
+   *
+   * The rule for what carries it: a keyframe sequence the player is waiting on
+   * does, and nothing else. The two loops that never end, `sheen` and
+   * `coach-mark`, are ambient rather than in the way, and running them faster
+   * would only make them insistent. The transitions here are all per-touch
+   * feedback of 260ms or less, fired under a finger that is still on the glass,
+   * where a duration is not a wait.
+   */
+  --pace: 1;
+
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
@@ -255,7 +274,7 @@ button {
    guess react in the same visual language. */
 .hud-gold.bumped {
   --pop: 1.22;
-  animation: pop 300ms ease;
+  animation: pop calc(300ms * var(--pace)) ease;
 }
 
 .boss {
@@ -373,6 +392,9 @@ button {
   pointer-events: none;
   background: linear-gradient(115deg, transparent 42%, #ffffff26 50%, transparent 58%);
   background-size: 300% 100%;
+  /* Off the animation-speed dial, with `coach-mark`: nothing waits on a loop
+     that never ends, so hurrying it makes a shimmer into a strobe and hands the
+     player back no time. See `--pace`. */
   animation: sheen 5s ease-in-out infinite;
 }
 
@@ -633,7 +655,7 @@ button {
 /* The letter arriving. Short enough that it keeps up with a fast typist and
    never queues up behind itself. */
 .tile.land {
-  animation: land 110ms ease-out;
+  animation: land calc(110ms * var(--pace)) ease-out;
 }
 
 @keyframes land {
@@ -703,9 +725,11 @@ button {
  * One transform, no extra nodes, and it composites on the GPU, which is what
  * an Android WebView wants.
  */
-/* Kept in step with FLIP.total in app.ts; see the note there. */
+/* Kept in step with FLIP.total in app.ts; see the note there. Both are the same
+   380 divided by the same animation speed, which is the only way the pair can
+   stay in step now that either can be a third of what it says. */
 .tile.flip {
-  animation: flip 380ms ease-in-out;
+  animation: flip calc(380ms * var(--pace)) ease-in-out;
 }
 
 @keyframes flip {
@@ -754,7 +778,7 @@ button {
      that would be harder to read than the numbers it is explaining. */
   background: color-mix(in srgb, var(--panel-2) 94%, transparent);
   border: 1px solid color-mix(in srgb, var(--chips) 40%, var(--line));
-  animation: coach-in 220ms ease;
+  animation: coach-in calc(220ms * var(--pace)) ease;
 }
 
 .coach-text {
@@ -784,6 +808,8 @@ button {
   outline: 2px solid color-mix(in srgb, var(--chips) 70%, transparent);
   outline-offset: 3px;
   border-radius: 0.25rem;
+  /* Unpaced, for the reason the sheen is: it breathes for as long as the card
+     it belongs to is up, and the card is waiting on the player, not the reverse. */
   animation: coach-mark 1800ms ease-in-out infinite;
 }
 
@@ -1074,7 +1100,7 @@ button {
 /* --pop is set per guess from the score's size against the target, so the
    reaction is proportional: a chip guess twitches, a round-clearing one lunges. */
 .readout.popped {
-  animation: pop 300ms ease;
+  animation: pop calc(300ms * var(--pace)) ease;
 }
 
 @keyframes pop {
@@ -1089,7 +1115,7 @@ button {
  * amplitude arrives as --shake from the same score ratio that drives the pop.
  */
 .screen.shaking {
-  animation: shake 400ms cubic-bezier(0.36, 0.07, 0.19, 0.97);
+  animation: shake calc(400ms * var(--pace)) cubic-bezier(0.36, 0.07, 0.19, 0.97);
 }
 
 /*
@@ -1099,7 +1125,7 @@ button {
  */
 .row.rejected {
   --shake: 6px;
-  animation: shake 400ms cubic-bezier(0.36, 0.07, 0.19, 0.97);
+  animation: shake calc(400ms * var(--pace)) cubic-bezier(0.36, 0.07, 0.19, 0.97);
 }
 
 @keyframes shake {
@@ -1131,7 +1157,7 @@ button {
   font-weight: 700;
   color: var(--gold);
   pointer-events: none;
-  animation: rise 900ms ease-out forwards;
+  animation: rise calc(900ms * var(--pace)) ease-out forwards;
 }
 
 @keyframes rise {
@@ -1165,7 +1191,7 @@ button {
   /* The badge starts on top of a tile whose color it does not control, so the
      shadow is what keeps a blue number legible against a green square. */
   text-shadow: 0 1px 2px rgb(0 0 0 / 0.75);
-  animation: gain-rise 760ms ease-out forwards;
+  animation: gain-rise calc(760ms * var(--pace)) ease-out forwards;
 }
 
 .tile-gain .gain-chips {
@@ -1199,7 +1225,7 @@ button {
 .readout .chips.bumped,
 .readout .mult.bumped {
   --pop: 1.18;
-  animation: pop 300ms ease;
+  animation: pop calc(300ms * var(--pace)) ease;
 }
 
 /* ------------------------------------------------------------- keyboard */
@@ -1571,8 +1597,11 @@ button {
   text-align: left;
   /* Dealt in one at a time. `backwards` matters: without it every card is
      visible at its final position for the frame before its delay elapses. */
-  animation: deal 320ms cubic-bezier(0.2, 1.1, 0.4, 1) backwards;
-  animation-delay: calc(var(--deal, 0) * 70ms);
+  animation: deal calc(320ms * var(--pace)) cubic-bezier(0.2, 1.1, 0.4, 1) backwards;
+  /* The stagger is paced with the deal it staggers, or a shop set to ×3 would
+     lay five cards out over the same 280ms it always did, each of them arriving
+     three times as fast, which is a queue rather than a deal. */
+  animation-delay: calc(var(--deal, 0) * 70ms * var(--pace));
 }
 
 .shop-item.broke {
@@ -2039,7 +2068,7 @@ button {
   border-radius: 0.75rem;
   background: var(--panel);
   box-shadow: 0 0.5rem 1.5rem #0006;
-  animation: deal 320ms cubic-bezier(0.2, 1.1, 0.4, 1);
+  animation: deal calc(320ms * var(--pace)) cubic-bezier(0.2, 1.1, 0.4, 1);
 }
 
 .reward-line {
@@ -2138,7 +2167,7 @@ button {
   border-radius: 1rem;
   border: 2px solid var(--line);
   background: linear-gradient(160deg, var(--panel-2), var(--panel));
-  animation: deal 320ms cubic-bezier(0.2, 1.1, 0.4, 1);
+  animation: deal calc(320ms * var(--pace)) cubic-bezier(0.2, 1.1, 0.4, 1);
 }
 
 /* A boss announces itself before it is played, never during. */
@@ -2185,7 +2214,7 @@ button {
       color-mix(in srgb, var(--token) 55%, #000)
     );
   filter: drop-shadow(0 0.375rem 0.5rem #0008);
-  animation: token 460ms cubic-bezier(0.2, 1.4, 0.4, 1);
+  animation: token calc(460ms * var(--pace)) cubic-bezier(0.2, 1.4, 0.4, 1);
 }
 
 .round-token.normal {
@@ -2724,7 +2753,7 @@ button {
   padding: 1rem;
   padding-bottom: calc(var(--safe-bottom) + 1rem);
   background: #000a;
-  animation: fade 140ms ease;
+  animation: fade calc(140ms * var(--pace)) ease;
 }
 
 @keyframes fade {
@@ -2748,7 +2777,7 @@ button {
   border-radius: 1rem;
   background: var(--panel);
   border: 1px solid var(--line);
-  animation: rise-sheet 180ms cubic-bezier(0.2, 0.8, 0.3, 1);
+  animation: rise-sheet calc(180ms * var(--pace)) cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 
 @keyframes rise-sheet {
@@ -2968,6 +2997,45 @@ button {
   opacity: 1;
 }
 
+/* ------------------------------------------------------------- rebuilds */
+
+/*
+ * Things that were already here, and are only here again.
+ *
+ * Every dispatch rebuilds the whole screen, so an unchanged node is still a new
+ * node, and a new node runs its animation from the top. `render` marks the two
+ * it knows arrived at nothing: a sheet that was already open, and the screen
+ * standing behind an open sheet. See `settle` in `app.ts` for which is which
+ * and why they are asked as two questions; this is the half that acts on the
+ * answer.
+ *
+ * The bug it fixes was a tap inside the pause sheet, which is the worst place in
+ * the game to rebuild something, because the sheet is a hand's width from the
+ * player's eye and the tap changes one word of one label. Measured in Chrome at
+ * 390x844: the frame after the tap put the backdrop at `opacity: 0` and the
+ * sheet at 0 and 24px low, and the pair took 140ms and 180ms to come back, on
+ * every tap of sound, music or the speed dial. Over the shop the same render
+ * took the shelf with it, all five cards at 0.00 on the next frame and dealt
+ * back in one at a time, the last of them not solid again for 250ms at ×2 and
+ * twice that at the speed the shop is authored to deal at.
+ *
+ * What may be added here is an animation that means "this just appeared", on a
+ * node a *view* builds. Nothing a handler adds after a render may be listed: the
+ * marks outlive the render that set them, so `.tile.land`, which `patchDraft`
+ * puts on the letter being typed, would be silenced for as long as the sheet
+ * stayed open, and typing would stop moving. `.coach` is left out for the
+ * opposite reason: it is never on screen beside a sheet, and the render that
+ * brings it back is bringing a new step of the tutorial, which is an arrival.
+ */
+.settled.overlay,
+.settled .sheet,
+.settled .shop-item,
+.settled .panel,
+.settled .intro-card,
+.settled .round-token {
+  animation: none;
+}
+
 /*
  * A blanket kill-switch has to outrank every animation and transition shorthand
  * in the file, and it is deliberately the last word on the subject. This is the
@@ -3012,7 +3080,7 @@ button {
      *
      * The shorthand also does what the longhand could not reach. A duration says
      * nothing about a delay or a fill, and `.shop-item` has both: `deal` with
-     * `backwards` and `animation-delay: calc(var(--deal) * 70ms)`. Under the old
+     * `backwards` and `animation-delay: calc(var(--deal) * 70ms * var(--pace))`. Under the old
      * rule a five-card shop computed `delay=0.28s fill=backwards dur=0.001s` on
      * its last card and held every card at `opacity: 0` until its own delay ran
      * out, measured 0.00 across all five at t=9ms and the fifth still 0.00 at

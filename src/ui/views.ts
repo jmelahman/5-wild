@@ -66,6 +66,7 @@ import {
   unlocked,
   wordsFound,
 } from "./meta"
+import type { Speed } from "./speed"
 
 export type Handlers = {
   key: (letter: string) => void
@@ -99,6 +100,8 @@ export type Handlers = {
   toggleMusic: () => void
   /** Step the board down a level of decoration, wrapping back to all of it. */
   cycleDecor: () => void
+  /** Step the animations up a rung, wrapping back to the speed they are drawn at. */
+  cycleSpeed: () => void
   openMenu: () => void
   openHelp: () => void
   /**
@@ -134,6 +137,7 @@ export type Chrome = {
   muted: boolean
   musicOff: boolean
   decor: Decor
+  speed: Speed
   coach: CoachStep | null
   /**
    * Whether the intro card on screen should ask about the tutorial before it
@@ -2803,6 +2807,23 @@ export function menuView(on: Handlers, chrome: Chrome): HTMLElement {
           onclick: () => on.toggleMusic(),
         },
         chrome.muted || chrome.musicOff ? "Music off" : "Music on",
+      ),
+      // How fast the game plays what it has to say, and unlike the letter values
+      // below it, this one belongs on the sheet. The argument that moved the
+      // decoration switch onto the board was that its effect could not be seen
+      // from the screen it was set on; the answer here is that it cannot be seen
+      // from *any* screen while it is being set, because there is nothing to
+      // watch until the next guess scores. A control that can only be judged
+      // after the sheet is closed may as well be where the other settings are.
+      //
+      // It reads as the multiplier it is rather than as a name for one. "Brisk"
+      // needs a legend and invites a second opinion about what brisk means;
+      // "×2" is the whole of the arithmetic, and a player who wants the cascade
+      // out of the way can tap until the number is big enough.
+      h(
+        "button",
+        { class: "secondary", type: "button", onclick: () => on.cycleSpeed() },
+        `Animation speed ×${chrome.speed}`,
       ),
       // Letter values are not here. The board is dense by design, with a value on
       // every key and a pip on every modifier, and that density is the scoring

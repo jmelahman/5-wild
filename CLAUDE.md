@@ -95,12 +95,40 @@ the fade; see `TOAST` in `app.ts`. If killing it drops something the keyframes
 were the only source of, carve it out by name; see `.floater, .tile-gain`, whose
 horizontal centering lives nowhere but its `-50%`.
 
+How long motion lasts is a player setting, and it is one number in two
+languages. `src/ui/speed.ts` owns it, writes it to the root as `--pace` (a scale
+on *duration*, so ×2 is `0.5`), and every one-shot animation in the stylesheet is
+`calc(Xms * var(--pace))` while every timer in `app.ts` goes through `beat`,
+which divides by the same setting. Anything paced on one side must be paced on
+the other, or a class comes off a tile that is still flipping. Three things stay
+off it: reading time (`TOAST`), input conventions (`HOLD`), and the two
+animations that loop forever, which nobody is waiting on. And the ladder stops at
+×3 rather than at an off switch, because zero does not still a `forwards`
+animation, it finishes it, which is the same bug as `1ms` wearing a friendlier
+face.
+
 The same render that `reuseBoard` protects can be defeated by a class. It keeps
 the container only when the live screen and the new one are the same kind, and a
 live screen collects classes describing what is happening to it, and `shaking`
 lasts 420ms after a big guess, against a final render awaited on 400. Compare
 screens on `screenKind`, not on the class string, and add anything transient to
 `TRANSIENT_SCREEN`.
+
+`settled` is the other one in that list, and it is what the rebuild does to an
+animation rather than to a layout. A node that has not changed is still a *new*
+node, so it plays its entry animation again, which is right on a screen the
+player just arrived at and wrong on a button inside a sheet: tapping sound, music
+or the speed dial changed one word of one label, and the backdrop went to
+`opacity: 0` and the sheet rebuilt 24px low on every tap, taking the shop's five
+cards with it. `settled` marks the two things a render knows arrived at nothing —
+a sheet that was already open, and the screen behind an open sheet — and the
+stylesheet answers it with `animation: none`. Two questions, not one: a reroll
+deals a new shelf onto the same shop screen, so "same screen" alone would
+silence the render the animation is for. What may listen to the mark is an
+animation meaning *this just appeared*, on a node a view builds; a class a
+handler adds after a render (`.tile.land`, from `patchDraft`) would be silenced
+for as long as the mark outlives the render that set it. See `settled` in
+`app.ts` and the `rebuilds` block in the stylesheet.
 
 Purely presentational settings live as a class on the document root
 and are switched off in the stylesheet (see `.plain` and `.quiet`) rather than
@@ -133,10 +161,11 @@ style but not its prose is half-finished.
 
 ## Storage
 
-`5wild:run:v2` (the run save), `5wild:meta:v2` (the record), and four settings:
-`5wild:plain`, `5wild:muted`, `5wild:music`, `5wild:coached`. All are booleans
-except `5wild:plain`, which holds one of `all`, `minimal` or `none`: how much of
-the scoring game the board draws on itself. Adding an optional field needs no key
+`5wild:run:v2` (the run save), `5wild:meta:v2` (the record), and five settings:
+`5wild:plain`, `5wild:speed`, `5wild:muted`, `5wild:music`, `5wild:coached`. All
+are booleans except two: `5wild:plain` holds one of `all`, `minimal` or `none`,
+how much of the scoring game the board draws on itself, and `5wild:speed` holds
+`1`, `2` or `3`, how many times faster than authored the animations play. Adding an optional field needs no key
 bump; changing what an existing field means does.
 
 `5wild:coached` is the odd one: it is the only flag that is not a setting. It
