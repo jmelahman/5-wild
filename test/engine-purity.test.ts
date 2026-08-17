@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest"
  * The engine is the layer worth protecting: it survives any presentation
  * rewrite, it is what the balance simulator runs headless, and it is what a
  * future port would have to reproduce. All of that holds only while it stays
- * pure — so purity is enforced by CI rather than by discipline.
+ * pure, so purity is enforced by CI rather than by discipline.
  */
 
 const here = dirname(fileURLToPath(import.meta.url))

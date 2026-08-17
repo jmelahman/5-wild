@@ -35,14 +35,14 @@ import {
 } from "./views"
 
 /**
- * Bumping the suffix orphans every save in the wild — treat it as a migration.
+ * Bumping the suffix orphans every save in the wild, so treat it as a migration.
  *
  * v2 because the vocabulary moved under it. A v1 save spells the same run
  * `ante`, `blindIndex`, `blind`, `jokers`, and `{type:"next_blind"}`; `loadSave`
  * would read it as a run missing half its fields and hand back something that
  * looks playable and is not. Renaming the key is how that save gets refused
  * cleanly rather than half-understood. It costs whoever was mid-run at the
- * upgrade exactly one run — the record survives, which is where the things worth
+ * upgrade exactly one run. The record survives, which is where the things worth
  * keeping live.
  */
 const SAVE_KEY = "5wild:run:v2"
@@ -64,7 +64,7 @@ const COACH_KEY = "5wild:coached"
  * How much the board draws on itself: one of `Decor`.
  *
  * Still spelled `plain` after the setting grew a third state, because the key
- * has never shipped — there is no save anywhere holding the `"1"` this used to
+ * has never shipped: there is no save anywhere holding the `"1"` this used to
  * write, so there is nothing for a rename to rescue and nothing for the old
  * spelling to mean. An unreadable value falls back to `all`, which is also what
  * a first launch gets, so a store that has been blocked or scribbled on lands on
@@ -86,7 +86,7 @@ const PACE = { tile: 170, relic: 150, solve: 900, total: 400 }
  * The tile turn. It runs longer than the gap between tiles on purpose, so the
  * reveals overlap into a cascade rather than a queue of separate flips.
  *
- * `total` must stay in step with the `.tile.flip` animation in the stylesheet —
+ * `total` must stay in step with the `.tile.flip` animation in the stylesheet.
  * CSS owns the motion, this owns when the class comes back off, and a mismatch
  * either clips the flip or leaves the tile stuck mid-turn.
  */
@@ -151,7 +151,7 @@ export class App {
    * Here rather than in `RunState` because it is a half-finished gesture rather
    * than a fact about the run: it must not be saved, must not reach a golden
    * vector, and must not survive putting the phone down. The engine's `placing`
-   * is the run's half of this — a modifier is genuinely in hand until it lands,
+   * is the run's half of this: a modifier is genuinely in hand until it lands,
    * and that does survive a reload.
    */
   private arming: string | null = null
@@ -165,7 +165,7 @@ export class App {
    * True while the first round is still owed its explanation.
    *
    * The only piece of the coaching that is remembered anywhere. Everything else
-   * — which beat is up, whether it has been seen before — is read off the run,
+   * (which beat is up, whether it has been seen before) is read off the run,
    * so this is one boolean rather than a cursor that could disagree with the
    * board. See `src/ui/coach.ts`.
    */
@@ -185,7 +185,7 @@ export class App {
     this.state = saved ?? startRun(rootSeed(), words).state
     this.atTitle = saved === null
     // The classes are on the document rather than in the render, so they have to
-    // be put back on the way in — the stylesheet is the only thing that
+    // be put back on the way in, since the stylesheet is the only thing that
     // remembers.
     setDecor(this.decor)
     this.bindPhysicalKeyboard()
@@ -195,7 +195,7 @@ export class App {
 
   /**
    * Audio may not start before the player has touched something, so the first
-   * gesture of the session — whatever it was — is what starts the music. It also
+   * gesture of the session, whatever it was, is what starts the music. It also
    * stops on the way out: a phone that locks with the tab alive would otherwise
    * keep an oscillator running against the battery all night.
    */
@@ -221,17 +221,17 @@ export class App {
     if (this.atTitle) {
       // Nothing opens on top of this screen. The rules sheet used to, once per
       // install behind a `5wild:seen-help` flag, on the grounds that none of this
-      // game's scoring is guessable from a Wordle board. That is still true — but
+      // game's scoring is guessable from a Wordle board. That is still true, but
       // the sheet was answering it here, before a board existed, naming a mult to
       // someone who had never seen one, and the coaching now says that half a beat
       // at a time with the live number beside it. What the sheet still owns is the
-      // run — shops, bosses, ascensions — which was being read even further ahead
+      // run: shops, bosses and ascensions, which were being read even further ahead
       // of itself, and which sits one tap away under "How to play" on this screen
       // and in the pause menu.
       this.render()
       return
     }
-    // A resumed run mid-round goes straight back to the board — the player was
+    // A resumed run mid-round goes straight back to the board, since the player was
     // in the middle of a thought, and a card announcing the round they are
     // already playing would be in the way.
     this.intro = this.state.round.guesses.length === 0 && this.state.phase === "round"
@@ -255,7 +255,7 @@ export class App {
     this.state = state
     // Nothing is armed once there is nothing in hand. The commit path clears it
     // on its way through, so what this catches is the run ending underneath an
-    // armed key — quitting from the menu over the top of the picker — which
+    // armed key, quitting from the menu over the top of the picker, which
     // would otherwise leave the next run's picker with one letter already half
     // pressed, and that letter would place on a single tap.
     if (!this.state.placing) this.arming = null
@@ -279,7 +279,7 @@ export class App {
     if (paid) this.sound.coin()
 
     // Both are a card leaving the player's hands and landing somewhere, and in
-    // the shop there is no keyboard on screen to show where — so the toast is
+    // the shop there is no keyboard on screen to show where, so the toast is
     // the only confirmation that the Steel went on the E and not the R.
     const label =
       events.find((event) => event.type === "consumable")?.label ??
@@ -301,16 +301,16 @@ export class App {
   /**
    * Redraw the row being typed, in place.
    *
-   * The alternative — what this replaces — was a full render, which throws the
+   * The alternative this replaces was a full render, which throws the
    * screen away and builds a new one. That is a lot of work to move one letter,
    * but the cost that shows is not the work: `.grid-wrap` is a size container and
    * `.grid` takes its width and its font-size from `cqh`/`cqw`. A container's size
    * is not known until it has been laid out, so a freshly-inserted grid has to be
-   * styled twice — once against a container of unknown size, once against the
+   * styled twice: once against a container of unknown size, once against the
    * measured one. Both passes are meant to land in the same frame. Where they do
    * not, the first one resolves the fallback declarations, which are `width: 100%`
-   * at `font-size: 1.25rem` — a board wider than the real one with letters at the
-   * wrong size — and the second corrects it. Five times a word, that is a shake.
+   * at `font-size: 1.25rem`, a board wider than the real one with letters at the
+   * wrong size, and the second corrects it. Five times a word, that is a shake.
    *
    * Reported on Gecko, on a phone. The same build is steady in Chromium on the
    * desktop and in the Chromium WebView the APK runs in, and an earlier fix had
@@ -321,7 +321,7 @@ export class App {
    * never rebuilt, so there is never a second pass to be late.
    *
    * This covers typing and nothing else, which was the whole of the report at the
-   * time. Every other render still built a new container and still flashed — see
+   * time. Every other render still built a new container and still flashed; see
    * `reuseBoard`, which keeps the old one instead. That is the general answer and
    * this is the cheap one; the two overlap here on purpose, since a keystroke has
    * no reason to rebuild five rows to move one letter either way.
@@ -362,8 +362,8 @@ export class App {
     if (readout) fillReadout(readout, this.state)
     // Third thing, and the one with a number in it: the coaching card quotes the
     // running chip count while the word is being built. It also moves its own
-    // anchor as it goes, which is why the light is reapplied rather than left —
-    // and it has to be reapplied *after* `fillReadout` in any case, since that
+    // anchor as it goes, which is why the light is reapplied rather than left.
+    // It also has to be reapplied *after* `fillReadout` in any case, since that
     // rebuilds the readout's children and takes the class down with them.
     const coach = this.root.querySelector(".coach-slot")
     if (coach) fillCoach(coach, this.coach, this.handlers)
@@ -415,9 +415,9 @@ export class App {
     const row = screen.querySelector(`.row[data-row="${this.state.round.guesses.length - 1}"]`)
     const tiles = [...(row?.querySelectorAll(".tile") ?? [])]
     for (const tile of tiles) tile.classList.add("pending")
-    // Held back the same way the colours are, and released with the last of
+    // Held back the same way the colors are, and released with the last of
     // them: the boss's summary of a row is only meaningful after the row it
-    // summarises has been seen, and it would otherwise be legible for the whole
+    // summarizes has been seen, and it would otherwise be legible for the whole
     // length of the cascade it is the answer to.
     const note = row?.querySelector(".row-note")
     note?.classList.add("pending")
@@ -473,8 +473,8 @@ export class App {
         case "tile": {
           const tile = tiles[event.index]
           this.reveal(tile, event.index)
-          // Held until the turn is half done, which is when the colour appears.
-          // Saying what the tile paid before showing what colour it came up
+          // Held until the turn is half done, which is when the color appears.
+          // Saying what the tile paid before showing what color it came up
           // would answer the question in the wrong order.
           this.tileGain(tile, event.gained)
           if (event.index === tiles.length - 1) this.revealNote(note)
@@ -519,7 +519,7 @@ export class App {
         case "relic_grew": {
           // Lands after the guess has finished scoring, because that is when it
           // happens: the round ended, and this card is worth more next time. No
-          // readout — nothing about this guess's chips or mult moved, which is
+          // readout, because nothing about this guess's chips or mult moved, which is
           // exactly what distinguishes growing from firing.
           const slot = screen.querySelector(`.relic[data-slot="${event.slot}"]`)
           slot?.classList.add("fired")
@@ -531,13 +531,13 @@ export class App {
         }
         case "solve_bonus": {
           // Arrives after the guess has already been counted onto the total, so
-          // this is the pile itself multiplying — the biggest number movement in
+          // this is the pile itself multiplying, the biggest number movement in
           // the game, and the one the whole round was building toward.
           this.floater(screen, `solve ×${event.factor}`)
           screen.querySelector(".readout")?.classList.add("solved")
           this.sound.solve()
           this.countUp(scoreEl, onScreen, event.total, meter)
-          this.emphasise(screen, event.total / Math.max(1, this.state.round.target))
+          this.emphasize(screen, event.total / Math.max(1, this.state.round.target))
           onScreen = event.total
           await this.pace(PACE.solve)
           break
@@ -547,7 +547,7 @@ export class App {
           // thing that animates its value rather than snapping to it.
           const from = event.total - event.score
           this.countUp(scoreEl, from, event.total, meter)
-          this.emphasise(screen, event.score / Math.max(1, this.state.round.target))
+          this.emphasize(screen, event.score / Math.max(1, this.state.round.target))
           this.sound.score(event.score / Math.max(1, this.state.round.target))
           onScreen = event.total
           await this.pace(PACE.total)
@@ -564,8 +564,8 @@ export class App {
     }
 
     for (const tile of tiles) tile.classList.remove("pending")
-    // Belt and braces: a guess that produced no tile events at all — or a skip
-    // taken before the cascade reached the end — must not leave the note hidden
+    // Belt and braces: a guess that produced no tile events at all, or a skip
+    // taken before the cascade reached the end, must not leave the note hidden
     // until the next full rebuild happens to drop it.
     note?.classList.remove("pending")
     screen.removeEventListener("pointerdown", onSkip)
@@ -573,7 +573,7 @@ export class App {
 
   /**
    * Lets the row's note in at the trough of the last tile's turn, which is the
-   * moment that tile's colour appears. Same timing as `tileGain`, for the same
+   * moment that tile's color appears. Same timing as `tileGain`, for the same
    * reason: the answer and the thing it is an answer to arrive together.
    */
   private revealNote(note: Element | null | undefined): void {
@@ -587,7 +587,7 @@ export class App {
 
   /**
    * Wordle's turn-over, done with a scale rather than a pair of stacked faces:
-   * the colour is swapped at the trough, where the tile is edge-on and there is
+   * the color is swapped at the trough, where the tile is edge-on and there is
    * nothing to see, which is the whole trick.
    */
   private reveal(tile: Element | undefined, index: number): void {
@@ -604,7 +604,7 @@ export class App {
     tile.classList.add("flip")
     // Timers rather than awaits: the flips are meant to overlap, so this one
     // must keep running while the next tile starts. Both are harmless if the
-    // screen is replaced first — the node is simply detached by then.
+    // screen is replaced first, since the node is simply detached by then.
     setTimeout(() => tile.classList.remove("pending"), FLIP.half)
     setTimeout(() => tile.classList.remove("flip"), FLIP.total)
   }
@@ -612,8 +612,8 @@ export class App {
   /**
    * What a tile just paid, said at the tile.
    *
-   * Every other effect in the game announces itself — a relic lights up and
-   * floats its number, a modifier lights the letter it rode in on — and the
+   * Every other effect in the game announces itself. A relic lights up and
+   * floats its number, a modifier lights the letter it rode in on, and the
    * tiles, which are where most of a guess actually comes from, said nothing.
    * The readout moved and the player was left to infer which of the five
    * letters had moved it.
@@ -626,8 +626,8 @@ export class App {
    *
    * The badge hangs off the row and is placed from the tile's own box, which is
    * the same lesson learned twice: a child of the tile would be scaled edge-on
-   * by the very flip it is announcing, and a grid item — even one placed
-   * explicitly into the tile's cell — perturbs the auto-placement of the five
+   * by the very flip it is announcing, and a grid item, even one placed
+   * explicitly into the tile's cell, perturbs the auto-placement of the five
    * tiles around it and wraps the row. Absolute, off measurements, disturbs
    * neither.
    */
@@ -651,7 +651,7 @@ export class App {
     }
 
     // Skipping runs the whole guess at once, so the badges would all land
-    // together and then all expire together — five of them stacked on one row
+    // together and then all expire together, and five of them stacked on one row
     // is noise, not information. The player asked for the end; give them it.
     if (this.skipping) return
     if (reducedMotion()) show()
@@ -661,8 +661,8 @@ export class App {
   /**
    * Counts a number up on screen, snapping instantly if the player skipped.
    *
-   * `also` sees every intermediate value, so anything drawn from the same figure
-   * — the progress bar — moves with the digits rather than after them.
+   * `also` sees every intermediate value, so anything drawn from the same figure,
+   * such as the progress bar, moves with the digits rather than after them.
    */
   private countUp(
     node: Element | null,
@@ -699,7 +699,7 @@ export class App {
    * target. A chip guess twitches; a guess that clears the round on its own
    * shakes the screen.
    */
-  private emphasise(screen: HTMLElement, ratio: number): void {
+  private emphasize(screen: HTMLElement, ratio: number): void {
     const readout = screen.querySelector(".readout")
     readout?.classList.remove("popped")
     void (readout as HTMLElement | null)?.offsetWidth
@@ -731,7 +731,7 @@ export class App {
    * A refusal, said twice: the toast gives the reason and the row moves.
    *
    * Wordle's shake is worth keeping because it answers the question a player
-   * actually has — *which* of the things on screen was refused — in the half
+   * actually has, *which* of the things on screen was refused, in the half
    * second before they get round to reading the sentence.
    */
   private refuse(reason: string): void {
@@ -771,13 +771,13 @@ export class App {
    * gesture and the tray is otherwise a row of cards it can reach and not read.
    *
    * Which half a pointer gets is decided per event, on `pointerType`, and not
-   * once at startup on `(hover: hover)` — which is what this used to do, and
+   * once at startup on `(hover: hover)`, which is what this used to do, and
    * which is wrong on the one device the game ships as an app. An Android
    * WebView answers that query `true` on a phone with no mouse anywhere near it:
    * it reports the pointer capabilities of a desktop because nothing plumbs the
    * real ones through to it, and Chrome for Android on the same handset answers
    * `false`. Bound on that answer, the touch path ran *and* the hover path ran,
-   * and the hover path is fatal to it — Chromium fires `pointerover` as the
+   * and the hover path is fatal to it: Chromium fires `pointerover` as the
    * finger lands and the whole `pointerleave` chain as it lifts. Traced in the
    * APK's engine with the query forced true: panel up at 48ms on the touch-down,
    * down at 49ms on the `pointerdown` that follows it, up again at 399ms when
@@ -786,8 +786,8 @@ export class App {
    * release, and a plain tap got a panel flashed at them for one frame.
    *
    * `pointerType` cannot lie in the same way: it is a property of the event that
-   * actually happened rather than a guess about the hardware. A hybrid — a
-   * touchscreen laptop, a tablet with a trackpad — was mishandled by the old
+   * actually happened rather than a guess about the hardware. A hybrid, a
+   * touchscreen laptop or a tablet with a trackpad, was mishandled by the old
    * gate for the same reason and is now simply two pointers, each with the half
    * that suits it. A pen is left to the hold: it can hover, but it taps far more
    * often than it hovers, and one that opened a panel on every tap would be the
@@ -801,7 +801,7 @@ export class App {
       this.showTip(this.tipHost(event.target))
     })
     // `pointerover` covers every move within the screen; this covers the one
-    // move that fires nothing — straight out of the window.
+    // move that fires nothing: straight out of the window.
     this.root.addEventListener("pointerleave", (event) => {
       if (event.pointerType !== "mouse") return
       this.showTip(null)
@@ -812,7 +812,7 @@ export class App {
    * Press and hold, for the pointers that cannot hover.
    *
    * The hold has to swallow the tap that ends it, or asking what R is worth
-   * types an R — which is the whole reason this is not simply "tap to show".
+   * types an R, which is the whole reason this is not simply "tap to show".
    * The click is caught in the capture phase at the root, which is upstream of
    * the button's own handler and so the only place that can stop it without the
    * key knowing anything about tips.
@@ -834,7 +834,7 @@ export class App {
     this.root.addEventListener("pointerdown", (event) => {
       this.showTip(null)
       // Cleared here rather than only where it is consumed: a hold whose click
-      // never arrives — the browser swallowed it for a scroll — would otherwise
+      // never arrives because the browser swallowed it for a scroll, would otherwise
       // leave this armed and eat an unrelated tap later.
       swallow = false
       if (event.pointerType === "mouse") return
@@ -869,8 +869,8 @@ export class App {
   /**
    * Tab to a thing, read what it does.
    *
-   * The tray's cards are not pressable — a relic is a card you consult, not a
-   * button — so landing on one is the only way a keyboard has of asking, and
+   * The tray's cards are not pressable, since a relic is a card you consult and
+   * not a button, so landing on one is the only way a keyboard has of asking, and
    * this is the answer. Bound to `data-tip` like the other two halves rather
    * than to the tray, because a key tabbed to asks the same question and the
    * sentence is already hanging on it.
@@ -904,9 +904,9 @@ export class App {
    * The `[data-tip]` a pointer is over, or null.
    *
    * A tile still waiting to turn over is not one. The row is drawn complete and
-   * then held back — `.pending` comes off tile by tile as the score walks across
-   * it — so between the submit and the cascade the board is carrying five tips
-   * that describe colours nobody has been shown yet. The stylesheet already
+   * then held back, with `.pending` coming off tile by tile as the score walks
+   * across it, so between the submit and the cascade the board is carrying five tips
+   * that describe colors nobody has been shown yet. The stylesheet already
    * holds the modifier's dot back for exactly this reason; a panel that answered
    * early would spoil the same reveal in sentences instead of in a dot.
    *
@@ -941,12 +941,12 @@ export class App {
     const box = tip.getBoundingClientRect()
     const gap = 6
     const edge = 8
-    // Below by preference — in a round the tray sits under the HUD with the
+    // Below by preference, since in a round the tray sits under the HUD with the
     // whole board beneath it. The shop keeps its relics at the foot of the
     // screen, and there this flips.
     const below = card.bottom + gap + box.height + edge <= window.innerHeight
-    const centred = card.left + card.width / 2 - box.width / 2
-    const left = Math.min(Math.max(edge, centred), window.innerWidth - box.width - edge)
+    const centered = card.left + card.width / 2 - box.width / 2
+    const left = Math.min(Math.max(edge, centered), window.innerWidth - box.width - edge)
 
     tip.style.setProperty("--slide", below ? "0.25rem" : "-0.25rem")
     tip.style.top = `${Math.round(below ? card.bottom + gap : card.top - gap - box.height)}px`
@@ -965,7 +965,7 @@ export class App {
    * whole thing in a millisecond, `forwards` holds the last keyframe, and the
    * last keyframe is the one where the message is gone. Sampled through a full
    * dwell with the preference set, the toast read `opacity: 0.00` at every
-   * point — +0, +60, +250, +1000, +2000, +2400ms — against 1.00 → 0.33 → 0.00
+   * point (+0, +60, +250, +1000, +2000, +2400ms), against 1.00 → 0.33 → 0.00
    * without it. Not shortened: deleted, in the frame it was raised. That is
    * "Remove animations" on an Android phone, which the APK's WebView passes
    * straight through, and it took the sentence with it.
@@ -976,7 +976,7 @@ export class App {
    * somebody who turned animations off asked for. Only the fade is decoration.
    * The dwell is the message.
    *
-   * Two in a row no longer restart a fade-in — the timer is reset and the text
+   * Two in a row no longer restart a fade-in: the timer is reset and the text
    * swapped under a panel that never left. The repeat is not lost: `refuse`
    * shakes the row every time, which is the faster half of that answer anyway,
    * and a pop here would have to be a transform, which is already spoken for by
@@ -1015,8 +1015,8 @@ export class App {
      * A letter with nothing on it places immediately, which is the ordinary case
      * and the whole alphabet on the first visit. A letter already carrying a
      * modifier arms instead, and the sheet turns into a question naming what
-     * would be lost; the second tap on the same letter — or the Replace button,
-     * which comes back through here with the same letter — is what places it.
+     * would be lost; the second tap on the same letter, or the Replace button,
+     * which comes back through here with the same letter, is what places it.
      *
      * Both the keys and the physical keyboard land here, which is the reason the
      * decision is made in this method rather than in the view. Typing a letter
@@ -1041,7 +1041,7 @@ export class App {
       this.arming = null
       this.dispatch({ type: "place_mod", letter })
     },
-    // The modifier stays in hand — this backs out of the letter, not out of the
+    // The modifier stays in hand. This backs out of the letter, not out of the
     // purchase, which the engine would not allow anyway.
     cancelPlace: () => {
       this.arming = null
@@ -1173,7 +1173,7 @@ export class App {
    * wrong on. Mid-animation is the interesting one: the beat after a guess lands
    * is true the instant the guess is recorded, and showing it then would put the
    * card's `chips × mult = score` on screen several seconds before the tiles
-   * finish turning over to reveal it — the arithmetic spoiled ahead of the thing
+   * finish turning over to reveal it, the arithmetic spoiled ahead of the thing
    * it is describing.
    */
   private get coach(): CoachStep | null {
@@ -1185,14 +1185,14 @@ export class App {
    * Mark the anchor the card is talking about.
    *
    * Run after the render rather than inside the views, because the anchor is a
-   * selector into a screen that does not exist until the render has finished —
+   * selector into a screen that does not exist until the render has finished,
    * and because the thing being marked belongs to another view entirely. The
    * card is over the board; the `?` it names is in the readout, and the score it
    * names is up in the HUD. Nothing else on the screen ties two views together,
    * so nothing else needs the class threaded through both.
    *
    * Clearing first covers the patch path, where the previous beat's anchor is
-   * still lit and is very often a different element — typing the first letter
+   * still lit and is very often a different element: typing the first letter
    * moves the card from the readout as a whole to the chip count inside it.
    */
   private lightCoach(): void {
@@ -1207,8 +1207,8 @@ export class App {
     const phase = as ?? this.state.phase
     // Checked here rather than beside the card, and it is deliberately the wider
     // question of the two: `coach` goes quiet on plenty of screens the tutorial
-    // has not finished with — a sheet, the intro card, the scoring animation —
-    // and retiring it on any of those would end it early. This asks whether the
+    // has not finished with, such as a sheet, the intro card or the scoring
+    // animation, and retiring it on any of those would end it early. This asks whether the
     // round it lives in has gone past it for good, which only a run can answer,
     // so the title screen's scaffolding run is excluded rather than consulted.
     if (this.coachOwed && !this.atTitle && coachSpent(this.state)) {
@@ -1260,7 +1260,7 @@ export class App {
                   : this.overlay === "ascend"
                     ? ascendView(this.ascendTo, this.handlers)
                     : // Both are held decisions the engine will not let the shop move
-                      // past, and the two cannot be open at once — buying is refused
+                      // past, and the two cannot be open at once, since buying is refused
                       // while either is. Order is arbitrary; only exclusivity matters.
                       (placeView(this.state, this.handlers, this.arming) ??
                       packView(this.state, this.handlers))
@@ -1277,12 +1277,12 @@ export class App {
    *
    * `.grid-wrap` is a size container and `.grid` takes its width and its
    * font-size from `cqh`/`cqw`, so the board cannot be styled until the wrap has
-   * been measured — and a wrap this render built has not been. On Gecko the
+   * been measured, and a wrap this render built has not been. On Gecko the
    * first pass over the new board finds no container to ask, drops both `cq`
    * declarations as unresolvable and lands on the fallbacks underneath them:
    * `width: 100%` at `font-size: 1.25rem`. Measured at 360×800, which is what
    * most Android phones report, that is 344×413 where the board is 337×404, with
-   * 20px letters where they should be 30.3px — a board seven pixels wider and
+   * 20px letters where they should be 30.3px: a board seven pixels wider and
    * nine taller than the one beside it a frame ago, with the letters visibly
    * jumping inside it. A second pass corrects it. On a desktop both land in the
    * same frame and nothing shows; on a phone the correction arrives late, and
@@ -1293,26 +1293,26 @@ export class App {
    * It was reported against the decoration switch, which is the cleanest case
    * there is: it toggles two classes on the document root, everything those
    * classes hide is absolutely positioned or drawn inside a fixed box, so not
-   * one thing on the round screen changes size — and the board jumped anyway.
+   * one thing on the round screen changes size, and the board jumped anyway.
    * That is the tell that the trigger is the rebuild rather than anything being
    * rebuilt.
    *
    * So the container is the one node the rebuild is not allowed to have. It is
    * emptied and refilled with this render's own board, and the rest of the
-   * screen is spliced in around it, which leaves it holding a frame — and so a
-   * size worth reading — from one render to the next. Nothing else is kept:
+   * screen is spliced in around it, which leaves it holding a frame, and so a
+   * size worth reading, from one render to the next. Nothing else is kept:
    * every other node is thrown away as before, views still build from scratch,
    * and none of them need to know this happens.
    *
    * Reusing it is safe because it holds nothing worth rebuilding. It carries no
-   * listeners, no attributes but its class, and — this is the part that makes it
-   * work rather than merely tidy — its size cannot depend on what is inside it,
+   * listeners, no attributes but its class, and, the part that makes it work
+   * rather than merely tidy, its size cannot depend on what is inside it,
    * because that is what `container-type: size` means. The measurement it hands
    * the new board is the one the new board would have been given.
    *
    * Only a round following a round qualifies. A screen change rebuilds the wrap
    * with everything else, so the first frame of a round still resolves against
-   * an unmeasured container — but that is a whole screen arriving, not a board
+   * an unmeasured container, but that is a whole screen arriving, not a board
    * moving under a thumb that is already aiming at it.
    */
   private reuseBoard(view: HTMLElement): boolean {
@@ -1322,10 +1322,10 @@ export class App {
     //
     // Compared on kind rather than on the class string, because the live screen
     // has been on screen and the new one has not, and things happen to screens
-    // that are on screen. `emphasise` is the case that proved it: a guess worth
+    // that are on screen. `emphasize` is the case that proved it: a guess worth
     // half the target puts `shaking` on the screen root for 420ms, and the
     // render that ends the cascade is awaited on `PACE.total`, which is 400.
-    // Twenty milliseconds is not a race, it is a rule — the render lands inside
+    // Twenty milliseconds is not a race, it is a rule: the render lands inside
     // the shake every time, found a class the new view had no reason to carry,
     // and refused the reuse. The board was rebuilt against an unmeasured
     // container on the one guess in the round worth watching, which is both the
@@ -1340,7 +1340,7 @@ export class App {
     // The board is this render's, as it always was. Only the box it is drawn in
     // is last render's.
     kept.replaceChildren(...built.childNodes)
-    // Everything else goes, including any sheet that was open over it — removed
+    // Everything else goes, including any sheet that was open over it, removed
     // one at a time rather than by `replaceChildren`, which would take the kept
     // node out with the rest and put it back afterwards. A node that leaves the
     // document loses the frame this whole exercise is about.
@@ -1360,11 +1360,11 @@ export class App {
   }
 
   /**
-   * Put the keyboard inside the sheet, and keep it there — or, with no sheet
+   * Put the keyboard inside the sheet, and keep it there, or, with no sheet
    * open, hand the board's focus back to the control that had it.
    *
    * Called after every render rather than only on the one that opened the sheet,
-   * because a render throws the whole screen away and builds a new one — the
+   * because a render throws the whole screen away and builds a new one. The
    * focused node goes in the bin with it, and without this the tab order silently
    * resets to the top of the document behind the backdrop on every action.
    *
@@ -1399,8 +1399,8 @@ export class App {
    *
    * Off the states rather than off the events, because none of these have an
    * event of their own and inventing four would be putting the profile's
-   * questions into the engine's vocabulary. What the record wants to know —
-   * which guess found the word, whether a relic is new to the tray — is a
+   * questions into the engine's vocabulary. What the record wants to know,
+   * which guess found the word and whether a relic is new to the tray, is a
    * difference between two runs, and both runs are right here.
    */
   private tally(before: RunState): void {
@@ -1459,7 +1459,7 @@ export class App {
         // to, and preventing them here is what made "Quit run" unreachable
         // without a mouse: the trap would walk focus onto it and neither key
         // would fire. So the swallow stops short of the two keys that are an
-        // activation, and only when focus is inside the sheet — with focus
+        // activation, and only when focus is inside the sheet. With focus
         // anywhere else Space is a page scroll behind the backdrop, which is
         // the thing modality is for.
         const focused = document.activeElement
@@ -1477,9 +1477,9 @@ export class App {
       //
       // Without this, Enter on the tabbed-to switch never reaches the button at
       // all: the round below takes it, `preventDefault` cancels the click the
-      // browser was about to synthesise from it, and a keypress the player aimed
+      // browser was about to synthesize from it, and a keypress the player aimed
       // at a switch submits their guess instead. Space happened to work, because
-      // the board has no use for Space and lets it fall through — so the switch
+      // the board has no use for Space and lets it fall through, so the switch
       // answered one of the two keys that mean "press this" and silently did
       // something else with the other.
       //
@@ -1495,11 +1495,11 @@ export class App {
         return
       }
       // A modifier in hand asks a letter question, and this is where letters
-      // come from — the one thing outside a round a keypress can answer.
+      // come from: the one thing outside a round a keypress can answer.
       if (this.state.placing) {
         // Escape is the keyboard's Keep button. It is only bound while a
         // replacement is armed, because that is the only moment this sheet has
-        // anything to back out of — the modifier itself is bought and the engine
+        // anything to back out of. The modifier itself is bought and the engine
         // will not take it back, so an Escape at the bare picker would be a key
         // that looks like a way out and is not.
         if (this.arming && event.key === "Escape") {
@@ -1525,7 +1525,7 @@ export class App {
       // way you wanted, you type a word into the round the ordinary way, and
       // Enter presses the button still quietly holding focus instead of playing
       // the guess. Handing focus back to the body is also where the board wants
-      // it — every key the game reads is bound to `window`.
+      // it: every key the game reads is bound to `window`.
       //
       // Spelled out as the two keys that edit a guess rather than as "anything
       // that got this far", because Tab gets this far too, and blurring on the
@@ -1534,7 +1534,7 @@ export class App {
       //
       // A card tabbed to for its tip is the same statement read the other way.
       // The tip goes down with the focus that opened it, and it has to: a guess
-      // typed a letter at a time never rebuilds the screen — see `patchDraft` —
+      // typed a letter at a time never rebuilds the screen (see `patchDraft`),
       // so a panel left open over the board would stay there until Enter.
       const typing = event.key === "Backspace" || /^[a-zA-Z]$/.test(event.key)
       if (
@@ -1559,7 +1559,7 @@ export class App {
  * Everything in a sheet a Tab can land on, in the order Tab would visit it.
  *
  * Disabled buttons are excluded because the browser skips them anyway, and a
- * trap that thinks a disabled button is the last stop would wrap early — the
+ * trap that thinks a disabled button is the last stop would wrap early, and the
  * quit sheet and the shop both carry buttons that disable themselves.
  */
 const focusableIn = (sheet: HTMLElement): HTMLElement[] => [
@@ -1572,7 +1572,7 @@ const focusableIn = (sheet: HTMLElement): HTMLElement[] => [
  * Keep Tab inside the open sheet.
  *
  * Without this, tabbing off the last button walks into the screen *behind* the
- * backdrop — buttons that are visible, pressable, and were supposed to be
+ * backdrop, onto buttons that are visible, pressable, and were supposed to be
  * unreachable until the sheet was dealt with. The wrap is the whole of what
  * makes a sheet modal to a keyboard rather than only to a mouse.
  */
@@ -1611,8 +1611,8 @@ function clearSave(): void {
  * A class on the root element rather than a flag threaded through the views,
  * for two reasons. The screen is rebuilt from scratch on every render, so
  * anything the views had to remember would have to be passed to all of them;
- * and what this hides is entirely presentational — a pip is still a pip, it is
- * just not being drawn — so the stylesheet is where the decision belongs. The
+ * and what this hides is entirely presentational, since a pip is still a pip and
+ * is just not being drawn, so the stylesheet is where the decision belongs. The
  * classes cover the keyboard, the board and any decoration added later, without
  * any of them being told the setting exists.
  */
@@ -1630,8 +1630,8 @@ function loadDecor(): Decor {
  * the other: `quiet` is the middle state's rules, `plain` is the bare board's,
  * and exactly one of them is on at a time.
  *
- * The nesting version — `plain` always accompanied by `quiet`, since the bare
- * board hides a superset — spreads one state across two selectors and leaves the
+ * The nesting version, with `plain` always accompanied by `quiet` since the bare
+ * board hides a superset, spreads one state across two selectors and leaves the
  * stylesheet depending on this function to keep setting both. Independent
  * classes cost a repeated `display: none` and make each block readable on its
  * own, which is what a rule you have to check against a screenshot needs to be.

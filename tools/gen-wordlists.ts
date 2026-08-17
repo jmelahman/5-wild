@@ -2,7 +2,7 @@
  * Regenerates public/words/{answers,allowed}.txt.
  *
  * Run with `node tools/gen-wordlists.ts` (Node strips the types natively).
- * Outputs are committed, so this runs rarely — but every source is pinned to a
+ * Outputs are committed, so this runs rarely, but every source is pinned to a
  * commit SHA so re-running it produces byte-identical files rather than
  * silently drifting with upstream.
  *
@@ -70,12 +70,12 @@ const allowed = [...new Set(lines(alphaRaw).filter(isTarget))].sort()
 // dictionary, which stores proper nouns capitalized and no other language at all.
 //
 // That dictionary lists only lemmas, so we try a few obvious suffix strips
-// before giving up — otherwise ZONES and TRIED would fail on a technicality.
+// before giving up, or ZONES and TRIED would fail on a technicality.
 // It is SCOWL's *small* list, so the rule is imperfect in one direction: about
 // twenty real words (ALIVE, TEETH, DEPOT, INPUT) get rejected too, along with
 // British spellings, which is arguably correct for a US-spelling answer set.
-// We accept that. Losing a word here only means it is never the secret word —
-// it is still a legal guess — whereas letting ALICE through is a round the
+// We accept that. Losing a word here only means it is never the secret word,
+// and it is still a legal guess, whereas letting ALICE through is a round the
 // player cannot reason their way to.
 const lemmas = new Set<string>()
 for (const line of hunspellRaw.split("\n")) {
@@ -117,8 +117,8 @@ const isEnglish = (w: string) => stems(w).some((s) => lemmas.has(s))
  *   BOX   + es  -> BOXES     the sibilant plural
  *   TRY -> TRIES             the y-plural
  *
- * A double S ending is never one of these — the plural of a word ending in S is
- * spelled ES — so GRASS, BLESS and CROSS are answers and always were.
+ * A double S ending is never one of these: the plural of a word ending in S is
+ * spelled ES, so GRASS, BLESS and CROSS are answers and always were.
  *
  * Judged against the hunspell lemmas rather than against `allowed`, which holds
  * only five-letter words and could not answer the question at all. Being the
@@ -134,7 +134,7 @@ function isPlural(w: string): boolean {
 }
 
 // Answers are the intersection of "allowed", "common" and "English", ranked by
-// corpus frequency. Unlike guesses, these ARE filtered for slurs — nobody wants
+// corpus frequency. Unlike guesses, these ARE filtered for slurs, since nobody wants
 // one as the secret word. The block list holds lemmas, so it gets the same stem
 // treatment; matching it literally lets RAPES and CUNTS straight through.
 // Substring matching would catch those too, but it also eats GRAPE and SPOON.

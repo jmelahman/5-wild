@@ -23,7 +23,7 @@ const words: WordSource = {
 const freshState = (): RunState => startRun(1, words).state
 
 describe("the alphabet ranges", () => {
-  it("partitions the alphabet — every letter in exactly one range", () => {
+  it("partitions the alphabet, every letter in exactly one range", () => {
     const seen = new Map<string, string>()
     for (const range of RANGES) {
       for (const letter of range.letters) {
@@ -62,7 +62,7 @@ describe("the alphabet ranges", () => {
   })
 })
 
-describe("levelling a range", () => {
+describe("leveling a range", () => {
   it("starts every range at level one", () => {
     const state = freshState()
     for (const range of RANGES) expect(rangeLevelOf(state, range.id)).toBe(1)
@@ -100,8 +100,8 @@ describe("levelling a range", () => {
   })
 
   it("stacks with an etching on the same letter", () => {
-    // The two lines crosscut on purpose — A–E holds vowels and consonants, and
-    // Etch Vowels reaches into all four ranges — so a letter can collect from
+    // The two lines crosscut on purpose: A–E holds vowels and consonants, and
+    // Etch Vowels reaches into all four ranges, so a letter can collect from
     // both and neither can dominate the other.
     const state = freshState()
     state.ranges = { range_ae: 2 }

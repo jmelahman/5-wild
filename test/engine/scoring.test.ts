@@ -59,7 +59,7 @@ describe("guess scoring", () => {
   /*
    * The rule that pays for the whole design: solving late on a fat pile beats
    * solving early on an empty one, but only up to the point where the shrinking
-   * multiplier eats the gain. Both lines below solve — one banks first.
+   * multiplier eats the gain. Both lines below solve; one banks first.
    */
   it("multiplies everything banked this round, not just the solving guess", () => {
     const early = play(start, "braid")
@@ -119,7 +119,7 @@ describe("guess scoring", () => {
       )
 
     it("counts the letters as they are typed", () => {
-      // Q, then QU, then the whole of QUAZY — 10, 11, 26.
+      // Q, then QU, then the whole of QUAZY: 10, 11, 26.
       expect(draftChips(start, "")).toBe(0)
       expect(draftChips(start, "q")).toBe(10)
       expect(draftChips(start, "qu")).toBe(11)
@@ -137,7 +137,7 @@ describe("guess scoring", () => {
 
     it("prices the letters the way the boss in play will", () => {
       // The Drought pays nothing for vowels, and says so before the guess is
-      // spent rather than after — which is the whole reason the boss hook is
+      // spent rather than after, which is the whole reason the boss hook is
       // consulted here instead of the raw letter values being summed.
       const drought = { ...start, round: { ...start.round, bossId: "drought" } }
       expect(draftChips(drought, "quazy")).toBe(24)
@@ -192,8 +192,8 @@ describe("guess scoring", () => {
 
     /*
      * The columns against the row they add up to, which is what the tip sets
-     * one beside the other. Chips are exactly attributable — every one of the
-     * 26 came from a letter — and the mult column carries the colours: one
+     * one beside the other. Chips are exactly attributable, since every one of
+     * the 26 came from a letter, and the mult column carries the colors: one
      * green in QUAZY, so 3 of the row's 4, the missing 1 being the mult every
      * row starts with and no letter earns.
      */
@@ -216,8 +216,8 @@ describe("guess scoring", () => {
     })
 
     /*
-     * A ×mult card has no worth of its own — it is worth whatever was standing
-     * in front of it — so the column records what the row actually gained where
+     * A ×mult card has no worth of its own. It is worth whatever was standing
+     * in front of it, so the column records what the row actually gained where
      * it fired. Steel on CRANE's first tile doubles a mult of 1, and a 1 is what
      * goes down; the same card on the last tile would record 8.
      */
@@ -234,7 +234,7 @@ describe("guess scoring", () => {
     /*
      * The whole reason this is a record and not a calculation. The Miser prices
      * a letter by whether the round has already spent it, so asking again after
-     * the fact answers about a different round — by the second guess every
+     * the fact answers about a different round: by the second guess every
      * letter of the first has been spent, and a re-derived first row would
      * report the 0 chips it would score *now* instead of the 26 it scored.
      */
@@ -261,7 +261,7 @@ describe("guess scoring", () => {
     /*
      * The other unrecoverable one, and the subtler of the two: a card that was
      * asked and declined leaves nothing behind. Anchor is the deterministic
-     * version of Lucky's problem — it wanted a green and this tile is gray — and
+     * version of Lucky's problem, wanting a green where this tile is gray, and
      * the silence it leaves has to be told apart from The Vandal's, which is why
      * the two are asserted side by side.
      */

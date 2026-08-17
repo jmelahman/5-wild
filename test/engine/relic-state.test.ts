@@ -9,8 +9,8 @@ import { RELIC_BY_ID, reduce, startRun } from "../../src/engine"
  * `RELICS` would shift what the shop rolls and move every golden vector, which
  * would cost this phase the one guarantee that proves it is a pure refactor.
  *
- * So the fixtures go into `RELIC_BY_ID` only — the map scoring and the reducer
- * look relics up in — and never into `RELICS`, which is what the shop reads.
+ * So the fixtures go into `RELIC_BY_ID` only, the map scoring and the reducer
+ * look relics up in, and never into `RELICS`, which is what the shop reads.
  */
 
 const words: WordSource = {
@@ -153,7 +153,7 @@ describe("the relic roll", () => {
   })
 
   it("gives the tile and guess hooks separate streams", () => {
-    // Same slot, same guess — the two coordinates differ only in length, so this
+    // Same slot, same guess. The two coordinates differ only in length, so this
     // is the case a naive derive() key would collide on.
     const data = withFixture("test_roller", "crane").relics[0]?.data
     expect(data?.tileRoll).toBeDefined()

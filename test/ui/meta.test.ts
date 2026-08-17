@@ -3,8 +3,8 @@ import { MAX_ASCENSION } from "../../src/engine"
 import type { MetaState } from "../../src/ui/meta"
 import {
   chosenAscension,
-  favouriteRelics,
-  favouriteWord,
+  favoriteRelics,
+  favoriteWord,
   isLocked,
   loadMeta,
   meanSolve,
@@ -20,7 +20,7 @@ const KEY = "5wild:meta:v2"
  * A store, standing in for the browser's.
  *
  * The tests run in node, where there is no `localStorage` to lean on, and the
- * point of this module is what it does with one — including what it does with
+ * point of this module is what it does with one, including what it does with
  * one that has stopped cooperating, which no real store will do on demand.
  */
 class FakeStorage {
@@ -147,7 +147,7 @@ describe("keeping the record", () => {
     profile.won(0)
     expect(profile.stats).toMatchObject({ wins: 1, cleared: 0 })
     // A second win at an easier level is still a win, but it does not un-clear
-    // the harder one — `cleared` is a high-water mark, not a last-seen.
+    // the harder one: `cleared` is a high-water mark, not a last-seen.
     profile.won(3)
     profile.won(1)
     expect(profile.stats).toMatchObject({ wins: 3, cleared: 3 })
@@ -185,7 +185,7 @@ describe("what the ladder offers", () => {
   const meta = (change: Partial<MetaState>): MetaState => ({ ...FRESH, ...change })
 
   it("has earned nothing until the game has been won once", () => {
-    // The dial is still on the title screen — every rung is reachable — but
+    // The dial is still on the title screen and every rung is reachable, but
     // nothing above the ordinary game has been climbed to yet.
     expect(unlocked(FRESH)).toBe(0)
     expect(chosenAscension(FRESH)).toBe(0)
@@ -235,11 +235,11 @@ describe("what the runs added up to", () => {
     for (const word of ["crane", "slate", "crane"]) profile.guessed(word)
     expect(profile.stats.guesses).toBe(3)
     expect(profile.stats.words).toEqual({ crane: 2, slate: 1 })
-    expect(favouriteWord(profile.stats)).toEqual({ word: "crane", count: 2 })
+    expect(favoriteWord(profile.stats)).toEqual({ word: "crane", count: 2 })
   })
 
-  it("has no favourite before anything has been played", () => {
-    expect(favouriteWord(loadMeta())).toBeNull()
+  it("has no favorite before anything has been played", () => {
+    expect(favoriteWord(loadMeta())).toBeNull()
   })
 
   it("never lets the word table outgrow its cap", () => {
@@ -252,14 +252,14 @@ describe("what the runs added up to", () => {
     expect(profile.stats.guesses).toBe(200)
   })
 
-  it("finds the real favourite even when it started late", () => {
+  it("finds the real favorite even when it started late", () => {
     // The failure a naive top-N has: fill the table with one-offs first, so a
     // newcomer's count of 1 can never beat an incumbent's, and the table freezes
     // on the first words ever typed. Space-Saving lets the newcomer in.
     const profile = new Profile()
     for (let n = 0; n < 60; n++) profile.guessed(`w${n.toString().padStart(4, "0")}`)
     for (let n = 0; n < 40; n++) profile.guessed("crane")
-    expect(favouriteWord(profile.stats)?.word).toBe("crane")
+    expect(favoriteWord(profile.stats)?.word).toBe("crane")
   })
 
   it("breaks a tie the same way twice", () => {
@@ -267,8 +267,8 @@ describe("what the runs added up to", () => {
     profile.guessed("slate")
     profile.guessed("crane")
     // Alphabetical, not whichever key `Object.entries` happens to hand back
-    // first — the screen should not change its mind between renders.
-    expect(favouriteWord(profile.stats)?.word).toBe("crane")
+    // first, since the screen should not change its mind between renders.
+    expect(favoriteWord(profile.stats)?.word).toBe("crane")
   })
 
   it("counts a solve under the guess that found it", () => {
@@ -364,7 +364,7 @@ describe("what the runs added up to", () => {
   it("ranks the relics by how often they were taken", () => {
     const profile = new Profile()
     for (const id of ["snowball", "banker", "snowball", "banker", "snowball"]) profile.took(id)
-    expect(favouriteRelics(profile.stats)).toEqual([
+    expect(favoriteRelics(profile.stats)).toEqual([
       { id: "snowball", count: 3 },
       { id: "banker", count: 2 },
     ])
@@ -407,9 +407,9 @@ describe("salvaging the longer record", () => {
     store.items.set(KEY, JSON.stringify({ words: bloated, relics: bloated }))
     const meta = loadMeta()
     expect(Object.keys(meta.words).length).toBe(24)
-    expect(favouriteWord(meta)).toEqual({ word: "w0089", count: 90 })
-    // The relic map is bounded by the catalogue, so it is left alone — a relic
-    // no longer in the game should still be able to have been a favourite.
+    expect(favoriteWord(meta)).toEqual({ word: "w0089", count: 90 })
+    // The relic map is bounded by the catalog, so it is left alone. A relic
+    // no longer in the game should still be able to have been a favorite.
     expect(Object.keys(meta.relics).length).toBe(90)
   })
 

@@ -4,7 +4,7 @@ import { App, loadSave } from "./ui/app"
 
 /**
  * The shell. Its whole job is to load the two things the engine refuses to
- * load itself — the word lists — and hand them to a pure state machine.
+ * load itself, the word lists, and hand them to a pure state machine.
  */
 
 const app = document.querySelector<HTMLDivElement>("#app")

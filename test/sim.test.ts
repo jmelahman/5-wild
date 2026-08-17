@@ -4,18 +4,18 @@
  * The golden vectors pin what the rules *compute*; this asks what they are
  * *like* to play, which is a different question and until now an unasked one.
  * Every scenario that writes a vector types `state.round.answer`, so no test in
- * this repo has ever exercised a run that had to find the word — and "is stage 6
+ * this repo has ever exercised a run that had to find the word, and "is stage 6
  * too steep" is exactly a question about finding the word.
  *
  * Two modes, on the same shape as `golden.test.ts`:
  *
- *   npm test        a dozen seeds, asserted loosely — a smoke alarm for a
+ *   npm test        a dozen seeds, asserted loosely: a smoke alarm for a
  *                   balance edit that made the game unwinnable or trivial
  *   npm run sim     a few hundred seeds, printed as a report
  *
  * The assertions are deliberately a wide band rather than a number. A tight one
  * would be a balance expectation pinned in a test nobody thinks of as a balance
- * test, which is the failure mode CLAUDE.md warns about — a shelf reshuffle
+ * test, which is the failure mode CLAUDE.md warns about. A shelf reshuffle
  * would break it on seeds nobody was thinking about, and the repair would be to
  * renumber it, which teaches nothing.
  */
@@ -48,7 +48,7 @@ type Outcome = {
    * Rounds banked, and how many of those were banked by finding the word.
    *
    * Two numbers rather than one because `reduce.ts:220` fails a round on
-   * `score < target` — finding the word is not what clears it at ascension
+   * `score < target`. Finding the word is not what clears it at ascension
    * zero, reaching the number is. So a player can bank a round it never solved,
    * and the gap between these two columns is the income line actually being
    * played rather than described.
@@ -75,7 +75,7 @@ function play(seed: number, policy: Policy, words: WordSource): Outcome {
       const wasRewarding = state.phase === "reward"
       const next = reduce(state, action, words).state
       if (next.round.guesses.length > before) guesses++
-      // A round is banked when the phase turns to reward — the same edge
+      // A round is banked when the phase turns to reward, the same edge
       // `replay` watches for. Read before the action, because clearing a round
       // swaps the round out from under the question.
       if (!wasRewarding && next.phase === "reward") {
@@ -164,7 +164,7 @@ describe("blind simulation", () => {
     /*
      * The band, not the number. Clearing more than one round per run is a floor
      * so far under either policy's real figure that only a broken rule reaches
-     * it — a word class refused, feedback that stopped meaning what it says, a
+     * it: a word class refused, feedback that stopped meaning what it says, a
      * target curve off by an order of magnitude. It is deliberately not a
      * measurement of the curve, because a test that measured the curve would
      * have to be renumbered every time the curve moved on purpose.

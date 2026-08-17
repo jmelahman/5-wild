@@ -4,16 +4,16 @@ import { clampAscension, MAX_ASCENSION } from "../engine"
  * Its own key, so a run save that goes bad cannot take the record with it.
  *
  * v2 because the ascension ladder was renumbered under it. `cleared` is a level
- * and a level is a name — a stored 6 used to mean "won under Finish It" and now
+ * and a level is a name. A stored 6 used to mean "won under Finish It" and now
  * means "won under Lean Years", which is four rungs easier. Nothing in the file
  * says which build wrote it, so the only honest reading of the old one is none:
  * the bump resets every record rather than silently promoting players past four
  * rules they have never played. Everything else in here is a counter and would
- * have survived, which is the trade — a v2 key costs the tallies too.
+ * have survived, which is the trade: a v2 key costs the tallies too.
  *
  * It stayed v2 through the next renumbering, and the difference is the whole
  * rule for when this key moves. Replacing `Five` with `Dead Weight` changed what
- * 9 and 10 name, exactly as before — but it changed them *downward*. Old 9 and
+ * 9 and 10 name, exactly as before, but it changed them *downward*. Old 9 and
  * old 10 were strictly harder than the levels now wearing those numbers, so a
  * record written by that build understates what its player can do and cannot
  * promote anyone past anything. The test is not "did a level change meaning" but
@@ -27,7 +27,7 @@ const META_KEY = "5wild:meta:v2"
  * What outlives a run.
  *
  * A run is a closed world: it starts at stage 1 with four gold and ends when it
- * ends, and `RunState` is complete on its own. This is the other thing — the
+ * ends, and `RunState` is complete on its own. This is the other thing: the
  * player, across all of them. It lives in the UI layer for the same reason the
  * save does: `src/engine` must not know a browser exists. An ascension is an
  * *input* to `startRun`, and this is what remembers which one has been earned
@@ -44,7 +44,7 @@ export type MetaState = {
    * The highest ascension a run has been won at, or -1 when none has.
    *
    * -1 rather than 0 because ascension 0 is the ordinary game, and "won it once"
-   * has to be tellable from "never has" — that difference is the whole unlock.
+   * has to be tellable from "never has", and that difference is the whole unlock.
    */
   cleared: number
   /**
@@ -57,7 +57,7 @@ export type MetaState = {
   /** Guesses submitted, ever. The denominator the word tally is read against. */
   guesses: number
   /**
-   * Rounds whose answer was found, counted by which guess found it — so
+   * Rounds whose answer was found, counted by which guess found it, so
    * `solves[4]` is "cracked it on the fourth". Index 0 is always zero and index
    * 1 is the lucky ones; the array is indexed by guess number rather than by
    * `n - 1` so that a glance at the stored JSON reads straight.
@@ -86,15 +86,15 @@ export type MetaState = {
    * The one growing field, and the only one that earns it: it is bounded by the
    * answer list rather than by play, so a player who cracked every word in the
    * game has a 2,300-entry array and no way to make it longer. It is also the
-   * one collection this game has — "which words have I beaten" is a question
+   * one collection this game has. "Which words have I beaten" is a question
    * worth a screen, and it cannot be answered by a counter.
    */
   cracked: string[]
   /**
-   * How often the most-played words have been played. Capped — see `tally`.
+   * How often the most-played words have been played. Capped; see `tally`.
    */
   words: Record<string, number>
-  /** How often each relic has been taken. Bounded by the catalogue. */
+  /** How often each relic has been taken. Bounded by the catalog. */
   relics: Record<string, number>
 }
 
@@ -117,7 +117,7 @@ const FRESH: MetaState = {
 /**
  * How many words the tally keeps counts for.
  *
- * Small on purpose. The alternative — a count for every word ever typed — tops
+ * Small on purpose. The alternative, a count for every word ever typed, tops
  * out near sixteen thousand entries, grows with play rather than with content,
  * and is rewritten on every guess. This is the one field on the hot path, so it
  * is the one field that is not allowed to grow.
@@ -130,8 +130,8 @@ const GUESS_CAP = 12
 /**
  * The hardest level actually *earned*: one past the hardest ever won.
  *
- * Zero for a player who has never won. It is no longer a gate — every rung of
- * the ladder can be dialled in from the first launch — but it is still the line
+ * Zero for a player who has never won. It is no longer a gate, since every rung
+ * of the ladder can be dialed in from the first launch, but it is still the line
  * between the climb as it was designed and a leap past it, which is what the
  * title screen warns about.
  */
@@ -146,8 +146,8 @@ export const isLocked = (meta: MetaState, level: number): boolean => level > unl
  * Clamped to the ladder but not to what has been won: a player who wants to open
  * with ascension 6 is allowed to, and gets told on the way that the rungs below
  * it are there for a reason. Clamping happens on the way out rather than on the
- * way in, so a record carrying a level this build no longer offers — a shorter
- * ladder — reads as the nearest legal one instead of refusing to start a run.
+ * way in, so a record carrying a level this build no longer offers, from a
+ * shorter ladder, reads as the nearest legal one instead of refusing to start a run.
  */
 export const chosenAscension = (meta: MetaState): number => clampAscension(meta.ascension)
 
@@ -163,7 +163,7 @@ export const roundsPlayed = (meta: MetaState): number => meta.missed + wordsFoun
  *
  * The number the distribution has always implied and never said. A player reads
  * five bars and comes away with an impression; this is the impression as a
- * figure, and it is the one that moves when they get better at the game — the
+ * figure, and it is the one that moves when they get better at the game. The
  * bars can look much the same while the weight shifts a column to the left.
  *
  * Averaged over solves and not over rounds, so a round where the word never came
@@ -177,15 +177,15 @@ export function meanSolve(meta: MetaState): number | null {
 }
 
 /**
- * The word played most, and how often — or null before anything has been.
+ * The word played most, and how often, or null before anything has been.
  *
  * The count is exact for any word that was in the tally before it filled up,
  * which is every word a player types habitually. A word that arrived after the
  * cap was reached inherits the count of whatever it displaced, so it can read
  * high; that is the price of a fixed-size table, and it is paid by words nobody
- * would call their favourite.
+ * would call their favorite.
  */
-export function favouriteWord(meta: MetaState): { word: string; count: number } | null {
+export function favoriteWord(meta: MetaState): { word: string; count: number } | null {
   let best: { word: string; count: number } | null = null
   for (const [word, count] of Object.entries(meta.words)) {
     // Ties break alphabetically rather than by insertion order, so the answer
@@ -198,7 +198,7 @@ export function favouriteWord(meta: MetaState): { word: string; count: number } 
 }
 
 /** Relics by how often they have been taken, most-taken first. */
-export const favouriteRelics = (meta: MetaState): { id: string; count: number }[] =>
+export const favoriteRelics = (meta: MetaState): { id: string; count: number }[] =>
   Object.entries(meta.relics)
     .map(([id, count]) => ({ id, count }))
     .sort((a, b) => b.count - a.count || a.id.localeCompare(b.id))
@@ -208,13 +208,12 @@ export const favouriteRelics = (meta: MetaState): { id: string; count: number }[
  *
  * This is Space-Saving: a newcomer arriving at a full table evicts the weakest
  * entry and *inherits its count* rather than starting from one. Which sounds
- * like cheating, and is exactly what makes the table trustworthy — a word can
+ * like cheating, and is exactly what makes the table trustworthy: a word can
  * only be pushed out by something at least as common, so anything played more
  * than one part in `WORD_SLOTS` of the time is guaranteed to still be here. The
  * question the screen asks is "what do I play most", and this answers it
- * correctly while a naive top-24 — which would freeze on the first 24 words
- * ever typed, since a newcomer's count of 1 never beats an incumbent's — would
- * not.
+ * correctly, where a naive top-24 would not: that one would freeze on the first
+ * 24 words ever typed, since a newcomer's count of 1 never beats an incumbent's.
  */
 function tally(words: Readonly<Record<string, number>>, word: string): Record<string, number> {
   const next = { ...words }
@@ -275,7 +274,7 @@ export class Profile {
    * A round's answer found, on the `guesses`th try.
    *
    * The word goes in the collection whether or not the round was then won on
-   * score — cracking it is the thing being remembered, and a player who found
+   * score, since cracking it is the thing being remembered, and a player who found
    * the word and still fell short of the target found the word.
    */
   solved(answer: string, guesses: number): void {
@@ -328,7 +327,7 @@ export class Profile {
  * anybody can play. This is the opposite kind of object: a handful of
  * independent counters, where one field arriving as garbage is no reason to
  * forget the rest. So each is taken if it is sane and defaulted if it is not,
- * and a build that adds a field later — as the ascension one was — reads older
+ * and a build that adds a field later, as the ascension one was, reads older
  * records as zero on it rather than as absent.
  */
 export function loadMeta(): MetaState {
@@ -383,8 +382,8 @@ const counts = (value: unknown): number[] =>
  * The trim is what stops a record hand-edited or written by a build with a
  * bigger cap from reintroducing the unbounded map this was built to avoid.
  * Nothing is trimmed when `slots` is left off, which is right for the relic
- * map: it is bounded by the catalogue, and a relic retired from the game should
- * still be able to say it was somebody's favourite.
+ * map: it is bounded by the catalog, and a relic retired from the game should
+ * still be able to say it was somebody's favorite.
  */
 function table(value: unknown, slots?: number): Record<string, number> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return {}

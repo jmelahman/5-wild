@@ -2,7 +2,7 @@
  * Seeded randomness.
  *
  * JavaScript has no seeded PRNG in its standard library, and everything random
- * in this game — the answer, the shop, the boss order — has to replay
+ * in this game, the answer and the shop and the boss order, has to replay
  * identically from a saved run and from a golden test vector. So we carry our
  * own, and the engine never touches Math.random.
  */
@@ -41,13 +41,13 @@ function xmur3(str: string): () => number {
 /**
  * One root seed per run; every consumer derives an independent sub-stream from
  * a coordinate. `derive(seed, "word", 3, 1)` always yields the same stream, so
- * rerolling the shop cannot shift which word stage 3 gets — the streams do not
+ * rerolling the shop cannot shift which word stage 3 gets: the streams do not
  * share a cursor. That independence is what makes save/resume and the golden
  * vectors work without storing any PRNG state.
  *
  * Which makes the string coordinates *content*, not names. They are hashed, so
  * `"joker"` and `"relic"` are different streams and every seed in existence
- * would deal itself a different run if one became the other — a balance change
+ * would deal itself a different run if one became the other, a balance change
  * wearing a rename's clothes. Three literals still spell the old vocabulary for
  * exactly that reason (`"joker"` in `scoring.ts`, `"blind_start"` and
  * `"blind_end"` in `reduce.ts`), and they are frozen. Rename them only as a

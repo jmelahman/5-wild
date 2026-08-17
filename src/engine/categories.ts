@@ -7,13 +7,13 @@ import type { RunState } from "./state"
  * Balatro scores a hand as exactly one of Pair, Two Pair, Flush, and lets Planet
  * cards level those types so a build's chosen hand compounds across a run. This
  * is the same idea over words. A guess is a Cluster or a Twin or a Distinct, and
- * levelling that category raises what every future guess of that shape is worth.
+ * leveling that category raises what every future guess of that shape is worth.
  *
  * It exists because of what the build rubric found: **nothing in this game scales
  * across a run** while round targets multiply by 2.2× per stage. Relics pay a flat
  * amount forever, modifiers pay a flat amount forever, etchings pay a flat amount
  * forever. Levels are the first thing that grows, and because they land on the
- * base — before the ×mult relics fire — a levelled category is worth more to a
+ * base, before the ×mult relics fire, a leveled category is worth more to a
  * build the more that build already multiplies.
  *
  * Level 1 is worth nothing, deliberately. A fresh run scores exactly as it did
@@ -29,7 +29,7 @@ export type Category = {
    * Carried beside the predicate rather than written on the screen that shows
    * it, for the reason the whole content layer is: a shape whose description
    * lives somewhere else drifts away from the shape it describes. This is the
-   * only table where that mattered enough to add a field — a relic says what it
+   * only table where that mattered enough to add a field. A relic says what it
    * does on its own card, but `matches` is a function, and a player who has
    * never seen the source has no way at all to find out what Cluster means.
    */
@@ -40,13 +40,13 @@ export type Category = {
   /**
    * Whether a word is of this shape. Read directly by the relics that were
    * written around these same predicates, and used by `categoryOf` to pick which
-   * one a word scores as — two jobs, one definition, so they cannot drift apart.
+   * one a word scores as: two jobs, one definition, so they cannot drift apart.
    */
   matches: (word: string) => boolean
 }
 
 /**
- * Rarest first, because `categoryOf` takes the first match — so a word that is
+ * Rarest first, because `categoryOf` takes the first match, so a word that is
  * both alphabetical and distinct scores as the harder of the two. Shares over
  * the answer list run roughly 2% / 7% / 20% / 20% / 51%, and the per-level
  * values are graded against exactly that: the rarer the shape, the bigger the
@@ -60,7 +60,7 @@ export const CATEGORIES: readonly Category[] = [
     chips: 40,
     mult: 5,
     // "" sorts below every letter, so the missing predecessor at index 0 is
-    // trivially satisfied — the same thing an index guard would have said.
+    // trivially satisfied, the same thing an index guard would have said.
     matches: (word) => [...word].every((letter, i, all) => letter >= (all[i - 1] ?? "")),
   },
   {
@@ -116,7 +116,7 @@ const DISTINCT = CATEGORIES[CATEGORIES.length - 1] as Category
  * The category a word scores as.
  *
  * Total by construction: the last two entries partition every word between them
- * — a word either repeats a letter or it does not — so the loop always finds
+ * (a word either repeats a letter or it does not), so the loop always finds
  * something and the fallback is unreachable rather than a guess.
  */
 export function categoryOf(word: string): Category {
@@ -130,7 +130,7 @@ export function categoryOf(word: string): Category {
  * Whether a word has a named shape, regardless of which shape it *scores* as.
  *
  * The distinction is the reason both functions exist. A distinct word that also
- * happens to be alphabetical scores as Alphabetical — but Anagrammer still pays
+ * happens to be alphabetical scores as Alphabetical, but Anagrammer still pays
  * for it, because Anagrammer asks whether the letters repeat, not which category
  * won the tie. The relics ask this one; the scoring stage asks `categoryOf`.
  */

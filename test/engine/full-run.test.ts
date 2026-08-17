@@ -16,7 +16,7 @@ const type = (word: string): Action[] => [
 /**
  * A bot that plays the greedy-solve line: guess the answer immediately for the
  * maximum solve bonus, then spend everything on the first thing it can afford.
- * It is not a good player — it never farms chips — but it is a complete one,
+ * It is not a good player, since it never farms chips, but it is a complete one,
  * and it proves the loop runs start to finish without a screen attached.
  */
 function playRun(seed: number): {
@@ -59,7 +59,7 @@ function playRun(seed: number): {
         state = apply(state, [{ type: "next_round" }])
         continue
       }
-      // A buy can be refused — full relic slots, full card slots — and a bot
+      // A buy can be refused, by full relic slots or full card slots, and a bot
       // that cannot tell that from a purchase will shop forever.
       const attempt = reduce(state, { type: "buy", index }, words)
       const refused = attempt.events.some((event) => event.type === "rejected")
@@ -81,7 +81,7 @@ describe("a full run, headless", () => {
   /*
    * The round must always be winnable. The Glutton demands two vowels of every
    * guess and a fifth of the answer list has one, so an unfiltered draw hands
-   * the player a word they are forbidden to type — a round that cannot be
+   * the player a word they are forbidden to type: a round that cannot be
    * solved by any play. Pyromaniac makes this worse: breaking enough letters can
    * empty the pool, and the escape hatch that heals the alphabet must not also
    * drop the boss rule on its way out.
@@ -93,8 +93,8 @@ describe("a full run, headless", () => {
 
   /*
    * The stage's shape is Normal → Elite → Boss, and the boss rule is a large part
-   * of a round's difficulty. A boss leaking onto round 0 or 1 — or missing from
-   * round 2 — silently rewrites the difficulty curve without failing anything
+   * of a round's difficulty. A boss leaking onto round 0 or 1, or missing from
+   * round 2, silently rewrites the difficulty curve without failing anything
    * else, so the placement is asserted rather than assumed.
    */
   it("puts a boss on the third round of an stage and nowhere else", () => {
@@ -102,7 +102,7 @@ describe("a full run, headless", () => {
     expect(misplaced.flat()).toEqual([])
   })
 
-  it("never leaves the state un-serialisable, whatever it accumulated", () => {
+  it("never leaves the state un-serializable, whatever it accumulated", () => {
     const { state } = playRun(2024)
     expect(JSON.parse(JSON.stringify(state))).toEqual(state)
   })
@@ -112,14 +112,14 @@ describe("a full run, headless", () => {
   })
 
   /*
-   * Not a balance assertion — a tripwire, and one that reads the spread rather
+   * Not a balance assertion but a tripwire, and one that reads the spread rather
    * than a handful of seeds.
    *
    * It used to name five seeds and demand every one of them fall short of the
    * full 24. That held by luck: the greedy line wins about one seed in ten, and
    * none of the five happened to be one. Moving Snowball between rarity pools
    * reshuffled every shelf and flipped seed 1 into the winning tenth, which
-   * failed the test without anything about the difficulty having moved — the
+   * failed the test without anything about the difficulty having moved: the
    * measured win rate went 10.0% to 10.3% across 300 runs.
    *
    * So the bound is now on the distribution, which is what was always meant.

@@ -4,7 +4,7 @@ import { loadMeta } from "../../src/ui/meta"
 import { streakLine } from "../../src/ui/views"
 
 /**
- * The record screen is a view and views are not testable here — there is no DOM
+ * The record screen is a view and views are not testable here, since there is no DOM
  * in node. What *is* testable is the sentence the view puts in it, which is why
  * it is a function rather than three ternaries inline: the streak is the one
  * figure on that screen that reads differently depending on where the player
@@ -27,7 +27,7 @@ const record = (over: Partial<MetaState>): MetaState => {
 describe("the streak, in a sentence", () => {
   it("says nothing has been found before anything has", () => {
     expect(streakLine(record({}))).toBe("No answer found yet.")
-    // Rounds played and every one of them missed is still no answer found — the
+    // Rounds played and every one of them missed is still no answer found. The
     // line is about solves, and there are none to report.
     expect(streakLine(record({ missed: 9 }))).toBe("No answer found yet.")
   })
@@ -47,7 +47,7 @@ describe("the streak, in a sentence", () => {
     // The moment worth getting right: level with the best and still playing.
     // "14 in a row, 14 now" is correct and reads as a bug.
     expect(streakLine(record({ streak: 14, bestStreak: 14 }))).toBe(
-      "14 solved in a row, and still going — the longest yet.",
+      "14 solved in a row, the longest yet, and still going.",
     )
   })
 })

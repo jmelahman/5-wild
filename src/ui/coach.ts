@@ -11,7 +11,7 @@ import { formatNumber as num } from "./format"
  * by the time any of it is true they have closed it. Nothing in it is wrong; it
  * was simply being read at the wrong moment. This says a fifth as much at the
  * moment each piece first becomes true, with the live number it is about on
- * screen beside it — which is the half a sheet can never do. The sheet stayed,
+ * screen beside it, which is the half a sheet can never do. The sheet stayed,
  * as a button rather than a greeting.
  *
  * So the beats are not a script with a cursor. Each one is a *state* the first
@@ -19,14 +19,14 @@ import { formatNumber as num } from "./format"
  * right now:
  *
  *   nothing typed        chips are the letters you choose
- *   mid-word             and rare ones pay more — here is what you have
- *   word complete        mult is the colour you have not seen yet
+ *   mid-word             and rare ones pay more; here is what you have
+ *   word complete        mult is the color you have not seen yet
  *   one guess played     chips × mult, banked, and the pile keeps it
  *   two guesses played   what solving would multiply that pile by
  *
  * Written that way for one reason: there is no cursor to lose. A tutorial with a
  * step index has to decide what happens when the player backspaces, closes the
- * app mid-word, resumes a save, or spends a guess on a word the list refuses —
+ * app mid-word, resumes a save, or spends a guess on a word the list refuses,
  * and every one of those is a chance for the card to be a beat ahead of the
  * board. Here they are not questions. Backspacing a full word steps the card
  * back to the chips beat because that is where the run now is; a resumed save
@@ -37,7 +37,7 @@ import { formatNumber as num } from "./format"
  * The consequence worth knowing: a beat cannot be shown twice without being
  * *true* twice, and it cannot be skipped by anything except the run leaving the
  * state it describes. A player who solves on their first guess never sees the
- * last two beats. That is correct — the round is over, and the sheet is still in
+ * last two beats. That is correct: the round is over, and the sheet is still in
  * the menu for whoever wants the rest.
  */
 export type CoachStep = {
@@ -47,7 +47,7 @@ export type CoachStep = {
   text: string
   /**
    * The thing on screen the card is about. Lit while the card is up, which is
-   * what ties a sentence about "the ?" to the actual `?` under the board — a
+   * what ties a sentence about "the ?" to the actual `?` under the board. A
    * selector rather than a node because the screen is rebuilt on every dispatch
    * and any node this held would be a node the next render threw away.
    */
@@ -63,7 +63,7 @@ type Beat = {
 }
 
 /**
- * The beats, in the order they are checked — which is also the order round one
+ * The beats, in the order they are checked, which is also the order round one
  * walks through them, and the reason this is a list rather than five ifs.
  *
  * Each `when` reads the guess count first and the draft second, so the beats are
@@ -76,7 +76,7 @@ const BEATS: readonly Beat[] = [
     id: "chips",
     when: (state) => state.round.guesses.length === 0 && state.round.draft.length === 0,
     say: () =>
-      "Every guess is scored. Type a word — the line under the board counts what its letters are worth.",
+      "Every guess is scored. Type a word, and the line under the board counts what its letters are worth.",
     anchor: ".readout",
   },
   {
@@ -88,7 +88,7 @@ const BEATS: readonly Beat[] = [
     // and the lesson is that they chose which. The three letters named are the
     // ends and the middle of the table in `content/letters.ts`.
     say: (state) =>
-      `${num(draftChips(state, state.round.draft))} chips so far. Rare letters pay more — A is 1, K is 5, Z is 10.`,
+      `${num(draftChips(state, state.round.draft))} chips so far. Rare letters pay more: A is 1, K is 5, Z is 10.`,
     anchor: ".readout .chips",
   },
   {
@@ -123,7 +123,7 @@ const BEATS: readonly Beat[] = [
       const left = state.round.maxGuesses - state.round.guesses.length - 1
       const now = solveBonusFor(state, left)
       const next = solveBonusFor(state, left - 1)
-      return `Solving multiplies the whole pile — not just the guess that lands it — by ×${num(now)}, then ends the round. One more guess and it is ×${num(next)}.`
+      return `Solving multiplies the whole pile by ×${num(now)}, not just the guess that lands it, and ends the round. One more guess and it is ×${num(next)}.`
     },
     anchor: ".solve-hint",
   },
@@ -134,8 +134,8 @@ const BEATS: readonly Beat[] = [
  *
  * Gated to the first round of the first stage, and not by a counter: the point
  * of the tutorial is the moment a thing is first true, and there is no first
- * time left by round two. Everything past it — bosses, the shop, ascensions —
- * belongs to the sheet and the codex, which are written for a player who has
+ * time left by round two. Everything past it, bosses and the shop and
+ * ascensions, belongs to the sheet and the codex, which are written for a player who has
  * already held a guess in their hands.
  *
  * Whether the tutorial is still owed at all is the caller's question, because
@@ -159,7 +159,7 @@ export function coachStep(state: RunState): CoachStep | null {
  * state the two currently agree: the beats cover the first three guesses with no
  * gaps between them, so a tutorial round always has something to say. Where they
  * come apart is *screens*. The card is suppressed by an open sheet, by the round
- * intro, and by the scoring animation, none of which are the tutorial finishing —
+ * intro, and by the scoring animation, none of which are the tutorial finishing,
  * and a caller watching only for "no card on screen" would retire it on the
  * first of them. This is the half that only the run can answer, kept separate so
  * the caller can ask it without the other one in the way.

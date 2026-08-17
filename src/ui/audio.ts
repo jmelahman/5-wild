@@ -1,9 +1,9 @@
 /**
- * Sound, synthesised rather than sampled.
+ * Sound, synthesized rather than sampled.
  *
  * Every noise in the game is a few oscillator cycles built on demand, so the
  * bundle ships no audio assets, nothing is fetched at runtime, and the whole
- * thing survives airplane mode — the same constraint that made the word lists
+ * thing survives airplane mode, the same constraint that made the word lists
  * bundled rather than served.
  *
  * The AudioContext is created lazily on the first sound, never at import: a
@@ -76,7 +76,7 @@ export class Sound {
     try {
       localStorage.setItem(MUTE_KEY, this.muted ? "1" : "0")
     } catch {
-      // See above — muting still works, it just will not be remembered.
+      // See above. Muting still works, it just will not be remembered.
     }
     // Unmuting is itself a user gesture, so it is the cheapest moment to wake
     // a context that was created and then suspended.
@@ -113,7 +113,7 @@ export class Sound {
     }
   }
 
-  /** Typing. Quiet and short — it fires more than anything else in the game. */
+  /** Typing. Quiet and short, since it fires more than anything else in the game. */
   key(): void {
     this.play({ freq: 220, ms: 35, type: "square", gain: 0.025 })
   }
@@ -161,7 +161,7 @@ export class Sound {
     this.play({ freq: step(C5, -12), to: step(C5, -24), ms: 700, type: "sine", gain: 0.07 })
   }
 
-  /** A letter broken off the keyboard — a loss, so it falls rather than rises. */
+  /** A letter broken off the keyboard: a loss, so it falls rather than rises. */
   break(): void {
     this.play({ freq: step(C5, -5), to: step(C5, -17), ms: 260, type: "sawtooth", gain: 0.05 })
   }

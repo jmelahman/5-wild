@@ -2,7 +2,7 @@
  * The players whose runs get recorded as golden vectors.
  *
  * These only ever run while recording. The committed vectors hold the concrete
- * actions each one produced, and the test replays *those* — so a scenario can
+ * actions each one produced, and the test replays *those*, so a scenario can
  * be rewritten, or deleted, without invalidating a vector it authored. What is
  * under test is the engine, not the bot.
  *
@@ -40,7 +40,7 @@ const typeWord = (word: string): Action[] => [
   { type: "submit" },
 ]
 
-/** Every action the engine accepted, dry-run — nothing here mutates the run. */
+/** Every action the engine accepted, dry-run: nothing here mutates the run. */
 function accepted(state: RunState, words: WordSource, actions: Action[]): boolean {
   let current = state
   for (const action of actions) {
@@ -53,7 +53,7 @@ function accepted(state: RunState, words: WordSource, actions: Action[]): boolea
 
 /**
  * The first candidate the engine will actually take. Boss rules refuse whole
- * classes of word — two vowels, no repeats — and a destroyed letter cannot be
+ * classes of word (two vowels, no repeats) and a destroyed letter cannot be
  * typed at all, so a bot that assumes its guess lands would stall the recorder
  * on a round it can never submit to.
  */
@@ -72,7 +72,7 @@ function firstPlayable(
 /**
  * A change of mind before the real word. Backspace is the one action nothing
  * else here would ever produce, and typing the answer's own first letter is
- * always legal — answers are drawn to avoid broken letters, so the draft is
+ * always legal, since answers are drawn to avoid broken letters, so the draft is
  * guaranteed to accept it and the erase leaves the guess exactly as it was.
  */
 function withCorrection(state: RunState, guess: Action[] | null): Action[] | null {
@@ -92,14 +92,14 @@ function decoys(state: RunState, words: WordSource, offset: number): string[] {
   return out
 }
 
-/** How many tiles of a word would carry a modifier — copies counted separately. */
+/** How many tiles of a word would carry a modifier, copies counted separately. */
 function modTiles(state: RunState, word: string): number {
   return [...word].filter((letter) => state.letters[letter]?.mod).length
 }
 
 /**
  * English letter frequency, roughly. What a player aiming a modifier is actually
- * reaching for — the letter they will type most — and a fixed order, which is
+ * reaching for, the letter they will type most, in a fixed order, which is
  * what a recorded vector needs.
  */
 const BY_USE = "etaoinsrhldcumfpgwybvkxjqz"
@@ -121,9 +121,9 @@ const ANCHOR_PRICE = MODIFIER_BY_ID.get("anchor")?.choiceCost ?? 0
 /**
  * How many of a word's tiles would land green *on a letter carrying `mod`*.
  *
- * `modTiles` counts a card's tiles whatever colour they come up, which is the
+ * `modTiles` counts a card's tiles whatever color they come up, which is the
  * right question for a card that pays on every tile and the wrong one for a card
- * that pays on one colour. Anchor is the second kind, so a bot aiming it has to
+ * that pays on one color. Anchor is the second kind, so a bot aiming it has to
  * be able to tell a tile that will fire from a tile that merely carries.
  */
 function greenMods(state: RunState, word: string, mod: ModId): number {
@@ -206,7 +206,7 @@ export const SCENARIOS: readonly Scenario[] = [
   },
   {
     name: "banker",
-    covers: "a pile banked and then multiplied — the line the scoring rule exists for",
+    covers: "a pile banked and then multiplied, the line the scoring rule exists for",
     seed: 2024,
     next: (state, words) => {
       if (state.phase === "round") {
@@ -259,7 +259,7 @@ export const SCENARIOS: readonly Scenario[] = [
           return [{ type: "buy", index }]
         }
         // Selling back is the only way the relic slots ever empty, and it is
-        // priced — a vector that never sells cannot catch that price moving.
+        // priced, and a vector that never sells cannot catch that price moving.
         if (
           state.relics.length >= 2 &&
           accepted(state, words, [{ type: "sell_relic", index: 0 }])
@@ -276,7 +276,7 @@ export const SCENARIOS: readonly Scenario[] = [
    *
    * `shopkeeper` uses index 0 before its first guess of a round, which reaches
    * exactly one of the four: The Magician. The other three were bought, carried
-   * and thrown away unused across every vector in the file — and The Fool is the
+   * and thrown away unused across every vector in the file, and The Fool is the
    * reason why, because it rescores the previous guess and there is no previous
    * guess before the first one. A bot that only ever spends at the top of a
    * round cannot use it at all, so the card's whole arithmetic went unrecorded.
@@ -285,10 +285,10 @@ export const SCENARIOS: readonly Scenario[] = [
    * which is what turns the order into coverage rather than a rule: Oracle and
    * Hermit are accepted before a guess and go first, and The Fool becomes legal
    * only once there is something behind it. The probe is there for the same
-   * reason — the Fool doubling a real score is the case worth pinning, and a
+   * reason: the Fool doubling a real score is the case worth pinning, and a
    * bot that solved on sight would have handed it a solve to copy instead.
    *
-   * Spending all four is not the hard part once the order is right — 160 of the
+   * Spending all four is not the hard part once the order is right: 160 of the
    * first 400 seeds manage it, and only four spend nothing. Seed 126 is simply
    * the shortest of the 160, which is the whole basis for the choice: at this
    * hit rate the seed is not buying an outcome, it is buying fewer lines of
@@ -368,33 +368,33 @@ export const SCENARIOS: readonly Scenario[] = [
     },
   },
   /*
-   * Anchor, and the colour it is fussy about.
+   * Anchor, and the color it is fussy about.
    *
    * This one is here because of how it went missing. `letter-smith` held an
    * Anchor for as long as the modifier table had eleven entries; the reweighting
    * to sixteen dropped the card to one roll in sixteen behind a slot that is
    * three in four, and it fell out of every recorded run at once. Nothing failed
-   * — no test went red, the vectors re-recorded cleanly, and the diff read as a
+   * No test went red, the vectors re-recorded cleanly, and the diff read as a
    * shop change, which it was. The card's own arithmetic simply stopped being
    * exercised, and it stopped on the same pass that resized it. A card is worth
    * a scenario when the shelf can take it away from you quietly.
    *
    * What that scenario has to do is not obvious, because solving hides the bug.
    * The winning guess is five greens by definition, so a solve-on-sight bot
-   * fires every Anchor the answer contains and records a fat number every time —
-   * and would go on recording it if the card paid on any colour at all. The gate
+   * fires every Anchor the answer contains and records a fat number every time,
+   * and would go on recording it if the card paid on any color at all. The gate
    * is the half worth pinning, so the probe is filtered rather than sorted: a
    * candidate is played only if it puts an anchored letter in its own position,
    * and the guess is skipped when none would. Sorting by `modTiles` the way the
-   * rare hunt does was the first attempt and it is the wrong question — it ranks
-   * tiles that carry the card above tiles that fire it, which for a colour-gated
+   * rare hunt does was the first attempt and it is the wrong question: it ranks
+   * tiles that carry the card above tiles that fire it, which for a color-gated
    * card are different sets.
    *
    * Over the first 600 seeds, 194 end holding at least one, 143 fire one off a
    * guess that did not solve, and 47 do both with two or more on the board. Seed
    * 32 is the best of the 47 by a distance: five Anchors placed, fifteen greens
    * fired outside a solve across 28 guesses, and it lives to stage 5.2. Five
-   * copies is what makes it useful rather than merely green — the card is a flat
+   * copies is what makes it useful rather than merely green. The card is a flat
    * +125 per firing tile, so a run carrying five of them is where an error in
    * that number is loudest instead of roundable.
    */
@@ -406,7 +406,7 @@ export const SCENARIOS: readonly Scenario[] = [
       if (state.phase === "round") {
         // The probe is chosen to land the card green rather than merely to carry
         // it, and is skipped entirely when no candidate would. Anchor pays on one
-        // colour, so a guess that puts it on a gray costs a gold and records
+        // color, so a guess that puts it on a gray costs a gold and records
         // nothing the solve was not going to record anyway.
         const armed = Object.values(state.letters).some((letter) => letter.mod === "anchor")
         const probes =
@@ -448,18 +448,18 @@ export const SCENARIOS: readonly Scenario[] = [
    * the two whose numbers get argued over most, and no recorded run had ever
    * put one on a letter.
    *
-   * So this bot solves on sight — the fastest income line there is, five unused
-   * guesses and the round's base — and then spends the whole pile hunting. It
+   * So this bot solves on sight, the fastest income line there is, with five
+   * unused guesses and the round's base, and then spends the whole pile hunting. It
    * works: 302 of the first 600 seeds end holding one, and 65 hold both at some
    * point in the run. Only 9 of the 600 *end* holding both, which is not the
-   * hunt failing but the Glass doing what it says — it breaks on a gray, so
+   * hunt failing but the Glass doing what it says: it breaks on a gray, so
    * counting the final board undercounts every run that played one and lost it.
    * The measurement that matters here is what the letters carried while the
    * guesses were being scored.
    *
    * Seed 490 is one of the nine that keeps both to the end, and is picked over
-   * the other eight for holding three rare cards at once — Steel on a and t,
-   * Glass on e — so the vector records the two of them scoring side by side
+   * the other eight for holding three rare cards at once (Steel on a and t,
+   * Glass on e) so the vector records the two of them scoring side by side
    * rather than in different runs. It replaced 397, which was chosen against the
    * eleven-entry table and degraded to a single Steel and a stage-two death when
    * the shelf was reweighted. That is the failure mode to expect from any seed
@@ -468,7 +468,7 @@ export const SCENARIOS: readonly Scenario[] = [
    *
    * These numbers moved once already. At the eleven-entry table it was 7% a
    * visit and 386 of 600, and the reweighting that made the strong cards 3 in 16
-   * is what took it to 5% and 302 — so treat them as a reading of the current
+   * is what took it to 5% and 302, so treat them as a reading of the current
    * shelf rather than a fact about the bot.
    *
    * It dies shallow, and that is the trade being made on purpose. Depth is what
@@ -483,7 +483,7 @@ export const SCENARIOS: readonly Scenario[] = [
       if (state.phase === "round") {
         // Solve on sight until there is a card to fire, then spend one guess a
         // round on the word that fires it most. Before the first purchase every
-        // guess left unspent is a gold towards the hunt; after it, a modifier
+        // guess left unspent is a gold toward the hunt; after it, a modifier
         // nobody ever plays through is a shop test rather than a scoring one,
         // and the second is what this vector is for. The trade is one gold a
         // round, which is what an unused guess pays.
@@ -526,7 +526,7 @@ export const SCENARIOS: readonly Scenario[] = [
    * can be pointed at, because the number is exactly the kind that gets argued
    * over and the vectors are what settle those arguments.
    *
-   * Hunted rather than waited for, on `rare-smith`'s terms — solve on sight for
+   * Hunted rather than waited for, on `rare-smith`'s terms: solve on sight for
    * the unused-guess gold, spend it on rerolls, and stop rerolling while the
    * change still covers the card. One difference: this bot keeps probing after
    * it is armed, every round rather than the first. Wild pays per tile carrying
@@ -535,24 +535,24 @@ export const SCENARIOS: readonly Scenario[] = [
    * instead of firing.
    *
    * 362 of the first 600 seeds end holding one, and 244 of those also run 12 to
-   * 30 guesses and reach stage three — a far easier hunt than the rare pair's,
+   * 30 guesses and reach stage three, a far easier hunt than the rare pair's,
    * which is what one entry at $9 rather than one at $12 buys. Seed 130 is a
    * middling run of those rather than a lucky one: it is armed at the first shop
    * it visits, so all 27 of its guesses are scored with the card in play, and it
    * dies at stage five on a score in the middle of the pack. Buying early is the
-   * half worth pinning — a vector that bought a Wild in stage four would record
+   * half worth pinning: a vector that bought a Wild in stage four would record
    * the purchase and almost none of the arithmetic.
    *
    * It ends holding four of them, on A, E, O and T, which is not the bot losing
    * the plot: `placeableLetters` only bars the letter already carrying the same
    * card, so a bot that hunts one modifier stacks it across the alphabet by
-   * frequency. That turns out to be the useful case to have recorded — the
+   * frequency. That turns out to be the useful case to have recorded, since the
    * floor is per tile, so four of them is where a mistake in it shows up
    * loudest.
    */
   {
     name: "wild-smith",
-    covers: "Wild bought over and over, aimed by letter frequency, and fired on every colour",
+    covers: "Wild bought over and over, aimed by letter frequency, and fired on every color",
     seed: 130,
     next: (state, words) => {
       if (state.phase === "round") {
@@ -589,7 +589,7 @@ export const SCENARIOS: readonly Scenario[] = [
     },
   },
   {
-    name: "leveller",
+    name: "leveler",
     covers: "category levels bought, stacked, and paid out on the guesses that match them",
     seed: 77,
     next: (state, words) => {
@@ -598,7 +598,7 @@ export const SCENARIOS: readonly Scenario[] = [
         // answer. The sort is what makes this vector worth recording: it pins
         // that levels land on the base *and* that `categoryOf` picked the same
         // shape the shop charged for, because a mismatch would show up as a
-        // probe that scored like an unlevelled word.
+        // probe that scored like an unleveled word.
         const probes =
           state.round.guesses.length === 0
             ? [...decoys(state, words, 3)].sort(
@@ -611,7 +611,7 @@ export const SCENARIOS: readonly Scenario[] = [
       if (state.phase === "shop") {
         const items = state.shop?.items ?? []
         // Levels before anything else, whichever category the slot dealt. It
-        // cannot choose — the shop picks the category — so this ends the run
+        // cannot choose, since the shop picks the category, so this ends the run
         // holding several at level two rather than one high, which is a fair
         // picture of what buying every level you are offered actually gets you.
         const wanted = items.findIndex((item) => item?.kind === "level" && item.cost <= state.gold)
@@ -636,8 +636,8 @@ export const SCENARIOS: readonly Scenario[] = [
       if (state.phase === "round") {
         // One probe picked for what its letters are worth right now, then the
         // answer. The sort is what makes this vector worth recording: it reads
-        // `baseChips`, so if a range level ever stopped reaching a letter — or
-        // stopped adding to the etching already on it — the probe would score
+        // `baseChips`, so if a range level ever stopped reaching a letter, or
+        // stopped adding to the etching already on it, the probe would score
         // like an un-upgraded word and every number after it would move.
         const probes =
           state.round.guesses.length === 0
@@ -652,9 +652,9 @@ export const SCENARIOS: readonly Scenario[] = [
         // The relic floor is not a flourish: chips are only ever half of a
         // score, and a bot that spent its whole run raising them stalled in stage
         // two with nothing to multiply them by. Once it has some mult, buying in
-        // this order is what gets the two lines stacked on one letter — the
+        // this order is what gets the two lines stacked on one letter: the
         // ranges partition the alphabet, so whichever etching lands afterwards
-        // is guaranteed to overlap one that has already been levelled.
+        // is guaranteed to overlap one that has already been leveled.
         const order =
           state.relics.length < 2
             ? (["relic", "range", "etch"] as const)
@@ -678,7 +678,7 @@ export const SCENARIOS: readonly Scenario[] = [
       if (state.phase === "round") {
         // One probe, then the answer. Packs deal all three card lines, so the
         // sort keys off modifiers first and levels second rather than off any
-        // single one — whichever the packs happened to hand this run, the probe
+        // single one. Whichever the packs happened to hand this run, the probe
         // is the word that collects the most of it.
         const probes =
           state.round.guesses.length === 0
@@ -701,7 +701,7 @@ export const SCENARIOS: readonly Scenario[] = [
           // Stage one is walked away from on purpose, for the same reason the
           // shopkeeper's backspace is there: the shelf no longer sells a pack
           // that cannot be opened, so nothing these bots do would otherwise
-          // ever produce a skip — and a forfeit that quietly handed the gold
+          // ever produce a skip, and a forfeit that quietly handed the gold
           // back would then be outside the contract entirely.
           if (state.stage === 1) return [{ type: "skip_pack" }]
           const index = state.pack.options.findIndex(
@@ -728,9 +728,9 @@ export const SCENARIOS: readonly Scenario[] = [
   },
   /*
    * The run that wins, and the only one. Every other vector here ends in
-   * `game_over`, which left the whole back half of the ending — the `victory`
+   * `game_over`, which left the whole back half of the ending (the `victory`
    * phase, `continue_run`, and the stages past `STAGES` that have no authored
-   * target — asserted by nothing at all. A rewrite could have dropped the win
+   * target) asserted by nothing at all. A rewrite could have dropped the win
    * condition on the floor and this file would have agreed with it.
    *
    * Nothing here records `outcome: "victory"` even so, because this bot walks
@@ -741,8 +741,8 @@ export const SCENARIOS: readonly Scenario[] = [
    *
    * Picking a seed to get an outcome is normally how a vector stops being about
    * the rules and starts being about the bot, so the choice is defended rather
-   * than asserted. Winning is genuinely rare — the climber's line takes 156 of
-   * the first 12,000 seeds — and the spread is not a curve but two piles: 238
+   * than asserted. Winning is genuinely rare, since the climber's line takes 156
+   * of the first 12,000 seeds, and the spread is not a curve but two piles: 238
    * runs of 300 dead in stage one, against a tail that reaches stage eight
    * almost intact. No bot wins on an arbitrary seed, so a seed had to be
    * chosen. What 5517 was chosen *for*:
@@ -750,7 +750,7 @@ export const SCENARIOS: readonly Scenario[] = [
    *   - Six of those 156 meet, in one run, every boss the other ten vectors miss
    *     between them. This is one of the six.
    *   - Of the six it is the only one that also wins under all five shop
-   *     policies measured — relic-first, relic-then-level, level-first,
+   *     policies measured: relic-first, relic-then-level, level-first,
    *     relics-then-upgrades, packs-and-relics. It is a seed where the run is
    *     winnable, not a seed tuned to this bot's quirks.
    *   - It goes the deepest of them, dying on stage 11's boss round.
@@ -759,7 +759,7 @@ export const SCENARIOS: readonly Scenario[] = [
    * is structural rather than lucky. The late band is drawn without replacement
    * and indexed from stage 7, so a run reaching stage 11's boss has met all five
    * of them in order. Those bosses were uncovered *because* nothing survived
-   * past stage 7 — no shallow vector could have reached them, and no number of
+   * past stage 7. No shallow vector could have reached them, and no number of
    * shallow vectors would have helped.
    */
   {
@@ -781,7 +781,7 @@ export const SCENARIOS: readonly Scenario[] = [
   },
   /*
    * The half of the ladder that has no rules left to add. Its targets are the
-   * only thing this pins that the rung below does not — the endless step is a
+   * only thing this pins that the rung below does not: the endless step is a
    * pure multiplication, and a port that compounded it wrongly, or rounded it
    * to the hundred `roundTargets` rounds to, would clear a different first
    * round and diverge on the very first score.
@@ -795,7 +795,7 @@ export const SCENARIOS: readonly Scenario[] = [
    * Seed 20 rather than 21, and the reason is worth stating because reseeding a
    * vector is normally the wrong repair. Replacing rung 9 handed this level back
    * its sixth guess, which changed nothing about what the scenario covers and
-   * everything about where its decoy walk lands — seed 21 diverged onto a line
+   * everything about where its decoy walk lands. Seed 21 diverged onto a line
    * that dies on the first round, taking the run from four rewards and three
    * relics to one and one. Nothing was pinned any better for it. The seed moved
    * to hold the coverage the scenario was written to have, not to hold a number.
@@ -817,8 +817,8 @@ export const SCENARIOS: readonly Scenario[] = [
  * ones is what makes the pair of vectors a comparison rather than two runs.
  */
 function climb(state: RunState, words: WordSource): Action[] | null {
-  // Take the win and keep going. Only `victor` ever gets here — the two
-  // ascension runs die well short — but it belongs to the line rather than to
+  // Take the win and keep going. Only `victor` ever gets here, since the two
+  // ascension runs die well short, but it belongs to the line rather than to
   // one scenario: a climber is the bot that would carry on, and this is the
   // only place `continue_run` is reachable at all.
   if (state.phase === "victory") return [{ type: "continue_run" }]
@@ -831,7 +831,7 @@ function climb(state: RunState, words: WordSource): Action[] | null {
     //
     // The probes are where the rules bite. `firstPlayable` walks past every
     // decoy the engine refuses, so what lands in this vector is the first
-    // word the ladder actually allowed — a port that filtered guesses
+    // word the ladder actually allowed. A port that filtered guesses
     // differently would record a different word and every score after it.
     const cashOut = left <= 0 || round.score * solveBonusFor(state, left) >= round.target
     const candidates = cashOut

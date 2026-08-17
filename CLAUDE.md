@@ -8,7 +8,7 @@ protocol. Read that first. This is what it does not say.
 `src/engine` is a pure reducer: `reduce(state, action, words)` returns a new
 state and a list of events. It imports only itself and `src/content`, and
 `test/engine-purity.test.ts` enforces that rather than trusting discipline. All
-randomness goes through `derive(seed, ...coords)` in `rng.ts` — never
+randomness goes through `derive(seed, ...coords)` in `rng.ts`: never
 `Math.random`, never a clock.
 
 `RunState` is plain JSON. It round-trips through `JSON.parse(JSON.stringify(…))`
@@ -16,7 +16,7 @@ and a test asserts it, so no Maps, Sets, Dates or class instances may enter it.
 Saves and golden vectors both rest on that.
 
 A run is a closed world. Anything outliving one belongs in `src/ui/meta.ts`, not
-the engine — ascension is the clear case: it is an *input* to `startRun`, the UI
+the engine. Ascension is the clear case: it is an *input* to `startRun`, the UI
 remembers which level was chosen, and the engine never learns a browser exists.
 
 ## The UI
@@ -24,9 +24,9 @@ remembers which level was chosen, and the engine never learns a browser exists.
 No framework. `h()` in `src/ui/dom.ts` builds DOM, `views.ts` is pure
 `state → HTMLElement`, `app.ts` owns dispatch.
 
-**Every dispatch rebuilds the whole screen** — `clear(this.root).append(view)`.
+**Every dispatch rebuilds the whole screen**, via `clear(this.root).append(view)`.
 Two things follow: view code can assume it builds from scratch, and any state the
-browser owns — focus, scroll position, an open `<details>` — is destroyed on
+browser owns (focus, scroll position, an open `<details>`) is destroyed on
 every render and has to be restored deliberately. `holdFocus()` is that
 restoration for open sheets.
 
@@ -34,14 +34,14 @@ Two exceptions, both bought by the same defect: `.grid` sizes itself in
 container-query units, and Gecko cannot resolve those against a container built
 in the same pass, so a board that is rebuilt is a board that flashes at the wrong
 size for a frame. `patchDraft` redraws the row being typed in place, and
-`reuseBoard` keeps `.grid-wrap` — the container itself — across a round-to-round
+`reuseBoard` keeps `.grid-wrap`, the container itself, across a round-to-round
 render, splicing the new screen in around it. Neither reaches the views: the
 reused node is an empty box, and everything drawn inside it is still built from
 scratch.
 
 The defect is Gecko's alone, which is worth knowing before blaming it for the
 next flash: driven through the same renders at 20× CPU throttle, Blink never
-once laid the board out at the fallback size — not with `reuseBoard` and not
+once laid the board out at the fallback size, not with `reuseBoard` and not
 without it. A board misbehaving in the APK is a different bug wearing the same
 face.
 
@@ -50,23 +50,23 @@ flashed the board on the APK after every guess and every decor tap, and none of
 it was this: not the fallback size but the *pre-resolution* one, one frame at
 `width: 344px` / `font-size: 30.96px` against a correct 339.84 / 30.5859 at
 360×800, which is the `100%` branch of `min(100%, 100cqh * 5/6)` and the `45cqw`
-branch of the font — the container query resolving on the second pass, exactly as
+branch of the font. That is the container query resolving on the second pass, exactly as
 designed, and then being *transitioned into* rather than landed on because the
 reduced-motion block had armed a transition on every property in the document.
 `.grid-wrap` measured 407.81px on the good frames and the bad ones alike, so the
 container was never wrong and `reuseBoard` was never going to help; it keeps the
-box and replaces the `.grid` inside it. CPU speed was not a variable either — 6×
+box and replaces the `.grid` inside it. CPU speed was not a variable either: 6×
 throttling without the preference gave zero bad frames, 1× with it gave them. If
 the board flashes again, read `getAnimations()` on the bad frame before anything
 else: it named `width` and `font-size` on `.grid` outright.
 
 Mobile first: portrait, thumb-reachable, sheets rising from the bottom edge
-rather than centred. Anything with a `data-tip` gets the hover panel on a mouse
+rather than centered. Anything with a `data-tip` gets the hover panel on a mouse
 and a long-press one on a finger, so a new affordance usually only needs the
 attribute. Which of the two a pointer gets is decided per event on
 `pointerType`, and never on a media query: the Android WebView the APK runs in
 answers `(hover: hover)` like a desktop, on a phone with no mouse in the room,
-and a gate built on that answer handed a thumb both halves at once — see
+and a gate built on that answer handed a thumb both halves at once; see
 `bindTips` for what that did to the panel. Anything the app has to ask about the
 *input* is worth distrusting; the queries about the screen are sound.
 
@@ -79,40 +79,40 @@ and a duration short enough to look like stillness is still a duration.
 
 An animation with `forwards` fill is not calmed by 1ms, it is *completed* by it,
 in the frame it starts, so any keyframe sequence ending at `opacity: 0` deletes
-its element rather than slowing it — that took the refusal toast and every
+its element rather than slowing it, and that took the refusal toast and every
 `+chips +mult` badge in a cascade. An animation with a delay keeps the delay, so
 `.shop-item`'s 70ms-per-card stagger held five `backwards`-filled cards at
 `opacity: 0` for up to 280ms with no animation left to explain it. And a
-*transition* duration on `*` does not shorten the transitions this file writes —
-every one of those names its properties — it lands beside an untouched
+*transition* duration on `*` does not shorten the transitions this file writes,
+since every one of those names its properties. It lands beside an untouched
 `transition-property: all` and arms a transition on every element and every
 property in the document, which is what the board flash below turned out to be.
 
 So the block now says `animation: none` and `transition: none`, and the standing
 rule is that it must stop motion rather than compress it. If an animation carries
 information rather than decorating it, own its lifetime in JS and leave CSS only
-the fade — see `TOAST` in `app.ts`. If killing it drops something the keyframes
-were the only source of, carve it out by name — see `.floater, .tile-gain`, whose
-horizontal centring lives nowhere but its `-50%`.
+the fade; see `TOAST` in `app.ts`. If killing it drops something the keyframes
+were the only source of, carve it out by name; see `.floater, .tile-gain`, whose
+horizontal centering lives nowhere but its `-50%`.
 
 The same render that `reuseBoard` protects can be defeated by a class. It keeps
 the container only when the live screen and the new one are the same kind, and a
-live screen collects classes describing what is happening to it — `shaking`
+live screen collects classes describing what is happening to it, and `shaking`
 lasts 420ms after a big guess, against a final render awaited on 400. Compare
 screens on `screenKind`, not on the class string, and add anything transient to
 `TRANSIENT_SCREEN`.
 
 Purely presentational settings live as a class on the document root
-and are switched off in the stylesheet — see `.plain` and `.quiet` — rather than
+and are switched off in the stylesheet (see `.plain` and `.quiet`) rather than
 threaded through the views, which the full rebuild would otherwise make every
 view's business.
 
-Tests run in Node with no DOM — there is no jsdom. `test/ui` covers pure logic
+Tests run in Node with no DOM: there is no jsdom. `test/ui` covers pure logic
 only; rendering and interaction get validated in a real browser instead.
 
 ## Changing balance
 
-The README has the mechanics — bump `CONTENT_VERSION`, `npm run golden`, read the
+The README has the mechanics: bump `CONTENT_VERSION`, `npm run golden`, read the
 diff. What it does not state is the standard of evidence. Balance comments here
 cite run counts because the numbers came from actually simulating the change, and
 a nerf argued from intuition will read as out of place beside them. A throwaway
@@ -135,7 +135,7 @@ style but not its prose is half-finished.
 
 `5wild:run:v2` (the run save), `5wild:meta:v2` (the record), and four settings:
 `5wild:plain`, `5wild:muted`, `5wild:music`, `5wild:coached`. All are booleans
-except `5wild:plain`, which holds one of `all`, `minimal` or `none` — how much of
+except `5wild:plain`, which holds one of `all`, `minimal` or `none`: how much of
 the scoring game the board draws on itself. Adding an optional field needs no key
 bump; changing what an existing field means does.
 
@@ -145,8 +145,8 @@ records that the first-round tutorial has been spent. There was a
 first launch, and the two were kept apart because a sheet closed at the title
 screen is not a round played. It is gone: the sheet no longer opens itself, so
 nothing was left to remember. The coaching teaches the scoring half at the moment
-each piece of it first becomes true, and the rest of the sheet — shops, bosses,
-ascensions — is a button on the title screen and in the pause menu for whoever
+each piece of it first becomes true, and the rest of the sheet (shops, bosses,
+ascensions) is a button on the title screen and in the pause menu for whoever
 wants it. Old installs keep the orphaned key; nothing reads it. Everything else
 about the coaching is derived from the run; see `src/ui/coach.ts`.
 
@@ -155,12 +155,12 @@ differently when antes became stages and jokers became relics. The run save
 bumped: a v1 save spells half its fields differently, and a run read as half
 present is worse than a run refused. The record did not: it is independent
 counters, `loadMeta` already reads them one at a time, so it reads the old
-spelling where the new one is missing and keeps everything — including the
+spelling where the new one is missing and keeps everything, including the
 `cleared` that gates the ladder, which a bump would have thrown away to make a
 point about schemas.
 
 ## Backlog
 
-`plans/roadmap.md` is the real one — phases, each with a postmortem saying what
-the change did to the vectors — and `TODO` at the root is scratch. Both are
+`plans/roadmap.md` is the real one, phases each with a postmortem saying what
+the change did to the vectors, and `TODO` at the root is scratch. Both are
 gitignored, so a fresh clone will not have either.

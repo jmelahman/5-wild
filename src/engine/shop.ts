@@ -27,9 +27,9 @@ export const sellValue = (cost: number): number => Math.max(1, Math.floor(cost /
  *
  * Priced against the modifier line rather than in the abstract. A $4 Chip
  * modifier is worth roughly five score a gold on the guesses it lands in; a
- * level at $8 is worth about seven. Levels stay the better long-run buy — they
- * are the only thing in the run that compounds, and the rubric asked for one —
- * but not by so much that the letter slot becomes something to skip.
+ * level at $8 is worth about seven. Levels stay the better long-run buy, since
+ * they are the only thing in the run that compounds and the rubric asked for
+ * one, but not by so much that the letter slot becomes something to skip.
  */
 const LEVEL_COST = 8
 
@@ -74,15 +74,15 @@ const LETTER_TABLE = ["mod", "mod", "mod", "consumable"] as const
  * out of this bag, so for a modifier `rarity` is a label the shelf paints the
  * card with and nothing else. A card is exactly as rare as its entries here.
  *
- * Ordered by what the cards measure rather than by what they are labelled,
- * because the two had drifted apart. Anchor sat at one entry — the same rate as
- * the two ×mult rares — while wearing "uncommon" and paying 3.3x the best of
+ * Ordered by what the cards measure rather than by what they are labeled,
+ * because the two had drifted apart. Anchor sat at one entry, the same rate as
+ * the two ×mult rares, while wearing "uncommon" and paying 3.3x the best of
  * them; that half is fixed on the card. What is fixed here is the other half:
  * the strong three are 3 in 16 now rather than 3 in 11, and the cheap reliable
  * ones fill the gap.
  *
  * Wild kept its single entry through that pass, on the grounds that dealing a
- * dominated card more often only spends more slots on it — it wanted a number
+ * dominated card more often only spends more slots on it. It wanted a number
  * rather than a weight. It has since been given the number, and the entry is
  * still right for the reason it was originally: one is what an uncommon that can
  * anchor a build should be worth waiting for.
@@ -115,9 +115,9 @@ const rollConsumable = (rng: Rng): ShopItem => {
  * The letters a modifier could still be put on: ones that can be typed, that do
  * not already carry it, and that the modifier is willing to sit on at all.
  *
- * Exported because it is the same question in three places — whether the shop
- * may stock the card, whether the purchase can be honoured, and which keys the
- * picker lights up — and those three must not be allowed to disagree.
+ * Exported because it is the same question in three places, whether the shop
+ * may stock the card, whether the purchase can be honored, and which keys the
+ * picker lights up, and those three must not be allowed to disagree.
  */
 export function placeableLetters(state: RunState, modifier: Modifier): string[] {
   return [...(modifier.letters ?? ALPHABET)].filter(
@@ -131,7 +131,7 @@ export function placeableLetters(state: RunState, modifier: Modifier): string[] 
  * than selling a card that would do nothing.
  *
  * Which letter it lands on is most of what a modifier is worth, and the shop
- * used to roll that too — so the letter slot was a coin flip between "Steel E,
+ * used to roll that too, so the letter slot was a coin flip between "Steel E,
  * buy it immediately" and "Steel Q, walk past". Selling the card and letting the
  * player aim it turns the slot into a decision about their own vocabulary, which
  * is the decision this layer was always supposed to be asking for. It costs more
@@ -148,9 +148,9 @@ function rollMod(state: RunState, rng: Rng): ShopItem | null {
  * A modifier already paired with a letter, for a pack to lay out.
  *
  * The pack keeps rolling the pairing on purpose, now that the shop has stopped.
- * Two routes to the same layer that differ in what they ask of the player — the
+ * Two routes to the same layer that differ in what they ask of the player. The
  * shop sells the card and makes you aim it, the pack deals three aimed cards and
- * makes you choose between them — and it is the only thing that still gives
+ * makes you choose between them, and it is the only thing that still gives
  * `Modifier.letters` a job, since a pack is where a Steel Q would otherwise turn
  * up. It is also why the pack is the cheap way in: three shots at a good pairing
  * for one price, at the cost of not picking the letter yourself.
@@ -165,7 +165,7 @@ function rollPairing(state: RunState, rng: Rng): ShopItem | null {
 
 /**
  * An etching whose group still has a letter alive in it. Groups stack forever,
- * so unlike every other slot there is nothing to dedupe against — buying the
+ * so unlike every other slot there is nothing to dedupe against: buying the
  * same etching twice is the whole idea.
  */
 function rollEtch(state: RunState, rng: Rng): ShopItem | null {
@@ -200,7 +200,7 @@ function rollUpgrade(state: RunState, rng: Rng): ShopItem {
   }
   if (kind === "level") {
     // Uniform across the categories, because the player picks the shape they
-    // build toward rather than being dealt one — a rare category is harder to
+    // build toward rather than being dealt one. A rare category is harder to
     // type on purpose, not harder to find on the shelf. Balatro's model, where
     // the offer leans toward hands you have actually played, would need play
     // counts in the run state; it is the upgrade if uniform reads as noise.
@@ -218,7 +218,7 @@ function rollLetter(state: RunState, rng: Rng): ShopItem {
   return rollConsumable(rng)
 }
 
-/** Relics already owned are off the table — duplicates do not stack. */
+/** Relics already owned are off the table, since duplicates do not stack. */
 const unowned = (state: RunState): readonly Relic[] => {
   const owned = new Set(state.relics.map((instance) => instance.id))
   return RELICS.filter((relic) => !owned.has(relic.id))
@@ -228,8 +228,8 @@ const unowned = (state: RunState): readonly Relic[] => {
  * How often each rarity fills a relic slot, at the first stage and at the last
  * authored one. In between it moves linearly; past stage `STAGES` it stays put.
  *
- * The early column is deliberately the neutral shelf — it is what drawing a card
- * uniformly out of today's catalogue already deals. The ramp only ever adds, and
+ * The early column is deliberately the neutral shelf: it is what drawing a card
+ * uniformly out of today's catalog already deals. The ramp only ever adds, and
  * that is not timidity, it is what the bots measured. Gold compounds here through
  * interest while relic prices never move, so a shelf still reading mostly common
  * at stage 7 is a shelf the run has outgrown; that half is free, worth 3.736 mean
@@ -239,7 +239,7 @@ const unowned = (state: RunState): readonly Relic[] => {
  * three ways. Balatro's own 70/25/5 took the mean to 3.37 and cut the wins by
  * four fifths. A gentle 38/33/21/8 still cost 0.10 of an stage and a quarter of
  * the wins. Even leaving rare and legendary untouched and moving only uncommon
- * into common cost 0.14 — five relic slots that fill by stage 2 and are never
+ * into common cost 0.14. Five relic slots that fill by stage 2 and are never
  * sold means a cheaper shelf is a permanently weaker tray, and that is a real
  * player's habit and not only a bot's.
  *
@@ -247,8 +247,8 @@ const unowned = (state: RunState): readonly Relic[] => {
  * shelves with nothing affordable on them, and a first shelf has *never* dealt
  * no relic at all: 90% of them hold one at $6 or under, and the tilt moved the
  * $8-or-nothing case from 9.6% to 8.4% while turning $6 uncommons into $4
- * commons. The affordable-relic problem is a catalogue problem — seven of the
- * twenty-three cost $8 or $10 — and it wants more cheap relics, not a shop that
+ * commons. The affordable-relic problem is a catalog problem, since seven of
+ * the twenty-three cost $8 or $10, and it wants more cheap relics, not a shop that
  * deals the existing ones more often.
  */
 const RARITY_ODDS: Record<Rarity, readonly [number, number]> = {
@@ -259,7 +259,7 @@ const RARITY_ODDS: Record<Rarity, readonly [number, number]> = {
 }
 
 /**
- * The weighted table for one shop visit, built as a bag to be picked from — the
+ * The weighted table for one shop visit, built as a bag to be picked from, on the
  * same trick `MOD_TABLE` plays, minus writing a hundred entries out by hand.
  *
  * Rarities with nothing left unowned are left out entirely, which is what
@@ -283,7 +283,7 @@ function rarityBag(stage: number, available: ReadonlySet<Rarity>): Rarity[] {
  * Two draws rather than one, and that is the whole point: drawing a card
  * directly makes a rarity's odds depend on how many cards happen to sit at it,
  * so adding a ninth uncommon would quietly make every other uncommon rarer.
- * Drawing the tier first means the catalogue can grow anywhere without moving
+ * Drawing the tier first means the catalog can grow anywhere without moving
  * the shelf's shape.
  */
 function rollRelic(state: RunState, pool: readonly Relic[], rng: Rng): Relic | null {
@@ -302,7 +302,7 @@ function rollRelic(state: RunState, pool: readonly Relic[], rng: Rng): Relic | n
 }
 
 /**
- * Whether a relic could actually be taken right now — one exists to offer, and
+ * Whether a relic could actually be taken right now: one exists to offer, and
  * there is somewhere to put it.
  *
  * The slot half matters more for packs than for the relic slots. An unbuyable
@@ -332,7 +332,7 @@ function rollPack(state: RunState, rng: Rng): ShopItem {
  *
  * Distinct cards, not distinct rolls: a pack that laid out Steel E three times
  * would be selling a choice it was not actually offering. The retry budget is
- * what makes that cheap to guarantee without a shuffle — the pools are far
+ * what makes that cheap to guarantee without a shuffle. The pools are far
  * larger than three, so a collision is rare and giving up after a few tries
  * costs a short pack rather than a hang.
  *
@@ -381,7 +381,7 @@ const relicItem = (relic: Relic): ShopItem => ({
  *
  * ```
  *   slot 0   relic
- *   slot 1   relic — and the cap, never a third
+ *   slot 1   relic, and the cap, never a third
  *   slot 2   upgrade: an etching group, a slice level, a category level, or a card
  *   slot 3   letter: a modifier, or a card
  *   slot 4   a pack
@@ -393,8 +393,8 @@ const relicItem = (relic: Relic): ShopItem => ({
  * most interesting decision.
  *
  * Every visit now offers the same five kinds of decision. The old version rolled
- * each slot from one weighted table and could legally deal four etchings — a
- * shop with no build decision in it at all — which is what the retry loop and
+ * each slot from one weighted table and could legally deal four etchings, a
+ * shop with no build decision in it at all, which is what the retry loop and
  * the dedupe key dance existed to paper over. A layout that cannot deal a
  * duplicate does not need either, so both are gone.
  *

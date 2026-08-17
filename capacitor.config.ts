@@ -6,7 +6,7 @@ const config: CapacitorConfig = {
   // beside the first rather than upgrading it.
   appId: "com.jmelahman.fivewild",
   appName: "5 Wild",
-  // Must match vite.config.ts build.outDir — guarded by test/build-config.test.ts.
+  // Must match vite.config.ts build.outDir; guarded by test/build-config.test.ts.
   webDir: "dist",
   android: {
     // Matches --bg in src/style.css so there is no white flash on launch.

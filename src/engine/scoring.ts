@@ -12,7 +12,7 @@ import type { GameEvent, RunState, Tile, TileScore } from "./state"
 /**
  * The scoring pipeline.
  *
- *   per tile, left to right:  base chips + colour mult, then the letter's own
+ *   per tile, left to right:  base chips + color mult, then the letter's own
  *                             modifier, then every relic's onTile hook in slot
  *                             order
  *   after the tiles:          the word's category, at whatever level it holds
@@ -20,7 +20,7 @@ import type { GameEvent, RunState, Tile, TileScore } from "./state"
  *   finally:                  the solve bonus
  *
  * The modifier goes before the relics because the letter is what was played and
- * the relics are what watched it — and because a ×mult modifier landing before
+ * the relics are what watched it, and because a ×mult modifier landing before
  * the relics' flat mult is the weaker, more governable half of that ordering.
  *
  * Relics get real code rather than a data-driven effect DSL, because a DSL
@@ -65,7 +65,7 @@ export type ScoreCtx = {
   getData(key: string): number
   /**
    * Grow this relic. Collected rather than applied: scoring prices a guess, it
-   * does not edit the run — the same rule that puts `broken` in the result
+   * does not edit the run, the same rule that puts `broken` in the result
    * instead of mutating `state.letters` here. The caller commits it.
    */
   setData(key: string, value: number): void
@@ -90,7 +90,7 @@ export type ScoreResult = {
    */
   broken: string[]
   /**
-   * Relics that grew this guess, by slot. Same discipline as `broken` — only
+   * Relics that grew this guess, by slot. Same discipline as `broken`: only
    * the slots that actually wrote appear, so committing this never plants an
    * empty `data` on a relic that does not scale.
    */
@@ -101,7 +101,7 @@ export type ScoreResult = {
  * What a letter is worth before anything watches it: what it started as, plus
  * every etching bought on a group containing it, plus its alphabet range's
  * level. The two upgrade lines crosscut deliberately, so they add rather than
- * compete — an etched E in a levelled A–E collects both.
+ * compete, so an etched E in a leveled A–E collects both.
  */
 export function baseChips(state: RunState, letter: string): number {
   return (
@@ -113,20 +113,20 @@ export function baseChips(state: RunState, letter: string): number {
  * What the letters typed so far are worth in chips, as the boss prices them.
  *
  * The board shows this while the word is still being typed, which is the only
- * moment it can change what the player types — so it lives here beside the rule
+ * moment it can change what the player types, so it lives here beside the rule
  * rather than being re-derived in the view, for the reason `solveBonusFor` does:
  * a readout that disagreed with the scoring would be worse than no readout.
  *
  * Chips only, and only the tiles' own. Two things are left out and they are left
  * out for opposite reasons.
  *
- * Mult is left out because it cannot be known. Colour is the whole of it, and
- * colour is precisely what the player is typing the word to find out — which is
+ * Mult is left out because it cannot be known. Color is the whole of it, and
+ * color is precisely what the player is typing the word to find out, which is
  * why this returns chips rather than a score, and why the board shows a
  * placeholder there instead of a number.
  *
  * Modifiers, relic `onTile` hooks and the category bonus are left out because
- * knowing them costs more than it pays. Most read the tile's colour, so a dry
+ * knowing them costs more than it pays. Most read the tile's color, so a dry
  * run would have to invent one; the chance-based ones draw from a stream keyed
  * to the position they will really fire at, so a dry run would not merely guess
  * a coin flip, it would *report* it, handing the player an outcome before they
@@ -137,8 +137,8 @@ export function baseChips(state: RunState, letter: string): number {
  *
  * So the figure is a floor, the same promise `solveHint` makes: nothing in the
  * pipeline subtracts chips, so the guess can only beat this. The boss part of it
- * is exact — the hook is asked at gray, and none of the four bosses that bend
- * chips reads the colour: The Miser goes by whether the letter has been spent,
+ * is exact: the hook is asked at gray, and none of the four bosses that bend
+ * chips reads the color: The Miser goes by whether the letter has been spent,
  * The Drought by whether it is a vowel, The Rust by what the letter started as,
  * The Margin by which column it landed in. One that paid less on gray would
  * loosen the floor without breaking it, which is the direction a promise about
@@ -146,7 +146,7 @@ export function baseChips(state: RunState, letter: string): number {
  *
  * The column is exact for the same structural reason: a draft is typed left to
  * right, so a letter's index in the draft is the index it will be scored at.
- * That holds for a partial word too — the fifth column simply has nothing in it
+ * That holds for a partial word too. The fifth column simply has nothing in it
  * yet, so The Margin zeroes the first letter immediately and the last only once
  * it exists, which is the honest reading of a word that is not finished.
  */
@@ -168,7 +168,7 @@ export function draftChips(state: RunState, draft: string): number {
  * Deliberately a pure function of the state rather than something assembled
  * mid-pipeline: the board shows this figure *before* the guess is submitted, and
  * a readout that disagreed with the rule would be worse than no readout at all.
- * So relics touch it through their own hook instead of through `ScoreCtx` — a
+ * So relics touch it through their own hook instead of through `ScoreCtx`. A
  * bonus that could only be known by scoring a guess could not be predicted.
  *
  * The boss goes last so a cap really caps.
@@ -199,9 +199,9 @@ export function scoreGuess(params: {
 
   /**
    * Whoever is currently firing gets to narrate what it did. Set around each
-   * hook call, so an effect only has to say `+4 mult` and the event it lands in
-   * — a relic card lighting up, or the tile whose letter carried a modifier —
-   * is decided by the caller.
+   * hook call, so an effect only has to say `+4 mult` and the event it lands in,
+   * whether a relic card lighting up or the tile whose letter carried a
+   * modifier, is decided by the caller.
    */
   let firing: ((label: string) => void) | null = null
   const fire = (label: string) => firing?.(label)
@@ -216,7 +216,7 @@ export function scoreGuess(params: {
 
   /**
    * Which relic slot is firing, so `setData` knows whose counter it is writing.
-   * Null while a modifier or the tile loop itself is running — a letter has no
+   * Null while a modifier or the tile loop itself is running, since a letter has no
    * slot to grow in.
    */
   let slotFiring: number | null = null
@@ -252,14 +252,14 @@ export function scoreGuess(params: {
     },
     timesMult(factor) {
       // The Plateau. Swallowed here rather than at each caller so that every
-      // multiplicative effect in the game — relic, modifier, category level —
-      // is covered by construction, including ones written after the boss was.
+      // multiplicative effect in the game, whether relic, modifier or category
+      // level, is covered by construction, including ones written after the boss was.
       //
       // It still narrates, and narrates the truth: a card that lit up saying
       // "×3 mult" while the total did not move would read as a bug, and the
       // player needs to see *which* of their cards the round is eating.
       if (blockTimesMult) {
-        fire("×1 — multiplying blocked")
+        fire("×1 blocked")
         return
       }
       ctx.mult *= factor
@@ -303,7 +303,7 @@ export function scoreGuess(params: {
   tiles.forEach((tile, index) => {
     // Where the row stood before this column touched it. The two totals are read
     // again once the modifier and the relics have had it, and the difference is
-    // what the column was worth — see `TileScore`.
+    // what the column was worth; see `TileScore`.
     const opened = { chips: ctx.chips, mult: ctx.mult }
 
     const base = boss?.tileChips
@@ -313,7 +313,7 @@ export function scoreGuess(params: {
     ctx.chips += base
     ctx.mult += MULT_FOR_COLOR[tile.color]
     events.push({ type: "tile", index, gained: base, chips: ctx.chips, mult: ctx.mult })
-    // The colour is deliberately not written down beside the chips: it is on the
+    // The color is deliberately not written down beside the chips: it is on the
     // tile already, and a boss that rewrites what a row *shows* leaves `color`
     // and `shown` disagreeing. Whoever explains this later has to choose between
     // them, and copying one of them here would quietly make that choice for them.
@@ -328,7 +328,7 @@ export function scoreGuess(params: {
     if (modifier) {
       // One stream per tile of one guess of one round, so a chance effect is a
       // property of the position it happened at rather than of the order things
-      // were drawn in — which is what lets a run be replayed from its seed.
+      // were drawn in, which is what lets a run be replayed from its seed.
       roll = derive(state.seed, "mod", state.stage, state.roundIndex, guessIndex, index)
       firing = (label) => {
         events.push({
@@ -343,7 +343,7 @@ export function scoreGuess(params: {
         // The label rather than the numbers it moved, because the label is what
         // the tile said out loud and the whole point of keeping this is that the
         // row goes on saying it. A modifier that scored twice on one tile would
-        // leave only the last thing it said — none do, and the first one that
+        // leave only the last thing it said. None do, and the first one that
         // does will want a sentence written for it rather than two labels
         // concatenated by accident.
         record.mod = label
@@ -355,7 +355,7 @@ export function scoreGuess(params: {
     relics.forEach((relic, slot) => {
       if (!relic?.onTile) return
       // One stream per slot per tile, so a chance effect is a property of where
-      // it fired rather than of the order the slots happened to run in — the
+      // it fired rather than of the order the slots happened to run in, on the
       // same rule the modifier stream above follows.
       //
       // The salt still says "joker" on purpose: it is a coordinate, not a name,
@@ -366,7 +366,7 @@ export function scoreGuess(params: {
         events.push({ type: "relic", slot, id: relic.id, label, chips: ctx.chips, mult: ctx.mult })
         // Appended rather than assigned, which is where this parts company with
         // the modifier above. A letter carries one card; the tray carries five,
-        // and a green Q pays Green Thumb and Q's Bargain both — a row that kept
+        // and a green Q pays Green Thumb and Q's Bargain both, and a row that kept
         // only the last of them would answer a narrower question than the one
         // being asked of it. Two firings from the same slot append twice for the
         // same reason: that is what the tile did.
@@ -383,8 +383,8 @@ export function scoreGuess(params: {
 
   // The word's category, after the tiles and before the relics. That position is
   // the whole point: a level raises the *base*, so every ×mult relic downstream
-  // multiplies it. Levelling and multiplying compound instead of competing,
-  // which is what makes a levelled category a build rather than a bonus.
+  // multiplies it. Leveling and multiplying compound instead of competing,
+  // which is what makes a leveled category a build rather than a bonus.
   const category = categoryOf(word)
   const bonus = levelBonus(state, category)
   if (bonus.chips > 0 || bonus.mult > 0) {
@@ -418,7 +418,7 @@ export function scoreGuess(params: {
   // So the two lines finally compose: farm the board up, then cash the whole
   // pile in at once. Deciding *when* is the game.
   //
-  // The multiply itself belongs to the caller, which owns the running total —
+  // The multiply itself belongs to the caller, which owns the running total,
   // this only prices it.
   const solveBonus = solved ? solveBonusFor(state, guessesLeft) : 1
 

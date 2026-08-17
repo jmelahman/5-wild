@@ -2,8 +2,8 @@
 #
 # Renders every Android launcher and splash bitmap from assets/*.svg.
 #
-# The PNGs are committed — Gradle has no idea SVGs exist and CI has no renderer
-# — so this is the record of where they came from. Run it after editing the
+# The PNGs are committed, since Gradle has no idea SVGs exist and CI has no
+# renderer, so this is the record of where they came from. Run it after editing the
 # source art and commit whatever it changes.
 #
 # Needs rsvg-convert (librsvg) and the Inter font, which is what the source SVGs
@@ -19,14 +19,14 @@ command -v rsvg-convert >/dev/null || {
   exit 1
 }
 fc-list : family | tr ',' '\n' | grep -qx Inter || {
-  echo "the Inter font is not installed — the 5 would render in a fallback face" >&2
+  echo "the Inter font is not installed, so the 5 would render in a fallback face" >&2
   exit 1
 }
 
 # density:multiplier. Every size below is in dp and scaled by these.
 densities="mdpi:1 hdpi:1.5 xhdpi:2 xxhdpi:3 xxxhdpi:4"
 
-# svg:basename:dp — adaptive foregrounds are a 108dp canvas, legacy icons 48dp,
+# svg:basename:dp. Adaptive foregrounds are a 108dp canvas, legacy icons 48dp,
 # and the splash mark is sized to read on a phone without dominating it.
 jobs="
 assets/icon-foreground.svg:ic_launcher_foreground:108

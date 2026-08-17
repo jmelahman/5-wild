@@ -6,7 +6,7 @@
 # different failure modes. That script feeds Gradle: its output is a build input,
 # it runs whenever the mark changes, and getting it wrong breaks the APK. This
 # one feeds a web form a human fills in a few times a year, and getting it wrong
-# means Play rejects an upload — at which point the release is already cut. The
+# means Play rejects an upload, at which point the release is already cut. The
 # preflight below is duplicated rather than shared for the same reason: one of
 # these scripts is allowed to grow a dependency the other does not have.
 #
@@ -22,7 +22,7 @@ command -v rsvg-convert >/dev/null || {
   exit 1
 }
 fc-list : family | tr ',' '\n' | grep -qx Inter || {
-  echo "the Inter font is not installed — the wordmark would render in a fallback face" >&2
+  echo "the Inter font is not installed, so the wordmark would render in a fallback face" >&2
   exit 1
 }
 

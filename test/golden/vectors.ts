@@ -3,7 +3,7 @@
  *
  * A vector is `{ seed, contentVersion, actions[] }` in, `{ guesses[], gold[],
  * outcome }` out. It is the portability contract: any implementation of these
- * rules — a rewrite, a port to another language — is correct if and only if it
+ * rules, a rewrite or a port to another language, is correct if and only if it
  * reproduces these numbers from these actions.
  */
 
@@ -27,14 +27,14 @@ export type GuessVector = {
    * Who this guess was scored against, on the one round in three that has
    * someone. Recorded because the draw is a rule like any other and it was the
    * last one nothing wrote down: `bossForStage` is a shuffle of a band keyed by
-   * seed, so a port that shuffled differently would meet a different boss — and
+   * seed, so a port that shuffled differently would meet a different boss, and
    * five of the fifteen would score identically anyway. The Fog and The Mirror
    * touch only `shown`; The Tyrant, The Glutton and The Purist only refuse words
    * that were never played. None of the three columns a guess records can tell
    * those five apart. This can.
    *
    * On the guess rather than on the round because that is where the diff wants
-   * it — a boss that starts biting shows up as a changed score on a line that
+   * it: a boss that starts biting shows up as a changed score on a line that
    * says whose it was, instead of a changed score and a hunt for the round.
    * Omitted on the other two rounds in three, so the field costs nothing where
    * there is no boss to name.
@@ -49,7 +49,7 @@ export type GuessVector = {
    * What the boss told the player instead of showing it. Recorded because it is
    * a rule's output that a player can act on, so a reimplementation that counted
    * it wrong would be wrong in a way no score here would catch. Omitted when
-   * there is none, which is every guess under fourteen of the fifteen bosses —
+   * there is none, which is every guess under fourteen of the fifteen bosses.
    * The Silence is still the only one that says anything.
    */
   note?: string
@@ -73,29 +73,29 @@ export type Vector = {
   expected: {
     guesses: GuessVector[]
     gold: GoldVector[]
-    /** Itemised per round cleared — the gold event only carries the total. */
+    /** Itemized per round cleared. The gold event only carries the total. */
     rewards: RewardBreakdown[]
     outcome: Phase
     stage: number
     round: number
     finalGold: number
     relics: string[]
-    /** "A+2" — letter and the chips its etching adds. */
+    /** "A+2": letter and the chips its etching adds. */
     etched: string[]
-    /** "e:steel" — letter and the modifier stuck to it. */
+    /** "e:steel": letter and the modifier stuck to it. */
     mods: string[]
-    /** "distinct:3" — word category and the level it was bought up to. */
+    /** "distinct:3": word category and the level it was bought up to. */
     levels: string[]
-    /** "range_ae:2" — alphabet slice and the level it was bought up to. */
+    /** "range_ae:2": alphabet slice and the level it was bought up to. */
     ranges: string[]
-    /** "snowball:mult=310" — what each growing relic has banked. */
+    /** "snowball:mult=310": what each growing relic has banked. */
     grown: string[]
     destroyed: string[]
   }
 }
 
 /** Everything a vector asserts, read off a finished run. */
-function summarise(
+function summarize(
   state: RunState,
   guesses: GuessVector[],
   gold: GoldVector[],
@@ -120,15 +120,15 @@ function summarise(
       .map(([letter, value]) => `${letter}:${value.mod}`)
       .sort(),
     // The third permanent upgrade line, recorded beside the other two: a
-    // levelling bug that happens not to move a score is still a bug, and this
+    // leveling bug that happens not to move a score is still a bug, and this
     // is what makes the diff say which levels a run actually bought.
     levels: Object.entries(state.levels ?? {})
       .map(([id, level]) => `${id}:${level}`)
       .sort(),
-    // The other levelled line, recorded beside its twin. Kept separate from
+    // The other leveled line, recorded beside its twin. Kept separate from
     // `etched` even though both end up as chips on a letter, because the diff
-    // has to be able to say *which* upgrade a run bought — the two crosscut, so
-    // a total alone could not tell a levelled range from an etched group.
+    // has to be able to say *which* upgrade a run bought. The two crosscut, so
+    // a total alone could not tell a leveled range from an etched group.
     ranges: Object.entries(state.ranges ?? {})
       .map(([id, level]) => `${id}:${level}`)
       .sort(),
@@ -152,8 +152,8 @@ function summarise(
  * An action the engine turned down, and where in the list it was.
  *
  * Never expected to be non-empty: every action in a vector was accepted at the
- * moment it was recorded. It is kept out of `expected` for exactly that reason
- * — an always-empty array in the JSON would be re-recorded as an always-empty
+ * moment it was recorded. It is kept out of `expected` for exactly that reason:
+ * an always-empty array in the JSON would be re-recorded as an always-empty
  * array, so a rule that started refusing something would launder itself through
  * the next `npm run golden`. Asserted as a property instead, which re-recording
  * cannot quietly agree with.
@@ -164,14 +164,14 @@ export type Replayed = { expected: Vector["expected"]; refused: Refusal[] }
 
 /**
  * Replays a recorded action list. This is what the test runs, and it never
- * consults a scenario — the JSON is the input, so the bots that wrote it can
+ * consults a scenario. The JSON is the input, so the bots that wrote it can
  * change freely without moving the baseline.
  *
  * Note what a refusal does here: `reduce` returns the state untouched and emits
  * a `rejected` event, so a replay that hits one does not stop, it silently plays
  * a shorter run. That is the asymmetry these vectors live with. A rule that got
- * *stricter* is caught — the guess never lands and the score list comes up short
- * — but a rule that got *looser* is invisible, because every action recorded here
+ * *stricter* is caught, since the guess never lands and the score list comes up
+ * short, but a rule that got *looser* is invisible, because every action recorded here
  * was already legal and permission cannot be tested by exercising it. The
  * refusals are collected so the first half at least fails by name.
  */
@@ -221,7 +221,7 @@ export function replay(
     }
   })
 
-  return { expected: summarise(state, guesses, gold, rewards), refused }
+  return { expected: summarize(state, guesses, gold, rewards), refused }
 }
 
 function collectGold(events: readonly GameEvent[], into: GoldVector[]): void {
@@ -242,7 +242,7 @@ export function record(scenario: Scenario, words: WordSource, contentVersion: nu
 
   for (let step = 0; step < 4000; step++) {
     // Only defeat ends a recording outright. Victory used to as well, which
-    // made `continue_run` the one action in the game no vector could contain —
+    // made `continue_run` the one action in the game no vector could contain:
     // the recorder stopped at the exact screen the action is offered on. Every
     // bot that does not want to play on returns null there anyway, so letting
     // the scenario answer costs nothing and buys the other half of the ending.

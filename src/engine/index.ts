@@ -1,7 +1,7 @@
 /**
  * The engine's entire public surface.
  *
- * Nothing outside this directory should reach past this file — the UI is meant
+ * Nothing outside this directory should reach past this file. The UI is meant
  * to be replaceable, and this is the seam it gets replaced along.
  */
 

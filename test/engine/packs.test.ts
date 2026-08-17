@@ -7,7 +7,7 @@ import { realWords } from "../helpers/words"
 /**
  * Packs. What is under test is mostly the *hold*: a pack is paid for before it
  * is chosen from, so the shop must not be allowed to move on, reroll or restock
- * underneath one — and skipping has to be something you did on purpose.
+ * underneath one, and skipping has to be something you did on purpose.
  */
 
 const shopAt = (seed: number, stage = 1) =>
@@ -94,7 +94,7 @@ describe("opening a pack", () => {
     const before = inShop(1)
     const state = apply(offering(before, "alphabet"), [{ type: "buy", index: 0 }])
     // Read off the card rather than written out, so a repricing moves this with
-    // the catalogue. What is under test is that the gold goes at all, not what
+    // the catalog. What is under test is that the gold goes at all, not what
     // the alphabet pack happens to cost this week.
     expect(state.gold).toBe(before.gold - (PACK_BY_ID.get("alphabet")?.cost ?? 0))
     expect(state.pack?.id).toBe("alphabet")
@@ -142,7 +142,7 @@ describe("choosing from a pack", () => {
   it("applies the card without charging for it", () => {
     const state = opened(1, "alphabet")
     const chosen = state.pack?.options[0]
-    // A pack deals pairings, letter and all — the shop is the half that sells the
+    // A pack deals pairings, letter and all. The shop is the half that sells the
     // modifier loose and lets the player aim it.
     if (chosen?.kind !== "mod" || !chosen.letter) throw new Error("expected a pairing")
     const after = act(state, { type: "pick_pack", index: 0 })

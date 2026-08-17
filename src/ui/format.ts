@@ -1,8 +1,8 @@
 /**
  * How a score is written down.
  *
- * The targets are geometric — stage 1 asks for 300 and each one after it asks
- * for a little over twice the last — so by stage 8 the ask is in the millions and
+ * The targets are geometric, since stage 1 asks for 300 and each one after it
+ * asks for a little over twice the last, so by stage 8 the ask is in the millions and
  * an endless run, which has no last stage, has no last target either. Ten digits
  * do not fit on a phone beside the number chasing them, and past a point they
  * stop being read anyway: nobody compares 148,392,110 to 151,000,000 digit by
@@ -25,7 +25,7 @@ const significant = (scaled: number): number =>
   Number(scaled.toFixed(scaled >= 100 ? 0 : scaled >= 10 ? 1 : 2))
 
 export function formatNumber(value: number): string {
-  // Not reachable from the engine, which deals in finite integers — but the UI
+  // Not reachable from the engine, which deals in finite integers, but the UI
   // divides by targets, and a screen reading "NaN" is worse than one reading 0.
   if (!Number.isFinite(value)) return value > 0 ? "∞" : "0"
 

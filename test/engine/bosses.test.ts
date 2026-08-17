@@ -13,7 +13,7 @@ import {
   startRun,
   tierForStage,
 } from "../../src/engine"
-// Not part of the engine's public surface — the draw is an internal detail that
+// Not part of the engine's public surface. The draw is an internal detail that
 // only the stage loop and this test have any business calling.
 import { bossForStage } from "../../src/engine/bosses"
 
@@ -65,7 +65,7 @@ describe("boss rounds", () => {
   })
 
   it("counts misplaced letters only, never the ones it left green", () => {
-    // CRANE against BRAID: R and A land green, only the leading C is a miss —
+    // CRANE against BRAID: R and A land green, only the leading C is a miss,
     // so the count must not quietly include the two the board already shows.
     const guess = apply(underBoss("silence"), type("crane")).round.guesses[0]
     expect(guess?.tiles.filter((tile) => tile.shown === "green")).toHaveLength(2)
@@ -213,7 +213,7 @@ describe("boss rounds", () => {
     const middle = (LETTER_CHIPS.r ?? 0) + (LETTER_CHIPS.a ?? 0) + (LETTER_CHIPS.i ?? 0)
     expect(apply(state, type("braid")).round.guesses[0]?.chips).toBe(middle)
     expect(draftChips(state, "braid")).toBe(middle)
-    // Half-typed, the last column does not exist yet — so only the first is
+    // Half-typed, the last column does not exist yet, so only the first is
     // voided, and the promise stays a floor rather than becoming a guess.
     expect(draftChips(state, "bra")).toBe((LETTER_CHIPS.r ?? 0) + (LETTER_CHIPS.a ?? 0))
   })
@@ -224,7 +224,7 @@ describe("boss rounds", () => {
       ...base,
       letters: { ...base.letters, a: { etch: 0, destroyed: false, mod: "chip" } },
     }
-    // +20 chips on the A, and none of it lands. The letter keeps its modifier —
+    // +20 chips on the A, and none of it lands. The letter keeps its modifier;
     // the round suppresses it, it does not scrub the run.
     expect(apply(etched, type("braid")).round.guesses[0]?.chips).toBe(
       apply(base, type("braid")).round.guesses[0]?.chips,
@@ -246,7 +246,7 @@ describe("boss rounds", () => {
       letters: { ...base.letters, a: { etch: 0, destroyed: false, mod: "steel" } },
     }
     // Steel is ×2, Anagrammer is ×2, and BRAID trips both. Under this boss
-    // the mult is exactly what the tiles paid, and the modifier still fires —
+    // the mult is exactly what the tiles paid, and the modifier still fires;
     // only the multiplying part of it is swallowed.
     const plateau = apply({ ...steel, relics: [{ id: "anagrammer" }] }, type("braid"))
     expect(plateau.round.guesses[0]?.mult).toBe(apply(base, type("braid")).round.guesses[0]?.mult)
@@ -257,7 +257,7 @@ describe("boss rounds", () => {
     // 64 because the steel fires *during* the row: 10 at the A, ×2 to 20, then
     // the last two greens, then Anagrammer's ×2 on 26. That interleave is the
     // pipeline working as documented, and it is exactly what The Plateau spares
-    // the player from having to think about — under the boss there is nothing to
+    // the player from having to think about: under the boss there is nothing to
     // order, because nothing multiplies.
     const loose = apply(
       { ...steel, round: { ...steel.round, bossId: null }, relics: [{ id: "anagrammer" }] },
@@ -267,8 +267,8 @@ describe("boss rounds", () => {
   })
 
   /*
-   * `positional` is a claim the UI acts on — the key's tip stops quoting a chip
-   * value and quotes the rule instead — so a boss that reads the column and
+   * `positional` is a claim the UI acts on, since the key's tip stops quoting a
+   * chip value and quotes the rule instead, so a boss that reads the column and
    * forgot to say so would leave every key announcing what the first column
    * pays. Detected rather than trusted: score the same tile twice in different
    * columns and see whether the answer moves.
@@ -301,7 +301,7 @@ describe("boss rounds", () => {
 
   /*
    * What replaced "every boss exactly once". A run no longer meets all of them
-   * — that is the point of banding — but it must still never meet one twice,
+   * (that is the point of banding) but it must still never meet one twice,
    * and must never meet a late boss early. Both are checked across many seeds
    * because a single seed could pass by luck.
    */
@@ -320,7 +320,7 @@ describe("boss rounds", () => {
 
   it("accounts for every boss in the three bands", () => {
     // `BOSS_TIERS` is what the codex walks to list them, so a band missing from
-    // it is a boss the player has no way to read about — and one `bossForStage`
+    // it is a boss the player has no way to read about, and one `bossForStage`
     // would still deal them.
     const banded = BOSS_TIERS.flatMap((tier) => [...bossesIn(tier)])
     expect(banded).toHaveLength(BOSSES.length)

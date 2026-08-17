@@ -58,8 +58,8 @@ import { money, formatNumber as num } from "./format"
 import type { MetaState } from "./meta"
 import {
   chosenAscension,
-  favouriteRelics,
-  favouriteWord,
+  favoriteRelics,
+  favoriteWord,
   isLocked,
   meanSolve,
   roundsPlayed,
@@ -120,8 +120,8 @@ export type Handlers = {
 /**
  * Presentation state the engine has no opinion about.
  *
- * `coach` is the odd one out — it is derived from the run rather than from a
- * setting — and it rides here anyway, because the question it answers is a
+ * `coach` is the odd one out, since it is derived from the run rather than from a
+ * setting, and it rides here anyway, because the question it answers is a
  * presentation one: whether this player has been shown the first round yet. The
  * engine cannot know that, the view must not decide it, and putting it here is
  * what keeps `roundView`'s signature the same three arguments every other
@@ -138,8 +138,8 @@ export type Chrome = {
  * How much of the scoring game the board draws on itself.
  *
  * Three states rather than two because the one switch was hiding six marks that
- * answer three different questions — what a letter is worth, which modifier it
- * carries, and what just happened while the guess scored — and a player who
+ * answer three different questions: what a letter is worth, which modifier it
+ * carries, and what just happened while the guess scored. A player who
  * only wanted the third to stop had to give up the first two to get it.
  *
  * The middle state is a rule rather than a dimmer: mark what is *not* ordinary.
@@ -178,12 +178,12 @@ function menuButton(on: Handlers): HTMLElement {
  * under the thumb, which is the entire feedback the switch needs.
  *
  * It sits beside the chips × mult readout rather than up in the HUD, because
- * that is where the thing it governs is being totted up — the numbers on the
+ * that is where the thing it governs is being totted up. The numbers on the
  * keys feed that line, and the switch belongs at the bottom of the screen with
  * them and within reach of the thumb already on the keyboard.
  *
- * The face is the setting rather than a label for it — a letter carrying its
- * value, the same letter carrying only a mark, or the letter on its own — so a
+ * The face is the setting rather than a label for it: a letter carrying its
+ * value, the same letter carrying only a mark, or the letter on its own. So a
  * button two characters wide says what it does without spending a word on it.
  * The digit is drawn the way an ordinary letter's value is drawn rather than a
  * bought-up one's, because that is what most of the keyboard looks like, and it
@@ -191,7 +191,7 @@ function menuButton(on: Handlers): HTMLElement {
  * "1". The middle face is honest for the same reason: an ordinary letter shows
  * no value under `minimal`, and a dot is what a marked one would still show.
  *
- * A third state costs the switch its best property — you could not get a flip
+ * A third state costs the switch its best property: you could not get a flip
  * wrong, and you can get a cycle wrong, because nothing about a button says
  * which way it goes round. Two things pay for it. The order only ever takes
  * decoration away, so a mis-tap is always one step further down the ramp rather
@@ -203,8 +203,8 @@ function menuButton(on: Handlers): HTMLElement {
  *
  * No `aria-pressed`: it is a two-valued attribute and this is three, and a
  * screen reader told "not pressed" on the middle state would be told something
- * false. The label carries the whole thing instead — what the board is now and
- * what the tap will do — which is what the tip says to everyone else.
+ * false. The label carries the whole thing instead: what the board is now and
+ * what the tap will do. That is what the tip says to everyone else.
  */
 function decorToggle(on: Handlers, chrome: Chrome): HTMLElement {
   const face = DECOR_FACE[chrome.decor]
@@ -266,7 +266,7 @@ const DECOR_FACE: Record<
  * that steps through it and the tip that names where the next tap goes.
  *
  * It only ever takes decoration away until there is none, then restores all of
- * it. The other candidate — walking back up the way it came — reads better as a
+ * it. The other candidate, walking back up the way it came, reads better as a
  * dimmer but makes the same tap mean "less" or "more" depending on history,
  * which is exactly the thing a player cannot see on the face of a button.
  */
@@ -292,8 +292,8 @@ function hud(state: RunState, on: Handlers): HTMLElement {
         { class: "stage" },
         state.won ? `Stage ${state.stage} ∞` : `Stage ${state.stage}/${STAGES}`,
         // The terms the whole run is being played under, in the space of two
-        // characters. It shares its colour with the boss banner because it is
-        // the same kind of fact — something bending what a guess may be — and
+        // characters. It shares its color with the boss banner because it is
+        // the same kind of fact, something bending what a guess may be, and
         // the rules it stands for are named in full on every intro card.
         state.ascension ? h("span", { class: "stage-asc" }, `A${state.ascension}`) : null,
       ),
@@ -336,29 +336,29 @@ function relicRow(state: RunState): HTMLElement {
     // A card to read, not a control to press. It answered a tap with its own
     // text in a toast, which is a message across the board for a thumb that only
     // brushed the tray on its way to the keyboard, and which said what the tip
-    // beside the card says anyway — the tip being the better half of the two,
+    // beside the card says anyway. The tip is the better half of the two,
     // since it arrives next to the thing it is about instead of over the round.
     //
     // So no handler, and a `tabindex` rather than a button: a button that does
     // nothing when pressed offers the keyboard a press worth making and then
     // takes it back. What is left is a stop on the tab order, and the tip shows
-    // itself on focus — see `bindTips`.
+    // itself on focus. See `bindTips`.
     return h(
       "div",
       {
         class: `relic rarity-${relic.rarity}`,
         "data-slot": slot,
         // Read by the hover tip. It lives on the card rather than in a nested
-        // element because the tray clips its own children — the panel that
+        // element because the tray clips its own children. The panel that
         // shows this has to be built outside it, and so cannot inherit either.
         // The name is left out: it is already on the card the tip points at.
         "data-tip": detail ? `${relic.text} (${detail})` : relic.text,
         "data-rarity": relic.rarity,
         tabindex: 0,
         // The tip is drawn rather than spoken, so what it holds is said again
-        // here for a reader that will never see the panel. The name goes back in
-        // — a screen reader has no card in view for it to be already on.
-        "aria-label": `${relic.name} — ${relic.text}${detail ? ` (${detail})` : ""}`,
+        // here for a reader that will never see the panel. The name goes back in,
+        // because a screen reader has no card in view for it to be already on.
+        "aria-label": `${relic.name}: ${relic.text}${detail ? ` (${detail})` : ""}`,
       },
       h("span", { class: "relic-name" }, relic.name),
       detail ? h("span", { class: "relic-detail" }, detail) : null,
@@ -400,7 +400,7 @@ function grid(state: RunState, coach: CoachStep | null, on: Handlers): HTMLEleme
       if (played) {
         const tile = played.tiles[column]
         // Marked on played tiles only. The draft row is patched in place rather
-        // than rebuilt — see `patchDraft` — and anything drawn there would have
+        // than rebuilt (see `patchDraft`), and anything drawn there would have
         // to be reproduced by that patch to survive the next keystroke.
         return h(
           "div",
@@ -413,7 +413,7 @@ function grid(state: RunState, coach: CoachStep | null, on: Handlers): HTMLEleme
             "data-mod": tile && !modsOff ? modifierOf(state, tile.letter)?.id : undefined,
             // And the arithmetic behind the dot, on the same terms the keys
             // offer it: press and hold, or hover. The mark is the reminder, the
-            // panel is the explanation — see `tileTip`. Held back until the tile
+            // panel is the explanation. See `tileTip`. Held back until the tile
             // has turned over; `App.tipHost` is where that happens.
             "data-tip": tileTip(state, played, column),
           },
@@ -457,7 +457,7 @@ function grid(state: RunState, coach: CoachStep | null, on: Handlers): HTMLEleme
     return h("div", { class: "row", "data-row": row }, ...tiles, ...note)
   })
 
-  // The board's shape varies — The Clock takes two rows away — so its
+  // The board's shape varies (The Clock takes two rows away), so its
   // proportions are data, not a constant the stylesheet can hard-code.
   return h(
     "div",
@@ -476,14 +476,14 @@ function grid(state: RunState, coach: CoachStep | null, on: Handlers): HTMLEleme
  * nowhere else: measured at 390×844 the round screen runs board 115–567,
  * category 573–590, readout 596–630, solve hint 636–656, keyboard 662–836.
  * Between the board's bottom edge and the keyboard there are twenty pixels of
- * gap and three lines of numbers, and the card is about those numbers — putting
+ * gap and three lines of numbers, and the card is about those numbers, so putting
  * it there would mean covering the thing it is pointing at. The strip above the
  * keyboard is already spoken for by the toast, which is where a refusal lands.
  *
  * The board is the opposite: at the moment each beat fires, the rows below the
  * one being typed are empty by definition, so the card is laid over blank
- * squares and nothing the player needs is hidden. It costs no layout either — it
- * is absolutely positioned inside `.grid-wrap` — so the board does not resize
+ * squares and nothing the player needs is hidden. It costs no layout either. It
+ * is absolutely positioned inside `.grid-wrap`, so the board does not resize
  * when the card appears, which on this screen would be the board *moving*.
  *
  * The slot is always in the document, empty or not, for `fillCategory`'s
@@ -499,8 +499,8 @@ function coachSlot(coach: CoachStep | null, on: Handlers): HTMLElement {
 
 /**
  * Refill the coaching card. Called on every keystroke, like `fillCategory` and
- * `fillReadout`, because two of the five beats are about the word being typed —
- * one of them quotes its running chip count — and a card a keystroke behind the
+ * `fillReadout`, because two of the five beats are about the word being typed,
+ * and one of them quotes its running chip count. A card a keystroke behind the
  * number it is pointing at would be teaching the wrong lesson.
  */
 export function fillCoach(slot: Element, coach: CoachStep | null, on: Handlers): void {
@@ -532,8 +532,8 @@ export function fillCoach(slot: Element, coach: CoachStep | null, on: Handlers):
  * started as and there is nothing to break down.
  *
  * Shared by the two tips rather than written twice, because they are answering
- * the same question about the same letter from opposite ends of the round — the
- * key asks before the guess, the played tile asks after it — and two copies of
+ * the same question about the same letter from opposite ends of the round. The
+ * key asks before the guess, the played tile asks after it, and two copies of
  * this sum would eventually disagree about a purchase.
  */
 function chipBreakdown(state: RunState, letter: string): string | null {
@@ -553,23 +553,23 @@ function chipBreakdown(state: RunState, letter: string): string | null {
 /**
  * How one letter of a played row came to be worth what it was.
  *
- * The row's arithmetic is on screen for about a second — the tile floats what it
- * paid as it turns over, a modifier throws its label across the board — and then
- * the numbers are gone and the board is a record of colours. Everything the
+ * The row's arithmetic is on screen for about a second. The tile floats what it
+ * paid as it turns over, a modifier throws its label across the board, and then
+ * the numbers are gone and the board is a record of colors. Everything the
  * player might want to check afterwards happens during the one animation they
  * cannot replay: which letter carried the guess, whether the Lucky landed,
  * whether the boss was eating the etchings. This is where those numbers go on
  * being readable, through the panel and the gesture the keys already use.
  *
- * It prices the colour off `color`, not `shown`, and so tells a fogged gray that
+ * It prices the color off `color`, not `shown`, and so tells a fogged gray that
  * it was really a yellow. That is a decision and not an oversight, and it was
  * made the other way first: the tip quoted `shown` exactly as `tileGain` does
  * while the tile turns, on the reasoning that a panel undoing The Fog sells the
  * boss's card for the price of a hover.
  *
  * Two things settled it the other way. The Fog is punishing enough played
- * straight — it is the one boss that attacks deduction itself, and a round of it
- * asks the player to guess blind while the score demands they guess well — so
+ * straight. It is the one boss that attacks deduction itself, and a round of it
+ * asks the player to guess blind while the score demands they guess well, so
  * the hover is a cost paid for the answer rather than a hole in the design: it
  * is one gesture per tile, after the row is spent, and it never comes to you.
  * And the round was already leaking. `readout` moves to `event.mult` as each
@@ -591,7 +591,7 @@ function chipBreakdown(state: RunState, letter: string): string | null {
 export function tileTip(state: RunState, guess: GuessRecord, index: number): string | undefined {
   const tile = guess.tiles[index]
   const paid = guess.paid?.[index]
-  // A row played before guesses started keeping their arithmetic — a save
+  // A row played before guesses started keeping their arithmetic: a save
   // carried across the change, and only until the round ends. It gets no tip at
   // all rather than a plausible reconstruction: `baseChips` would answer for
   // most rounds and lie under The Miser and The Rust, and a tip that is right
@@ -606,7 +606,7 @@ export function tileTip(state: RunState, guess: GuessRecord, index: number): str
   const breakdown = chipBreakdown(state, tile.letter)
   if (breakdown) lines.push(breakdown)
 
-  // Named only when it actually moved this tile, which — unlike the key's tip —
+  // Named only when it actually moved this tile, which, unlike the key's tip,
   // this can ask about honestly: a played tile knows which column it landed in,
   // so The Margin is named on the first and last letters and stays quiet in the
   // middle three, where it did nothing.
@@ -615,8 +615,8 @@ export function tileTip(state: RunState, guess: GuessRecord, index: number): str
     lines.push(`${boss.name}: ${boss.text}`)
   }
 
-  // The colour that scored, which under The Fog and The Mirror is not the colour
-  // on the tile. Deliberate — see above — and it is also the only reading that
+  // The color that scored, which under The Fog and The Mirror is not the color
+  // on the tile. Deliberate (see above), and it is also the only reading that
   // squares with the line at the bottom: the mult share is measured off what the
   // row actually gained, and a panel saying "gray · no mult" over "1 of 12 mult"
   // would be caught contradicting itself by the same player it was protecting.
@@ -632,22 +632,22 @@ export function tileTip(state: RunState, guess: GuessRecord, index: number): str
       paid.mod
         ? `${mod.name} · ${paid.mod}`
         : boss?.noModifiers
-          ? `${mod.name} · ${mod.text} — silenced this round`
+          ? `${mod.name} · ${mod.text} · silenced this round`
           : // The third silence, and the only one the player cannot work out from
             // anywhere else: the card fired and had nothing to say. Lucky rolled
             // and lost, Anchor wanted a green, Echo wanted the letter twice.
-            `${mod.name} · ${mod.text} — nothing this time`,
+            `${mod.name} · ${mod.text} · nothing this time`,
     )
   }
 
   // In the order they fired, which is slot order, which is the order the tray
-  // reads left to right — so a player checking a line against the card that
+  // reads left to right, so a player checking a line against the card that
   // caused it is looking along the row the cards are already in.
   //
   // A relic that was asked and declined is not mentioned, unlike the letter's own
   // modifier above. The asymmetry is the count: one card is stuck to this letter
   // and its silence is about this letter, where five are asked about every tile
-  // on the board and most of them want something it is not. "Green Thumb —
+  // on the board and most of them want something it is not. "Green Thumb ·
   // nothing this time" under all thirty tiles of a lost round is noise wearing
   // the costume of an explanation.
   for (const fired of paid.relics ?? []) {
@@ -656,7 +656,7 @@ export function tileTip(state: RunState, guess: GuessRecord, index: number): str
   }
 
   // What this letter put in, against what the row came to. The two totals are
-  // still here — they are the right-hand halves — so the line that used to read
+  // still here as the right-hand halves, so the line that used to read
   // the same on all five tiles now reads differently on each, which is the only
   // thing a per-tile panel is for.
   //
@@ -680,9 +680,9 @@ export function tileTip(state: RunState, guess: GuessRecord, index: number): str
 /**
  * Everything acting on one letter, in a sentence or four.
  *
- * The key already carries two marks — what the letter is worth and a pip for the
- * modifier — and marks are a reminder, not an explanation. A player who has
- * bought an etching, levelled a range and dropped a Lucky on the same letter is
+ * The key already carries two marks: what the letter is worth and a pip for the
+ * modifier. Marks are a reminder, not an explanation. A player who has
+ * bought an etching, leveled a range and dropped a Lucky on the same letter is
  * looking at `4` and `?` and has no way to find out where either the four or the
  * question mark came from without leaving the round.
  *
@@ -697,8 +697,8 @@ function letterTip(state: RunState, letter: string): string {
   if (state.letters[letter]?.destroyed) return `${upper} · broken, no longer typeable`
 
   const boss = getBoss(state.round.bossId)
-  // `draftChips` prices a one-letter draft, which is to say the first column —
-  // fine for a boss that reads the letter, wrong for one that reads the column.
+  // `draftChips` prices a one-letter draft, which is to say the first column.
+  // Fine for a boss that reads the letter, wrong for one that reads the column.
   // Under The Margin every key would announce "no chips", which is true of the
   // column it was asked about and false of the letter. So a positional boss gets
   // the letter's own value in the headline and says the rest in its own words.
@@ -709,7 +709,7 @@ function letterTip(state: RunState, letter: string): string {
   const breakdown = chipBreakdown(state, letter)
   if (breakdown) lines.push(breakdown)
 
-  // Only when the boss actually moved this letter — naming a boss that is not
+  // Only when the boss actually moved this letter. Naming a boss that is not
   // touching it would make every key look cursed. A positional one is always
   // named, since the headline above it deliberately stopped accounting for it.
   if (boss && (boss.positional || now !== baseChips(state, letter))) {
@@ -718,12 +718,12 @@ function letterTip(state: RunState, letter: string): string {
 
   const mod = modifierOf(state, letter)
   // Under The Vandal the modifier is still bought, still placed and still worth
-  // reading — it just will not fire this round, and the tip is the one place
+  // reading. It just will not fire this round, and the tip is the one place
   // that can say which of those two things is true.
   if (mod) {
     lines.push(
       boss?.noModifiers
-        ? `${mod.name} · ${mod.text} — silenced this round`
+        ? `${mod.name} · ${mod.text} · silenced this round`
         : `${mod.name} · ${mod.text}`,
     )
   }
@@ -733,8 +733,8 @@ function letterTip(state: RunState, letter: string): string {
 function keyboard(state: RunState, on: Handlers): HTMLElement {
   const colors = keyboardColors(state.round.guesses)
   const eliminated = new Set(state.round.eliminated)
-  // The Vandal. The pip stays — the modifier has not gone anywhere, and hiding
-  // it would make the round look like it had eaten the purchase — but it greys
+  // The Vandal. The pip stays, since the modifier has not gone anywhere, and hiding
+  // it would make the round look like it had eaten the purchase, but it grays
   // out, which is the same thing a broken key already does to it.
   const modsOff = getBoss(state.round.bossId)?.noModifiers ?? false
 
@@ -750,13 +750,13 @@ function keyboard(state: RunState, on: Handlers): HTMLElement {
     // The pip used to be a `+2` that appeared when an etching or a range level
     // moved a letter, which answers "what changed". The question a player is
     // actually holding while choosing a letter is "what is this one worth", and
-    // the twenty-odd letters nobody has spent on answered that with silence —
-    // the chip table is rarity-inverse, so Q is ten chips and E is one before
+    // the twenty-odd letters nobody has spent on answered that with silence.
+    // The chip table is rarity-inverse, so Q is ten chips and E is one before
     // anybody touches either, which is the most useful comparison on the board
     // and was the one thing the board would not say. `bought` survives only to
     // report whether the figure was paid for, which the stylesheet draws as the
-    // chips colour against the off-white a letter still worth what it started as
-    // gets — the ring that used to say it is gone, because the ring is how a
+    // chips color against the off-white a letter still worth what it started as
+    // gets. The ring that used to say it is gone, because the ring is how a
     // modifier says which modifier it is.
     //
     // Deliberately the raw value rather than the boss-adjusted one `letterTip`
@@ -767,7 +767,7 @@ function keyboard(state: RunState, on: Handlers): HTMLElement {
     const value = baseChips(state, letter)
     const color = eliminated.has(letter) ? "gray" : colors.get(letter)
     // A modifier is bought once and paid off over the rest of the run, so the
-    // key it lives on is the only place a player can be reminded it is there —
+    // key it lives on is the only place a player can be reminded it is there,
     // at the moment they are choosing whether to spend a letter on this guess.
     const mod = modifierOf(state, letter)
     return h(
@@ -809,7 +809,7 @@ function keyboard(state: RunState, on: Handlers): HTMLElement {
  * What solving on this guess is worth, right now.
  *
  * The solve bonus multiplies everything banked this round, so the decision the
- * whole game turns on — cash out or farm another guess — is arithmetic the
+ * whole game turns on, cash out or farm another guess, is arithmetic the
  * player would otherwise have to do in their head, against a multiplier that
  * shrinks every time they guess. Showing it is the difference between a
  * gamble and a choice.
@@ -822,13 +822,13 @@ function keyboard(state: RunState, on: Handlers): HTMLElement {
  * so The Long Game and The Auditor move this line as well as the score.
  *
  * Returns the box whether or not it has anything to say, for the reason
- * `categorySlot` does — and this one was worse. The line goes quiet the instant
+ * `categorySlot` does, and this one was worse. The line goes quiet the instant
  * the round is `done`, and `submit` keeps the board on screen through the whole
  * reveal after that (`render("round")`), so the 20px it was holding came out of
  * the grid on the guess that ended the round. Measured at 390×640, where the
  * board is bound by height: the grid went 275px to 301px and every tile 41.7px
  * to 46.1px, mid-flip, on the one guess the player is watching hardest. The
- * board is centred, so on a taller screen it slid instead of growing; neither is
+ * board is centered, so on a taller screen it slid instead of growing; neither is
  * something the round should do as it ends.
  */
 function solveHint(state: RunState): HTMLElement {
@@ -857,7 +857,7 @@ function solveHint(state: RunState): HTMLElement {
  * job: a category at level one pays nothing, so without this line there would be
  * no way to discover the system exists until after buying into it.
  *
- * Reads the draft once it is a full word, and otherwise the last guess — the
+ * Reads the draft once it is a full word, and otherwise the last guess, the
  * same rule the readout beside it follows, so the two never disagree about which
  * word they are describing.
  */
@@ -872,7 +872,7 @@ export function wordInPlay(state: RunState): string {
  * Where the shape of the word in play is named.
  *
  * The slot is always in the document, empty or not, because the draft row is
- * patched in place rather than re-rendered — see `patchDraft` — and this line
+ * patched in place rather than re-rendered (see `patchDraft`), and this line
  * has to keep up with it. A line that appeared and vanished with the word would
  * mean the patch had to know where to reinsert it; an empty div costs nothing
  * and gives it somewhere to write.
@@ -921,9 +921,9 @@ export function fillCategory(slot: Element, state: RunState, on: Handlers): void
  * which word to spend a guess on is partly a scoring choice, and a board that
  * only reveals the chips *after* the guess is spent makes that choice round.
  *
- * Only the chips half moves. Mult comes entirely from colour, and colour is the
+ * Only the chips half moves. Mult comes entirely from color, and color is the
  * thing the player is trying to find out, so there is genuinely nothing
- * truthful to put there — hence the placeholder rather than a 1 or a stale
+ * truthful to put there, hence the placeholder rather than a 1 or a stale
  * figure, either of which would read as a promise the board cannot keep. Saying
  * "unknown" out loud also teaches the rule the readout is built on: chips are
  * the letters you chose, mult is what the answer thinks of them.
@@ -957,7 +957,7 @@ export function fillReadout(el: Element, state: RunState): void {
           "span",
           {
             class: "mult pending",
-            "data-tip": "Colour is the multiplier. Guessing is how you find it out.",
+            "data-tip": "Color is the multiplier. Guessing is how you find it out.",
           },
           "?",
         )
@@ -978,7 +978,7 @@ export function roundView(state: RunState, on: Handlers, chrome: Chrome): HTMLEl
     categorySlot(state, on),
     // The toggle is the readout's sibling and not its child on purpose:
     // `fillReadout` calls `replaceChildren` on every keystroke, so a button
-    // inside that element would be rebuilt — and lose a press mid-tap — five
+    // inside that element would be rebuilt, and lose a press mid-tap, five
     // times a word.
     h("div", { class: "readout-row" }, readoutSlot(state), decorToggle(on, chrome)),
     solveHint(state),
@@ -991,7 +991,7 @@ export function roundView(state: RunState, on: Handlers, chrome: Chrome): HTMLEl
 /* --------------------------------------------------------- the round intro */
 
 /**
- * The beat between the shop and the board. It exists for pacing — the player
+ * The beat between the shop and the board. It exists for pacing. The player
  * arrives at a round having decided what to buy, and this is where they read
  * what they are walking into before the keyboard demands anything of them.
  */
@@ -1132,8 +1132,8 @@ const rangeText = (range: Range): string =>
  * it is being bought or being chosen.
  *
  * The tag is the answer to a question the shelf was not answering. Seven kinds of
- * thing are sold here and every one of them was the same rectangle — a name, a
- * sentence, a price — so "The Mint" and "Etch Heavy" were distinguishable only by
+ * thing are sold here and every one of them was the same rectangle: a name, a
+ * sentence, a price. So "The Mint" and "Etch Heavy" were distinguishable only by
  * reading both sentences and knowing the game well enough to classify them. The
  * tag says the kind in one word before the name is read.
  *
@@ -1141,8 +1141,8 @@ const rangeText = (range: Range): string =>
  * "Relic · tray full" is a fact about the run rather than about the card, so it
  * was never on one card at a time: a full tray tags every relic on the shelf at
  * once, and a shelf of warnings reads as a shelf that is broken rather than as
- * stock. It also spends the name's own line — five cards across a phone leaves
- * about 64px for a name, and the ticket was taking three words of it — to say
+ * stock. It also spends the name's own line. Five cards across a phone leaves
+ * about 64px for a name, and the ticket was taking three words of it to say
  * something the tray directly below is already saying by having no empty seat in
  * it, about a purchase the player can make room for by selling on this very
  * screen. The refusal is said at the till instead, where it is one line about
@@ -1150,27 +1150,27 @@ const rangeText = (range: Range): string =>
  *
  * The consumable keeps its warning, and the difference is whether the screen can
  * act on it. A card is used in a round, so a full hand is a wall for the whole
- * shop visit — nothing on this screen empties it — and the tag is the only place
+ * shop visit, since nothing on this screen empties it, and the tag is the only place
  * that can say so before the gold is committed to a tap that will bounce.
  *
- * Rarity stays a colour and never becomes a word. Relics were the exception —
- * "Uncommon Relic", on the grounds that rarity is an economy there — but a tag
+ * Rarity stays a color and never becomes a word. Relics were the exception, with
+ * "Uncommon Relic" on the grounds that rarity is an economy there. But a tag
  * that says two things says the second one second, and the kind is what the tag
  * is for. The card was already announcing its rarity three ways over: the
  * border, the tag's own ink, and the tray the relic is bound for. The word was
  * the fourth telling, and the only one charging the name room on the line.
  *
  * The tip is the sentence behind the tag. One word is enough to sort five cards
- * into kinds and not nearly enough to say what a kind *is* — "Alphabet" names
- * nothing to a player who has not already bought one — so the ticket answers the
+ * into kinds and not nearly enough to say what a kind *is*. "Alphabet" names
+ * nothing to a player who has not already bought one, so the ticket answers the
  * question it provokes when it is hovered or held.
  *
  * One line, and deliberately shorter than the card it hangs off. It says how
  * that kind of thing works and stops: not what this card does, which the body
  * copy under it is already saying, and not the fine print, which is what the
  * rules sheet and the codex are for. A panel that has to be *read* is one the
- * player has stopped hovering by the end of — it covers the shelf it is
- * explaining while it does it — so anything that would not fit in a breath was
+ * player has stopped hovering by the end of. It covers the shelf it is
+ * explaining while it does it, so anything that would not fit in a breath was
  * dropped rather than compressed. The test holds the length.
  *
  * `swap` is the one thing a card says that is about the run rather than about
@@ -1178,8 +1178,8 @@ const rangeText = (range: Range): string =>
  * destroys what is there, and that is the only line on the shelf describing
  * something the player *loses* by tapping. It gets a field and a line of its own
  * rather than a clause on the end of `text`, because it used to be a clause on
- * the end of `text` — "E scores ×3 mult, and can break when it lands gray,
- * replacing Steel" — which buried the consequence at the end of the longest
+ * the end of `text`, "E scores ×3 mult, and can break when it lands gray,
+ * replacing Steel", which buried the consequence at the end of the longest
  * sentence on the card, in the same ink as the sales copy, past the point a
  * shelf of five cards is read to.
  */
@@ -1223,9 +1223,9 @@ export function describeItem(
     title = relic?.name ?? item.id
     text = relic?.text ?? ""
     rarity = relic?.rarity ?? "common"
-    // Never blocked, whatever the tray holds. The refusal still happens — the
+    // Never blocked, whatever the tray holds. The refusal still happens. The
     // engine turns the purchase away with "no relic slots free" and the toast
-    // says it — it just happens at the till rather than on the card.
+    // says it. It just happens at the till rather than on the card.
     tag = "Relic"
     // What separates it from everything else on the shelf, in one clause: it is
     // never used up and never used at all. The slot count is a number the tray
@@ -1250,7 +1250,7 @@ export function describeItem(
     tip = "It sticks to one letter for the rest of the run."
     if (item.letter === undefined) {
       // The shop's version: a card with no letter on it yet. Named for what it
-      // is being bought as — a choice — because the price is the price of the
+      // is being bought as, a choice, because the price is the price of the
       // choice, and the letter it ends up on is the next screen. The qualifier
       // sits after the name rather than reading as a verb ("Gold a letter"),
       // and it is what tells this card apart from the pack's aimed one at a
@@ -1264,7 +1264,7 @@ export function describeItem(
       title = `${mod?.name ?? item.id} ${letter}`
       text = `${letter} ${mod?.text ?? ""}`
       // A letter holds one modifier, so this is sometimes a trade rather than an
-      // addition — and that has to be legible before the gold is gone.
+      // addition, and that has to be legible before the gold is gone.
       const current = state.letters[item.letter]?.mod
       const held = current ? MODIFIER_BY_ID.get(current) : undefined
       if (held && held.id !== item.id) {
@@ -1280,16 +1280,16 @@ export function describeItem(
     }
   } else if (item.kind === "range") {
     const range = RANGE_BY_ID.get(item.id)
-    // Named the same way a category level is — the level it buys, not the one
-    // you hold — because the gold buys the step.
+    // Named the same way a category level is: the level it buys, not the one
+    // you hold, because the gold buys the step.
     title = range ? `${range.name} → Lv ${rangeLevelOf(state, item.id) + 1}` : "Range"
     // Spelled out rather than named again. "A–E letters" is the title over
     // again in the body's ink, and it asks a player mid-shop to expand a dash
-    // into five letters and check their own vocabulary against it — which is
+    // into five letters and check their own vocabulary against it, which is
     // the whole decision the card is selling. F–M is the one that settles it:
     // eight letters, and the ones that matter to a guess are the ones nobody
     // recites when they read the endpoints. So it reads exactly the way an
-    // etching does — "A E I O U are worth +2 chips" — and exactly the way the
+    // etching does, "A E I O U are worth +2 chips", and exactly the way the
     // same four ranges are already listed in the rules sheet.
     //
     // The whole slice, including any letter that has been destroyed. The range
@@ -1328,11 +1328,11 @@ export function describeItem(
 /**
  * The line a card grows when tapping it would throw something away.
  *
- * Carries the outgoing modifier's own colour, because that is how the letter has
- * been saying "Steel" since the day it was bought — the ring on the key, the pip
+ * Carries the outgoing modifier's own color, because that is how the letter has
+ * been saying "Steel" since the day it was bought: the ring on the key, the pip
  * in its corner and the dot on a played tile all read off `--mod`, and a warning
  * about Steel drawn in warning-red would be the first thing in the game to name
- * Steel in a colour that is not Steel's.
+ * Steel in a color that is not Steel's.
  */
 function swapLine(swap: string, modId: string | undefined): HTMLElement {
   return h("div", { class: "shop-item-swap", "data-mod": modId }, swap)
@@ -1347,13 +1347,13 @@ function swapLine(swap: string, modId: string | undefined): HTMLElement {
  * holds `null`, so every letter in the alphabet read as occupied and armed on
  * the first tap, while this file asked `modifierOf` and correctly drew no
  * question about it. What the player got was a tap that appeared to do nothing
- * on exactly the letters — the bare ones, most of the board — that were supposed
+ * on exactly the letters (the bare ones, most of the board) that were supposed
  * to place in one. Two answers to one question can be wrong in that shape; one
  * cannot.
  *
  * `placeableLetters` is part of the answer rather than a separate check above
- * it: a letter the engine is going to refuse — a Q under Echo, a broken letter,
- * one already carrying this very modifier — is not a trade to confirm. It has to
+ * it: a letter the engine is going to refuse (a Q under Echo, a broken letter,
+ * one already carrying this very modifier) is not a trade to confirm. It has to
  * fall through to the dispatch and be refused with a reason, and it does that by
  * arriving here and being told there is nothing to lose.
  */
@@ -1366,7 +1366,7 @@ export function displacedAt(
   return modifierOf(state, letter)
 }
 
-/** The modifier a shelf card would displace, for `swapLine` to colour. */
+/** The modifier a shelf card would displace, for `swapLine` to color. */
 function displaced(item: ShopItem, state: RunState): string | undefined {
   if (item.kind !== "mod" || item.letter === undefined) return undefined
   const current = state.letters[item.letter]?.mod
@@ -1405,8 +1405,8 @@ function shopItemCard(item: ShopItem, index: number, state: RunState, on: Handle
  * than as a second title, and the line it was taking goes back to saying what
  * the thing does.
  *
- * Baseline-aligned rather than centred, so a long name and a long tag —
- * "Consumable · slots full" is the worst pair the shelf can deal — still sit on
+ * Baseline-aligned rather than centered, so a long name and a long tag
+ * ("Consumable · slots full" is the worst pair the shelf can deal) still sit on
  * one line of type, with the tag wrapping under itself in the corner rather than
  * dragging the name off its own baseline. An empty `tag` means no ticket, which
  * is how a pack asks for the name on its own.
@@ -1414,11 +1414,11 @@ function shopItemCard(item: ShopItem, index: number, state: RunState, on: Handle
  * The tip hangs off the ticket rather than off the whole card, because the card
  * is a buy button: a panel that opened over the shelf every time the pointer
  * crossed a price would be in the way of the thing it is explaining. An empty
- * `tip` leaves the ticket inert, which is what the pack sheet asks for — its
+ * `tip` leaves the ticket inert, which is what the pack sheet asks for. Its
  * backdrop sits above the tip's layer, so a tip raised from inside it would be
  * drawn behind the sheet that asked for it.
  *
- * The rarity rides along so the panel takes the card's own edge colour, the way
+ * The rarity rides along so the panel takes the card's own edge color, the way
  * a relic's does from the tray.
  */
 function shopItemHead(
@@ -1488,13 +1488,13 @@ export function packView(state: RunState, on: Handlers): HTMLElement | null {
             // No tag at all on this sheet. A pack deals one kind of card, so on
             // the shelf's terms it would say "Letter" three times under a title
             // that already said Alphabet Pack. The last case it had left to say
-            // was the pick that could be taken and then refused — a relic dealt
-            // into a full tray — and that one was never really its to say:
+            // was the pick that could be taken and then refused, a relic dealt
+            // into a full tray, and that one was never really its to say:
             // `packContents` returns nothing for a relic pack the tray has no
             // room for, so the shop refuses to open it at all rather than
             // selling three cards that all bounce. If a pack ever deals a
             // second pick and the first one fills the tray, the refusal lands
-            // where the shop's does now — at the till, with the pack still open
+            // where the shop's does now, at the till, with the pack still open
             // and the toast naming the card that was tapped.
             //
             // No tip either, and not only because there is no tag to hang it
@@ -1506,7 +1506,7 @@ export function packView(state: RunState, on: Handlers): HTMLElement | null {
             // from the tag it replaced is that this pick does not bounce. A
             // relic dealt into a full tray is refused and the pack stays open,
             // so the till can say it afterwards and nothing has been lost; a
-            // Glass E dealt onto a Steel E is honoured, and the Steel is gone
+            // Glass E dealt onto a Steel E is honored, and the Steel is gone
             // before there is anything to say it to.
             //
             // A pack is also where this lands most often, because the pack is
@@ -1539,7 +1539,7 @@ export function packView(state: RunState, on: Handlers): HTMLElement | null {
  * The letter picker: a modifier in hand, waiting to be put somewhere.
  *
  * Shaped like the keyboard rather than like a list, because the question it
- * asks — "which letter do you actually type?" — is one the player has already
+ * asks, "which letter do you actually type?", is one the player has already
  * been answering on that exact layout all run. Each key carries what the letter
  * is worth in chips and what it is already holding, so the trade a replacement
  * would make is visible before it is made.
@@ -1551,7 +1551,7 @@ export function packView(state: RunState, on: Handlers): HTMLElement | null {
  * true and was not enough: the mark saying a letter was carrying something was a
  * 10px pip and 70% opacity, the sentence saying what that meant was a footnote
  * under a keyboard, and the footnote was not even drawn for a restricted
- * modifier — Echo goes on six letters, so its note spent itself naming them and
+ * modifier. Echo goes on six letters, so its note spent itself naming them and
  * the only warning about replacement went missing on the card most likely to
  * land on a letter that already had one. The tap itself said nothing at all: a
  * $13 Glass could eat a $12 Anchor on a fat thumb, or on the physical keyboard
@@ -1559,8 +1559,8 @@ export function packView(state: RunState, on: Handlers): HTMLElement | null {
  * badly and no way back afterwards.
  *
  * So the taken key arms instead of placing, and the footnote's job moves to a
- * block that names both modifiers and asks. The free letters — which are most of
- * the alphabet on most visits, and all of it on the first — keep their one tap,
+ * block that names both modifiers and asks. The free letters, which are most of
+ * the alphabet on most visits and all of it on the first, keep their one tap,
  * because a confirmation on a choice that destroys nothing is the kind of thing
  * a player learns to tap through, and a player who taps through this one is
  * exactly who it is for.
@@ -1632,7 +1632,7 @@ export function placeView(
     notes.push(`${modifier.name} only goes on ${[...modifier.letters].join(" ").toUpperCase()}.`)
   }
   // Said only when there is a key on screen it is about. On a run that has
-  // bought one modifier — which is every run, once — it is a rule about a
+  // bought one modifier, which is every run, once, it is a rule about a
   // situation that has not arisen, and the sheet is better off short.
   if ([...allowed].some((letter) => state.letters[letter]?.mod)) {
     notes.push("A letter holds one modifier. Tapping one that already has a pip asks first.")
@@ -1648,7 +1648,7 @@ export function placeView(
       h("p", { class: "pack-hint" }, `Choose a letter. It ${modifier.text}.`),
       h(
         "div",
-        // The incoming modifier's colour, hung on the container so the armed key
+        // The incoming modifier's color, hung on the container so the armed key
         // can ring itself in it while every other key keeps its own. See the
         // `--incoming` note in the stylesheet for why it survives the override.
         { class: "keyboard place-keys", "data-mod": modifier.id },
@@ -1657,7 +1657,7 @@ export function placeView(
       armed && losing
         ? h(
             "div",
-            // The outgoing modifier's colour, on the block rather than on the
+            // The outgoing modifier's color, on the block rather than on the
             // word inside it, so the edge and the name are lit by one decision.
             { class: "place-swap", "data-mod": losing.id },
             h(
@@ -1702,14 +1702,14 @@ export function placeView(
 /**
  * The levels a run is holding, under the stock that sells more of them.
  *
- * The shop is where the decision is — "Twinned → Lv 3" for $8 is unanswerable
- * without knowing what else you have levelled — and the card itself can only
+ * The shop is where the decision is. "Twinned → Lv 3" for $8 is unanswerable
+ * without knowing what else you have leveled, and the card itself can only
  * speak for the one shape it is selling. Always present rather than hidden
  * behind the levels being non-trivial, because the visit where you own nothing
  * is exactly the visit where you have not heard of the system.
  */
 function shopShapes(state: RunState, on: Handlers): HTMLElement {
-  const levelled = CATEGORIES.filter((category) => levelOf(state, category.id) > 1)
+  const leveled = CATEGORIES.filter((category) => levelOf(state, category.id) > 1)
   return h(
     "button",
     { class: "shapes-line", type: "button", onclick: () => on.openShapes() },
@@ -1717,8 +1717,8 @@ function shopShapes(state: RunState, on: Handlers): HTMLElement {
     h(
       "span",
       { class: "shapes-line-body" },
-      levelled.length > 0
-        ? levelled
+      leveled.length > 0
+        ? leveled
             .map((category) => `${category.name} Lv ${levelOf(state, category.id)}`)
             .join(" · ")
         : "all at level 1",
@@ -1803,7 +1803,7 @@ export function shopView(state: RunState, on: Handlers): HTMLElement {
         // tray under "tap a relic to sell" reads as a control that is broken
         // rather than as one that has nothing to act on yet.
         `Relics ${state.relics.length}/${difficultyOf(state).relicSlots} · Consumables ${state.consumables.length}/${CONSUMABLE_SLOTS}${
-          state.relics.length > 0 ? " — tap a relic to sell" : ""
+          state.relics.length > 0 ? " · tap a relic to sell" : ""
         }`,
       ),
       h("div", { class: "relics" }, ...owned),
@@ -1824,8 +1824,8 @@ export function shopView(state: RunState, on: Handlers): HTMLElement {
  * how far it actually goes.
  *
  * The screen says plainly that the win survives either choice, rather than
- * inventing a stake to make the fork feel weightier. It has no stake to invent —
- * nothing is wagered by playing on, and a screen that implied otherwise would be
+ * inventing a stake to make the fork feel weightier. It has no stake to invent.
+ * Nothing is wagered by playing on, and a screen that implied otherwise would be
  * lying to make a button look brave. What is really being asked is whether to
  * start something new or find out where this one breaks.
  */
@@ -1849,7 +1849,7 @@ export function endView(state: RunState, on: Handlers): HTMLElement {
         h(
           "div",
           { class: "score-note" },
-          `${num(state.round.score)} of ${num(state.round.target)} — short by ${num(state.round.target - state.round.score)}`,
+          `${num(state.round.score)} of ${num(state.round.target)}, short by ${num(state.round.target - state.round.score)}`,
         ),
       lost &&
         state.won &&
@@ -1865,7 +1865,7 @@ export function endView(state: RunState, on: Handlers): HTMLElement {
           "p",
           { class: "endless-note" },
           `Stage ${STAGES} is where the game stops, not where the run has to. The win is
-           yours either way — playing on only asks how far this build really goes, and
+           yours either way. Playing on only asks how far this build really goes, and
            the targets keep growing at the same rate the whole way.`,
         ),
     ),
@@ -1893,11 +1893,11 @@ export function endView(state: RunState, on: Handlers): HTMLElement {
  * What the level meant, said at the end rather than only at the start.
  *
  * A win at ascension N is a different thing from a win, and the next rung is the
- * only reward for it — so the screen that offers the win is also the screen that
+ * only reward for it, so the screen that offers the win is also the screen that
  * hands the next one over. The dial has always been there and every rung of it
  * is reachable, so what this line marks is earning one rather than taking it: the
  * next level is now the climb rather than a leap. A loss gets the level stated
- * flatly — it is the terms the run was played under, not a consolation.
+ * flatly, since it is the terms the run was played under, not a consolation.
  *
  * There is always a next one now, which is the point of the endless half: the
  * last branch is the dial's ceiling rather than the ladder's top, and nobody is
@@ -1910,9 +1910,9 @@ function cleared(state: RunState, won: boolean): HTMLElement | null {
     "div",
     { class: "score-note asc-note" },
     level === 0
-      ? "Ascension 1 is earned — the run can be made harder"
+      ? "Ascension 1 is earned, and the run can be made harder"
       : level < MAX_ASCENSION
-        ? `Ascension ${level} cleared — ${level + 1} is earned`
+        ? `Ascension ${level} cleared, and ${level + 1} is earned`
         : `Ascension ${level} cleared. There is nothing above it.`,
   )
 }
@@ -1921,7 +1921,7 @@ function cleared(state: RunState, won: boolean): HTMLElement | null {
 
 /**
  * Only shown when there is no run to resume. A save sends the player straight
- * back to the board instead — the title is a front door, not a toll booth, and
+ * back to the board instead. The title is a front door, not a toll booth, and
  * charging a tap for it every launch is exactly the friction a phone game
  * cannot afford.
  */
@@ -1988,7 +1988,7 @@ function record(meta: MetaState, on: Handlers): HTMLElement | null {
  */
 export function statsView(meta: MetaState, pool: number, on: Handlers): HTMLElement {
   const played = roundsPlayed(meta)
-  const best = favouriteWord(meta)
+  const best = favoriteWord(meta)
   const solved = wordsFound(meta)
   const mean = meanSolve(meta)
 
@@ -2004,8 +2004,8 @@ export function statsView(meta: MetaState, pool: number, on: Handlers): HTMLElem
    * The percentage is the share of every round ever played, which is the honest
    * one and is what a player would mean by "how often". The bar is drawn against
    * the tallest row instead. A distribution whose mode is 31% would otherwise
-   * spend the whole chart in the left third of the track, and the shape — did the
-   * answers come on the third guess or the fifth, is the peak sharp or flat — is
+   * spend the whole chart in the left third of the track, and the shape (did the
+   * answers come on the third guess or the fifth, is the peak sharp or flat) is
    * the entire reason a bar is here rather than a fourth column of digits. The
    * label carries the truth and the bar carries the shape.
    */
@@ -2028,7 +2028,7 @@ export function statsView(meta: MetaState, pool: number, on: Handlers): HTMLElem
     )
   }
 
-  const relics = favouriteRelics(meta).slice(0, 3)
+  const relics = favoriteRelics(meta).slice(0, 3)
 
   return overlay(
     on,
@@ -2044,7 +2044,7 @@ export function statsView(meta: MetaState, pool: number, on: Handlers): HTMLElem
       // second row: the top one is the run record and the bottom one is the word
       // record, and a player who wants to know whether they are getting better at
       // the game reads the bottom row. An em dash rather than a zero before any
-      // round has ended — 0% solved is a claim, and this player has not made it.
+      // round has ended. 0% solved is a claim, and this player has not made it.
       figure("solved", played > 0 ? `${Math.round((solved / played) * 100)}%` : "—"),
       figure("avg guess", mean === null ? "—" : mean.toFixed(1)),
     ),
@@ -2077,7 +2077,7 @@ export function statsView(meta: MetaState, pool: number, on: Handlers): HTMLElem
           // The percentage that used to sit here is a figure now, so the foot is
           // free to say the thing a distribution structurally cannot: not how
           // often the word comes, but how long it kept coming. It is the only
-          // number on this screen with any tension in it — every other one can
+          // number on this screen with any tension in it. Every other one can
           // just go up.
           h("p", { class: "stat-foot" }, streakLine(meta)),
         )
@@ -2086,7 +2086,7 @@ export function statsView(meta: MetaState, pool: number, on: Handlers): HTMLElem
       ? h(
           "div",
           { class: "breakdown" },
-          h("h3", { class: "stat-head" }, "Favourite relics"),
+          h("h3", { class: "stat-head" }, "Favorite relics"),
           ...relics.map((entry) =>
             h(
               "p",
@@ -2112,10 +2112,10 @@ export function statsView(meta: MetaState, pool: number, on: Handlers): HTMLElem
 export function streakLine(meta: MetaState): string {
   if (meta.bestStreak === 0) return "No answer found yet."
   // Level with the record and still climbing, so there is no gap to report and
-  // reporting one anyway — "14 in a row, 14 now" — reads as a bug rather than as
+  // reporting one anyway, "14 in a row, 14 now", reads as a bug rather than as
   // the best thing that has happened to this player.
   if (meta.streak === meta.bestStreak) {
-    return `${num(meta.streak)} solved in a row, and still going — the longest yet.`
+    return `${num(meta.streak)} solved in a row, the longest yet, and still going.`
   }
   return meta.streak > 0
     ? `Longest streak: ${num(meta.bestStreak)} in a row, ${num(meta.streak)} now.`
@@ -2131,23 +2131,28 @@ export function streakLine(meta: MetaState): string {
  * looks like, not a reward for having seen the ending.
  *
  * Above what has been won the rung wears a lock, and the lock yields. The climb
- * is still the intended shape — each rung is one new rule to learn, and the note
- * under an unearned level says so — but a player who wants to open on Tyranny is
+ * is still the intended shape, since each rung is one new rule to learn and the
+ * note under an unearned level says so, but a player who wants to open on Tyranny is
  * making a choice about their own evening, and a disabled button is the wrong
  * answer to that. A lock that states its reason and then lets you past is worth
  * more than a `+` that stops responding and explains nothing.
  *
  * The lock is worn by the `+` itself, and only on the rung at the edge of what
- * has been earned. That works out to exactly one rung — `ahead` is true only
- * when `level === top` — and it is the only step that crosses the line, so it is
+ * has been earned. That works out to exactly one rung, since `ahead` is true only
+ * when `level === top`, and it is the only step that crosses the line, so it is
  * the only one that is a decision rather than a nudge. Above the line the `+` is
  * a plain `+` again: the player has already answered the question, and asking it
  * once a rung on the way to ascension 12 would be a door that never stops
- * closing. It sits beside the note that says what beating this rung would earn,
- * which makes the pair a straight offer — beat it, or take it now.
+ * closing.
+ *
+ * Only the very first rung says in words what beating it would open, under the
+ * description where a rung's second sentence belongs. That is the one rung whose
+ * player may not know the ladder goes anywhere; from there on the lock carries
+ * the whole message, and a sentence repeating it at every rung would be the box
+ * selling something the player has already bought.
  *
  * A stepper rather than a list of buttons, because the ladder is ordered and
- * cumulative — the question is "how far up", not "which one" — and because the
+ * cumulative, so the question is "how far up" and not "which one", and because the
  * ladder no longer has a length a list could have. The level's own rule is
  * spelled out under it; the ones below are named on the intro card of every
  * round, and written out in full in the codex.
@@ -2158,7 +2163,10 @@ function ladder(on: Handlers, meta: MetaState): HTMLElement {
   const rule = ascensionAt(level)
   const locked = isLocked(meta, level)
   const ahead = level === top && level < MAX_ASCENSION
-  const carrot = ahead ? `Beat this to unlock ascension ${level + 1}` : null
+  // Only ever offered for the first rung. Past that the lock on the `+` says the
+  // same thing in a glyph, and the player who has read it once does not need the
+  // sentence again at every rung of a ladder twelve rungs long.
+  const carrot = ahead && level === 0 ? "Beat this to unlock ascension 1" : null
 
   const step = (label: string, to: number, live: boolean) =>
     h(
@@ -2192,13 +2200,10 @@ function ladder(on: Handlers, meta: MetaState): HTMLElement {
           `Ascension ${level}`,
         ),
         // The second line of the dial is "what this rung is", and at zero there
-        // is no rule to be. Rather than leave the slot empty and push the carrot
-        // to the foot of the box, zero says what beating it earns *here* — so
-        // stepping 0 → 1 swaps one line in place instead of deleting a line from
-        // the bottom and growing one in the middle.
-        rule
-          ? h("span", { class: "ladder-rule" }, rule.name)
-          : carrot && h("span", { class: "ladder-rule forward" }, carrot),
+        // is no rule to be, so the slot stays empty. Zero's carrot used to sit
+        // here instead, which put the one line the box is trying to say in a
+        // different place than every other rung says it.
+        rule && h("span", { class: "ladder-rule" }, rule.name),
       ),
       ahead
         ? h(
@@ -2222,10 +2227,10 @@ function ladder(on: Handlers, meta: MetaState): HTMLElement {
           `${rule.text}${level > 1 ? " Every rule below it, too." : ""}`
         : "The game as it is written, with nothing extra asked of you.",
     ),
-    // One line under the dial, and only ever the forward-looking one: what
-    // beating this rung would open. It sits here only when the rung has a rule
-    // holding the line above — at zero it has already been said in the dial, and
-    // saying it twice would be the box shouting the one thing it wants.
+    // One line under the description, and only ever the forward-looking one:
+    // what beating this rung would open. Under the description rather than in the
+    // dial because that is where a rung's second sentence goes, and the first
+    // rung is not a special case worth reading differently from the rest.
     //
     // The warning that used to displace it here is gone. It said the player had
     // not won yet, in a box whose lock says the same thing in a glyph and whose
@@ -2234,7 +2239,7 @@ function ladder(on: Handlers, meta: MetaState): HTMLElement {
     // Above the earned rung there is now no line at all, which is the right
     // amount to say to someone who has already been asked and has already
     // answered.
-    rule && carrot ? h("p", { class: "ladder-note" }, carrot) : null,
+    carrot ? h("p", { class: "ladder-note" }, carrot) : null,
   )
 }
 
@@ -2248,18 +2253,22 @@ function ladder(on: Handlers, meta: MetaState): HTMLElement {
  *
  * Gone from it: the line naming the rung that has not been beaten, and the one
  * promising the choice was reversible. The first was true and was the wrong
- * opening — it told the player what they had failed to do before it told them
+ * opening. It told the player what they had failed to do before it told them
  * anything they did not know. The second was answering a question nobody asked;
  * this is a stepper on a title screen, and a player who wants to know whether it
  * can be stepped back can step it back. Reassurance nobody needed is still a
  * line to read before the button.
  *
- * "Recommended" rather than an argument about tuning, for the same reason. It is
+ * "Intended" rather than an argument about tuning, for the same reason. It is
  * what the sentence actually means, a player can weigh it in the time it takes
- * to read, and the button beside it says "anyway" — which is the honest name for
- * the thing being pressed and carries the rest of the warning on its own.
+ * to read, and the button beside it says "anyway", which is the honest name for
+ * the thing being pressed and carries the rest of the warning on its own. It is
+ * also the word the rules sheet already uses for climbing a rung at a time, and
+ * it puts the climb in the subject where "it is recommended to win" put nobody at
+ * all, in the one sentence in the game that spoke like a form rather than to a
+ * player.
  *
- * No disabled state, no delay, no second confirmation — the game already decided
+ * No disabled state, no delay, no second confirmation. The game already decided
  * a player may start anywhere, and a sheet that grudges the permission it is
  * granting is worse than no sheet.
  *
@@ -2270,7 +2279,7 @@ function ladder(on: Handlers, meta: MetaState): HTMLElement {
  *
  * It is only ever this one rung. The lock sits at the edge of what was earned,
  * so the leap it grants is always a single step, and past the edge the stepper
- * is plain again — a player who has crossed the line does not get asked about it
+ * is plain again, and a player who has crossed the line does not get asked about it
  * once per rung on the way to ascension 40.
  */
 export function ascendView(level: number, on: Handlers): HTMLElement {
@@ -2290,7 +2299,7 @@ export function ascendView(level: number, on: Handlers): HTMLElement {
             level > 1 ? " Plus every rule below it." : "",
           )
         : null,
-      h("p", {}, "It is recommended to win before skipping to a higher ascension."),
+      h("p", {}, "Winning at the level below is the intended way up."),
     ),
     h(
       "div",
@@ -2308,7 +2317,7 @@ export function ascendView(level: number, on: Handlers): HTMLElement {
 /**
  * What this bundle actually is, in the one place a player will look for it.
  *
- * Both halves are inlined at build time — see vite.config.ts. The version comes
+ * Both halves are inlined at build time; see vite.config.ts. The version comes
  * from package.json and the hash from the commit, and the hash is the one that
  * can be trusted: Pages redeploys on every push, but the version bump is its own
  * commit landing after the change it names, so for the gap between them the site
@@ -2329,7 +2338,7 @@ function buildStamp(): string {
  * sheet when it opens without putting the sheet in the tab order itself, which
  * is how the keyboard gets inside a thing that was appended to the document
  * rather than navigated to. The two ARIA attributes say the same thing to a
- * screen reader that the backdrop says to everyone else — nothing behind this is
+ * screen reader that the backdrop says to everyone else: nothing behind this is
  * available until it is dealt with.
  */
 export const SHEET_ATTRS = { role: "dialog", "aria-modal": "true", tabindex: -1 }
@@ -2369,7 +2378,7 @@ export function helpView(on: Handlers): HTMLElement {
       h(
         "p",
         {},
-        "Guess the word, the way you already know how — green is the right letter in " +
+        "Guess the word, the way you already know how: green is the right letter in " +
           "the right place, yellow is the right letter somewhere else.",
       ),
       h("p", { class: "sheet-lead" }, "The difference is that every guess is scored."),
@@ -2381,15 +2390,15 @@ export function helpView(on: Handlers): HTMLElement {
          sits in exactly one slice, and the two stack.`,
       ),
       rule(
-        "Colours pay mult",
+        "Colors pay mult",
         ` Green is worth +3 mult, yellow +1, gray nothing. A guess full of gray is
          worth almost nothing, so a throwaway probe costs you real score.`,
       ),
       rule(
         "Solving multiplies the round",
-        ` Land the word and everything you have banked this round — not just the
-         guess that solved it — is multiplied by 1 + the guesses you had left.
-         Then the round ends immediately, target met or not.`,
+        ` Land the word and your whole banked pile for the round, not just the guess
+         that solved it, is multiplied by 1 + the guesses you had left. Then the
+         round ends immediately, target met or not.`,
       ),
       h(
         "p",
@@ -2407,7 +2416,7 @@ export function helpView(on: Handlers): HTMLElement {
       rule(
         "Beat the target",
         ` ${STAGES} stages of ${ROUNDS_PER_STAGE} rounds. Fall short of a round's target
-         and the run is over — that is the only way to lose.`,
+         and the run is over. That is the only way to lose.`,
       ),
       rule(
         "Then keep going, if you dare",
@@ -2419,7 +2428,7 @@ export function helpView(on: Handlers): HTMLElement {
       rule(
         "Ascensions",
         ` The difficulty dial on the title screen, and the number worth comparing. The
-         first ${AUTHORED_ASCENSIONS} levels each add one standing rule — to what you may
+         first ${AUTHORED_ASCENSIONS} levels each add one standing rule: to what you may
          guess, what a round pays, how high the targets are, how many relics you may keep,
          how many guesses you get. Above that the ladder does not end: every further level raises
          every target again. Winning at one earns the next, and climbing a rung at a time
@@ -2439,13 +2448,13 @@ export function helpView(on: Handlers): HTMLElement {
       rule(
         "Packs",
         ` One slot sells a choice rather than a card. A pack lays three out and you
-         keep one, free — the rest of the shop waits until you have picked or
+         keep one, free. The rest of the shop waits until you have picked or
          walked away, and walking away keeps nothing.`,
       ),
       rule(
         "Letter mods",
         ` The shop sells modifiers and you choose which letter each one sticks to for
-         the rest of the run — every time you play that letter, it does this. A
+         the rest of the run. Every time you play that letter, it does this. A
          ×mult letter multiplies what the word has scored up to where it sits, so it
          is worth more late in a word than early. Packs deal them cheaper, with the
          letter already chosen for you.`,
@@ -2474,7 +2483,7 @@ export function helpView(on: Handlers): HTMLElement {
 
 /* ----------------------------------------------------------------- codex */
 
-/** One catalogue entry: what it is called, what it does, and what it costs. */
+/** One catalog entry: what it is called, what it does, and what it costs. */
 function entry(name: string, text: string, note?: string): HTMLElement {
   return h(
     "div",
@@ -2493,7 +2502,7 @@ function entry(name: string, text: string, note?: string): HTMLElement {
  * One collapsible section, closed until asked for.
  *
  * Everything in the codex laid out flat runs to ten phone screens of scrolling,
- * which makes the catalogue useless for the thing it is actually for — looking
+ * which makes the catalog useless for the thing it is actually for, which is looking
  * one card up, mid-run, having forgotten what it does. Closed, the whole screen
  * is seven rows and a count, and the count is worth reading on its own: it is
  * the size of the game, stated.
@@ -2522,8 +2531,8 @@ const TIER_NAMES: Record<BossTier, string> = {
 }
 
 /**
- * The catalogue. Every section maps over the table it describes rather than
- * restating it, which is the same trick — and the same reason — as the modifier
+ * The catalog. Every section maps over the table it describes rather than
+ * restating it, which is the same trick, and the same reason, as the modifier
  * list that used to live in `helpView`: a reference that is written out by hand
  * is a reference that goes stale the first time a number moves.
  *
@@ -2531,7 +2540,7 @@ const TIER_NAMES: Record<BossTier, string> = {
  * read what The Auditor does is the one who has not met it yet, and a codex that
  * only tells you what you already know is a trophy cabinet, not a reference.
  *
- * Takes no run state on purpose: this is the catalogue, not the board. A scaling
+ * Takes no run state on purpose: this is the catalog, not the board. A scaling
  * relic shows its rule here, never the number it happens to be holding.
  */
 /**
@@ -2541,14 +2550,14 @@ const TIER_NAMES: Record<BossTier, string> = {
  * The system was invisible before this. One line under the grid named the shape
  * in play; nothing named the other four, nothing listed the levels a run had
  * bought, and nothing anywhere stated the rule that decides which shape a word
- * scores as — `categoryOf` returns the *rarest* match, so a word that is both
- * Twinned and Vowel Heavy scores as Vowel Heavy and a player levelling Twinned
+ * scores as. `categoryOf` returns the *rarest* match, so a word that is both
+ * Twinned and Vowel Heavy scores as Vowel Heavy and a player leveling Twinned
  * would watch it not pay and never learn why.
  *
  * So the panel says all three things at once: every shape a word matches gets a
  * tag, the one that counts gets a louder one, and the list is in the order the
  * engine checks it in. The rule is not written down anywhere the player has to
- * be told it — it is the order of the rows.
+ * be told it: it is the order of the rows.
  */
 export function shapesView(state: RunState, on: Handlers, word: string): HTMLElement {
   const scoring = word ? categoryOf(word) : null
@@ -2565,7 +2574,7 @@ export function shapesView(state: RunState, on: Handlers, word: string): HTMLEle
       "p",
       { class: "shapes-note" },
       "A guess scores as the rarest shape it matches, which is the first of these it " +
-        "matches. Levelling a shape raises every future guess of that shape — level 1 " +
+        "matches. Leveling a shape raises every future guess of that shape. Level 1 " +
         "pays nothing, so a level is what makes a shape worth aiming at.",
     ),
     h(
@@ -2613,10 +2622,10 @@ export function codexView(on: Handlers): HTMLElement {
       section(
         "Relics",
         RELICS.length,
-        `Up to ${RELIC_SLOTS} at once, firing left to right — the order you buy them in
-         is part of the build.`,
+        `Up to ${RELIC_SLOTS} at once, firing left to right, so the order you buy them
+         in is part of the build.`,
         // The rarity class goes on the wrapper rather than the header, so the
-        // band's colour reaches the cards under it the same way it reaches a
+        // band's color reaches the cards under it the same way it reaches a
         // relic in the tray.
         ...RARITIES.flatMap((rarity) => {
           const relics = RELICS.filter((relic) => relic.rarity === rarity)
@@ -2664,8 +2673,8 @@ export function codexView(on: Handlers): HTMLElement {
       section(
         "Word shapes",
         CATEGORIES.length,
-        `Every guess scores as exactly one shape — the rarest one it matches, which is
-         the first in this list. Levelling a shape raises every future guess of it.`,
+        `Every guess scores as exactly one shape: the rarest one it matches, which is
+         the first in this list. Leveling a shape raises every future guess of it.`,
         ...CATEGORIES.map((category) =>
           entry(category.name, category.text, `+${category.chips} / +${category.mult} per level`),
         ),
@@ -2701,8 +2710,8 @@ export function codexView(on: Handlers): HTMLElement {
       ),
 
       section(
-        // One word for this line everywhere it is named — the shelf's ticket,
-        // the shop's tray count and this heading — because a player who bought
+        // One word for this line everywhere it is named, on the shelf's ticket,
+        // the shop's tray count and this heading, because a player who bought
         // a Consumable and then reads a codex full of Cards has to work out
         // that they are the same line before they can look anything up.
         "Consumables",
@@ -2714,10 +2723,10 @@ export function codexView(on: Handlers): HTMLElement {
       section(
         "Packs",
         PACKS.length,
-        `Sold in a slot of their own. A pack lays its cards out and you keep one, free —
-         the shop waits until you have chosen or walked away.`,
+        `Sold in a slot of their own. A pack lays its cards out and you keep one, free.
+         The shop waits until you have chosen or walked away.`,
         // "Choose one of three" already says how many you keep, so the count is
-        // only worth printing on a pack that keeps more than one — which none
+        // only worth printing on a pack that keeps more than one, which none
         // do yet, and which is exactly why it is derived rather than assumed.
         ...PACKS.map((pack) =>
           entry(
@@ -2760,14 +2769,14 @@ export function menuView(on: Handlers, chrome: Chrome): HTMLElement {
         },
         chrome.muted || chrome.musicOff ? "Music off" : "Music on",
       ),
-      // Letter values are not here. The board is dense by design — a value on
-      // every key, a pip on every modifier — and that density is the scoring
+      // Letter values are not here. The board is dense by design, with a value on
+      // every key and a pip on every modifier, and that density is the scoring
       // game asking to be played; some of the time the player is doing the other
       // thing entirely, which is working out a five-letter word, and every
       // number on screen is noise. The switch for it is `decorToggle`, sitting
       // beside the chips × mult readout, because it was the one setting on this
       // sheet whose whole effect was hidden behind the sheet while it was being
-      // set — and the readout is the densest numbers on the screen, so the
+      // set, and the readout is the densest numbers on the screen, so the
       // switch is next to the thing it is loudest about. That it has three
       // states now is a further reason to leave it there: a segmented control
       // here would be the readable way to show them, and it would show them on
@@ -2785,8 +2794,8 @@ export function menuView(on: Handlers, chrome: Chrome): HTMLElement {
 }
 
 /**
- * Quitting is the one irreversible button in the game — the save is deleted and
- * a run is an hour of decisions — so it asks, and the confirmation is worded as
+ * Quitting is the one irreversible button in the game (the save is deleted and
+ * a run is an hour of decisions), so it asks, and the confirmation is worded as
  * what is lost rather than as a yes/no.
  */
 export function quitView(state: RunState, on: Handlers): HTMLElement {
@@ -2801,7 +2810,7 @@ export function quitView(state: RunState, on: Handlers): HTMLElement {
         {},
         `You are on stage ${state.stage}${state.won ? "" : ` of ${STAGES}`}, ${
           ROUND_NAMES[state.roundIndex] ?? "a round"
-        }. Quitting deletes it — there is no way back to this run.`,
+        }. Quitting deletes it. There is no way back to this run.`,
       ),
     ),
     h(

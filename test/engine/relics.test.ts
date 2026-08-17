@@ -167,7 +167,7 @@ describe("relics", () => {
 
 /*
  * The five that close the gaps the build rubric found. Two are terminals for
- * archetypes that previously had no way to cash in — money and sacrifice — and
+ * archetypes that previously had no way to cash in, money and sacrifice, and
  * three grow, one per lifecycle hook, which is what P1's `data` was built for.
  */
 describe("the relics that close a build", () => {
@@ -289,7 +289,7 @@ describe("the relics that close a build", () => {
 /*
  * The word-shape and position cards. Each expectation names the shape it is
  * checking rather than just the number, because the numbers here were chosen
- * from how often the word list actually produces that shape — a test that only
+ * from how often the word list actually produces that shape. A test that only
  * pinned the arithmetic would let the shape drift silently.
  */
 describe("the relics that read the word's shape", () => {
@@ -311,19 +311,19 @@ describe("the relics that read the word's shape", () => {
 
   it("The Chorus wants three vowels and counts them in the word, not on the board", () => {
     // AROSE is A-O-E: 5 mult becomes 15, and only one of those vowels is even
-    // in the answer — the shape is the condition, the feedback is not.
+    // in the answer: the shape is the condition, the feedback is not.
     expect(withRelic("chorus", "arose").last).toMatchObject({ mult: 15 })
     // CRANE has A and E only.
     expect(withRelic("chorus", "crane").last).toMatchObject({ mult: 7 })
   })
 
   it("Lexicographer counts the alphabet already spent, and never the guess itself", () => {
-    // The opening guess has nothing behind it, so it pays nothing — the same
+    // The opening guess has nothing behind it, so it pays nothing, on the same
     // rule Slow Burn and The Vault follow. GHOST is 9 chips on its own.
     expect(withRelic("lexicographer", "ghost").last).toMatchObject({ chips: 9 })
     // GHOST spent five distinct letters, so QUAZY's 26 chips become 41.
     expect(withRelic("lexicographer", "ghost", "quazy").last).toMatchObject({ chips: 41 })
-    // SASSY adds only A and Y — its three S's were spent by GHOST and its own
+    // SASSY adds only A and Y. Its three S's were spent by GHOST and its own
     // repeats count once. Seven letters, not ten, which is the whole reason the
     // card pays for covering ground rather than for typing.
     expect(withRelic("lexicographer", "ghost", "sassy", "quazy").last).toMatchObject({ chips: 47 })
@@ -346,7 +346,7 @@ describe("the relics that read the word's shape", () => {
     // Replay is the whole contract: a golden vector cannot record a coin flip
     // that lands differently the second time.
     expect(rolled("crane", 7)).toBe(rolled("crane", 7))
-    // And it is genuinely a roll — five identical values would mean it was not.
+    // And it is genuinely a roll: five identical values would mean it was not.
     expect(new Set([1, 2, 3, 4, 5].map((seed) => rolled("crane", seed))).size).toBeGreaterThan(1)
   })
 })

@@ -1,5 +1,5 @@
 /**
- * Stamped in by vite's `define` at build time — see vite.config.ts. Declared
+ * Stamped in by vite's `define` at build time; see vite.config.ts. Declared
  * rather than imported so the values are inlined as literals and nothing has to
  * be read at runtime.
  */

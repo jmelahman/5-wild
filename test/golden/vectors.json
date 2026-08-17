@@ -1309,7 +1309,7 @@
   },
   {
     "name": "banker",
-    "covers": "a pile banked and then multiplied — the line the scoring rule exists for",
+    "covers": "a pile banked and then multiplied, the line the scoring rule exists for",
     "seed": 2024,
     "contentVersion": 21,
     "actions": [
@@ -5791,7 +5791,7 @@
   },
   {
     "name": "wild-smith",
-    "covers": "Wild bought over and over, aimed by letter frequency, and fired on every colour",
+    "covers": "Wild bought over and over, aimed by letter frequency, and fired on every color",
     "seed": 130,
     "contentVersion": 21,
     "actions": [
@@ -7073,7 +7073,7 @@
     }
   },
   {
-    "name": "leveller",
+    "name": "leveler",
     "covers": "category levels bought, stacked, and paid out on the guesses that match them",
     "seed": 77,
     "contentVersion": 21,

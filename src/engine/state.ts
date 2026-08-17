@@ -1,8 +1,8 @@
 /**
  * Every type the engine speaks. Deliberately all plain data: a RunState round
  * trips through JSON with nothing lost, which is what makes save/resume and the
- * golden vectors cheap. Note what is *absent* — no PRNG state. Streams are
- * re-derived from the seed plus a coordinate, so there is nothing to serialise.
+ * golden vectors cheap. Note what is *absent*: no PRNG state. Streams are
+ * re-derived from the seed plus a coordinate, so there is nothing to serialize.
  */
 
 import type { ModId } from "./modifiers"
@@ -23,7 +23,7 @@ export type Tile = {
  * Recorded rather than re-derived, for the same reason `note` below is: by the
  * time anyone asks, the arithmetic no longer exists. `baseChips` still knows
  * what a letter is worth, but The Miser prices a letter by whether it has
- * already been spent — so re-running it against the round as it now stands
+ * already been spent, so re-running it against the round as it now stands
  * reports no chips for the very guess that first spent the letter, and the row
  * would explain itself with a number it never scored. The modifier is worse
  * still: Lucky is a seeded quarter chance, and the only honest answer to "did it
@@ -31,7 +31,7 @@ export type Tile = {
  */
 export type TileScore = {
   /**
-   * The tile's own chips, boss included, before its modifier touched them —
+   * The tile's own chips, boss included, before its modifier touched them,
    * which is exactly the figure the tile floats as it turns over.
    */
   base: number
@@ -39,14 +39,14 @@ export type TileScore = {
    * What the column moved the row's two numbers by: everything from `base`
    * through the modifier and the relics, measured as the running totals before
    * and after. Named to match `GuessRecord`'s own `chips` and `mult` because
-   * that is what they are a piece of — the tip sets one against the other and
+   * that is what they are a piece of: the tip sets one against the other and
    * says "9 of 27".
    *
    * A difference rather than a sum, so a multiplicative card lands somewhere
    * honest: Steel on the fourth tile of a row already at ×7 records 7, because
    * that is what the row gained where it fired. The same Steel on the first tile
    * records 1. Both are true and neither is the card's "worth" in the abstract,
-   * which is a number this game does not have — every ×2 is worth whatever was
+   * which is a number this game does not have, since every ×2 is worth whatever was
    * standing in front of it.
    */
   chips: number
@@ -54,7 +54,7 @@ export type TileScore = {
   /**
    * What the letter's modifier said here, in the words the animation used:
    * "+20", "×3 mult". Absent when the letter carries none, when a boss silenced
-   * the layer, and when a chance modifier rolled and lost — three different
+   * the layer, and when a chance modifier rolled and lost: three different
    * silences, which the view tells apart by asking the letter what it carries.
    */
   mod?: string
@@ -65,8 +65,8 @@ export type TileScore = {
    * so hanging it on all five would invent an attribution the pipeline does not
    * make.
    *
-   * Absent rather than empty when nothing fired, which is the ordinary case —
-   * most tiles are gray and most relics want something of the tile. A relic that
+   * Absent rather than empty when nothing fired, which is the ordinary case.
+   * Most tiles are gray and most relics want something of the tile. A relic that
    * was asked and declined leaves no trace on purpose: the modifier's silence is
    * worth reporting because the modifier is stuck to this letter, but a tray of
    * five would otherwise print five lines of "nothing" under every tile on the
@@ -82,7 +82,7 @@ export type GuessRecord = {
    * Column by column, what each tile paid; parallel to `tiles`.
    *
    * Optional, so a save written before rows kept their arithmetic loads as what
-   * it is — a row that cannot say how it was scored, which is what those rows
+   * it is, a row that cannot say how it was scored, which is what those rows
    * were. Written on every guess since, so the gap closes within a round.
    */
   paid?: TileScore[]
@@ -97,7 +97,7 @@ export type GuessRecord = {
   /** chips × mult for this guess alone. */
   score: number
   /**
-   * What the boss will say about this guess instead of showing it — The
+   * What the boss will say about this guess instead of showing it: The
    * Silence's count of misplaced letters, and nothing else so far.
    *
    * Written at submit rather than derived on demand, because the thing it
@@ -128,8 +128,8 @@ export type LetterState = {
   /** Removed from the alphabet: cannot be typed, cannot appear in an answer. */
   destroyed: boolean
   /**
-   * The modifier stuck to this letter, if any. One at a time — buying a second
-   * replaces the first — and it outlives being etched or broken.
+   * The modifier stuck to this letter, if any. One at a time, since buying a
+   * second replaces the first, and it outlives being etched or broken.
    */
   mod: ModId | null
 }
@@ -161,7 +161,7 @@ export type RoundState = {
 export type ShopItem =
   | { kind: "relic"; id: string; cost: number }
   | { kind: "consumable"; id: string; cost: number }
-  /** A group etching. Keyed by the group, not by a letter — it buys many. */
+  /** A group etching. Keyed by the group, not by a letter, since it buys many. */
   | { kind: "etch"; id: string; cost: number }
   /** One level for a named word category. */
   | { kind: "level"; id: string; cost: number }
@@ -173,12 +173,12 @@ export type ShopItem =
    *
    * `letter` is what tells those apart, and it is optional rather than nullable
    * so a save written before the shop stopped rolling the letter still loads as
-   * what it was — a card with a letter already on it, which is exactly how the
+   * what it was, a card with a letter already on it, which is exactly how the
    * pack version still works.
    */
   | { kind: "mod"; id: ModId; cost: number; letter?: string }
   /**
-   * A booster pack. The only item that is not applied when it is bought — it
+   * A booster pack. The only item that is not applied when it is bought. It
    * opens instead, and what comes out of it is chosen rather than dealt.
    */
   | { kind: "pack"; id: string; cost: number }
@@ -193,7 +193,7 @@ export type ShopState = {
  * A pack laid out on the table, mid-decision.
  *
  * The options are ordinary `ShopItem`s and they keep the price they would have
- * carried in the stock, which is not charged — the pack was paid for already.
+ * carried in the stock, which is not charged, since the pack was paid for already.
  * Carrying it anyway is what lets the screen say what a card is worth, and it
  * means one function applies an item to the run whether it was bought or won.
  */
@@ -231,12 +231,12 @@ export type RunState = {
    * Word category levels, by category id, where absent means level one. Optional
    * and unwritten until a level is bought, on the same reasoning as
    * `RelicInstance.data`: a run that never levels anything costs its save
-   * nothing, and a save from before levelling existed loads unchanged.
+   * nothing, and a save from before leveling existed loads unchanged.
    */
   levels?: Record<string, number>
   /**
    * Alphabet range levels, by range id, absent meaning level one. Same shape and
-   * same reasoning as `levels` — the letters themselves stay in `letters`, since
+   * same reasoning as `levels`. The letters themselves stay in `letters`, since
    * a range level is a property of the slice rather than of any letter in it.
    */
   ranges?: Record<string, number>
@@ -247,11 +247,11 @@ export type RunState = {
    * why the win is only offered once however far past stage `STAGES` the run goes,
    * and it is how a run that wins and then dies at stage 14 is told apart from
    * one that simply died. Optional, so a save written before endless existed
-   * loads as a run that has not won — which is what it is.
+   * loads as a run that has not won, which is what it is.
    */
   won?: boolean
   /**
-   * The difficulty this run was started at, absent meaning zero — the ordinary
+   * The difficulty this run was started at, absent meaning zero, the ordinary
    * game. Chosen once and never changed: an ascension is the terms the whole run
    * is played under, and a run that could be turned down halfway is not one.
    */
@@ -260,7 +260,7 @@ export type RunState = {
    * Every word this run has submitted, in order, across all its rounds.
    *
    * Ascension 3 forbids repeating one, and there is nowhere else that fact could
-   * live — a round only knows its own guesses. Written on every submit whatever
+   * live, since a round only knows its own guesses. Written on every submit whatever
    * the ascension, because a rule that only records when it is switched on is a
    * rule that cannot be switched on. Optional, so older saves load as a run that
    * has not guessed anything yet, which costs those runs nothing: the rule that
@@ -286,7 +286,7 @@ export type RunState = {
    *
    * The other half of the pack's shape: the gold is gone, the card is the
    * player's, and the run is held until they say where it goes. Only the id is
-   * kept — which letters are still legal for it is a question about the alphabet
+   * kept. Which letters are still legal for it is a question about the alphabet
    * right now, and the alphabet is already in the state.
    *
    * Optional rather than nullable for the same reason `pack` is: a save from
@@ -328,7 +328,7 @@ export type Action =
 /**
  * A flat, ordered log the UI replays as animation. Scoring events carry the
  * *running* chips and mult so the screen can render them without re-deriving
- * anything — the UI stays a dumb projection of this stream.
+ * anything, so the UI stays a dumb projection of this stream.
  */
 export type GameEvent =
   | { type: "rejected"; reason: string }
@@ -337,7 +337,7 @@ export type GameEvent =
   /**
    * A relic permanently growing. Distinct from `relic` because it happens
    * outside the scoring pipeline, where there is no running chips or mult for
-   * it to quote — and because the screen should say "this is worth more now"
+   * it to quote, and because the screen should say "this is worth more now"
    * differently from how it says "this just paid".
    */
   | { type: "relic_grew"; slot: number; id: string; label: string }
@@ -352,8 +352,8 @@ export type GameEvent =
       mult: number
     }
   /**
-   * A levelled word category paying out, between the tiles and the relics. Only
-   * emitted when it is actually worth something — at level one the category is
+   * A leveled word category paying out, between the tiles and the relics. Only
+   * emitted when it is actually worth something. At level one the category is
    * still named on the board, but it has nothing to announce.
    */
   | { type: "category"; id: string; name: string; level: number; chips: number; mult: number }
@@ -378,7 +378,7 @@ export type Reduced = { state: RunState; events: GameEvent[] }
 
 /**
  * The word lists are ~100 KB of text, so they are fetched by the shell rather
- * than imported — which would drag I/O into a pure module. They arrive here as
+ * than imported, which would drag I/O into a pure module. They arrive here as
  * an argument instead.
  */
 export type WordSource = {

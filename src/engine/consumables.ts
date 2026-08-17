@@ -6,7 +6,7 @@ import type { GameEvent, RunState } from "./state"
 /**
  * One-shot cards. With no deck to manipulate, these act on the two things this
  * game does have: the puzzle and the keyboard. Each one is an answer to a
- * specific problem — being stuck, being fogged, being one guess short — which
+ * specific problem, being stuck or being fogged or being one guess short, which
  * is what stops them from being a flat resource.
  */
 export type Consumable = {

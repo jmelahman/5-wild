@@ -27,7 +27,7 @@ function atReward(stage: number, roundIndex: 0 | 1 | 2, won = false): RunState {
     ...base,
     stage,
     roundIndex,
-    // Spread rather than `won: undefined` — the field is absent on a run that
+    // Spread rather than `won: undefined`, since the field is absent on a run that
     // has not won, and `exactOptionalPropertyTypes` holds us to the difference.
     ...(won ? { won: true } : {}),
     phase: "reward",
@@ -86,7 +86,7 @@ describe("playing on past the win", () => {
 
   it("keeps dealing bosses out there, from the band the stages belong to", () => {
     // `bossForStage` wraps within a band rather than running out, so stage 40 is
-    // as ordinary a boss round as stage 8 — it just repeats one seen before.
+    // as ordinary a boss round as stage 8; it just repeats one seen before.
     for (let stage = STAGES + 1; stage <= STAGES + 12; stage++) {
       const boss = getBoss(bossForStage({ ...won, stage }))
       expect(boss, `stage ${stage}`).toBeDefined()
@@ -116,7 +116,7 @@ describe("playing on past the win", () => {
     }
     const dead = apply(doomed, type("crane"))
     expect(dead.phase).toBe("game_over")
-    // The run beat the game. What happened after it does not take that back —
+    // The run beat the game. What happened after it does not take that back,
     // and the end screen says both things because of this flag.
     expect(dead.won).toBe(true)
   })

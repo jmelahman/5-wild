@@ -9,7 +9,7 @@ const { version } = JSON.parse(readFileSync(new URL("./package.json", import.met
  * The commit this bundle was built from.
  *
  * Pages deploys on every push to master, but the version bump is its own commit
- * that lands *after* the change it names — so between the two, package.json is
+ * that lands *after* the change it names, so between the two, package.json is
  * still reporting the previous release while the site is already serving the
  * new code. The version alone therefore cannot identify what is live. The hash
  * can, and it is the difference between "roughly v0.1.9" and "exactly this".

@@ -4,7 +4,7 @@
  * Same constraint as the sound effects: no audio files, nothing fetched, so the
  * game still has music in airplane mode and the APK does not grow by a megabyte
  * per track. What that buys instead of a recording is a score that never repeats
- * exactly and that changes shape with the screen — the shop is not the boss.
+ * exactly and that changes shape with the screen: the shop is not the boss.
  *
  * Notes are scheduled ahead on the audio clock rather than fired from a timer,
  * because `setInterval` drifts by tens of milliseconds under load and a rhythm
@@ -41,7 +41,7 @@ type Palette = {
 
 /**
  * Minor pentatonic for the run, major for the shop. The scale is doing the
- * emotional work here — the shop is the only screen where nothing can go wrong,
+ * emotional work here. The shop is the only screen where nothing can go wrong,
  * and it is the only one that sounds like it.
  */
 const MINOR = [0, 3, 5, 7, 10] as const
@@ -67,7 +67,7 @@ const PALETTES: Record<Mood, Palette> = {
     wave: "triangle",
     gain: 0.045,
   },
-  // A semitone-heavy change and a reedier wave. It should be recognisable as
+  // A semitone-heavy change and a reedier wave. It should be recognizable as
   // the boss before the card is read.
   boss: {
     bpm: 112,
@@ -101,7 +101,7 @@ const PALETTES: Record<Mood, Palette> = {
 
 /**
  * A tiny LCG rather than `Math.random`, so a phrase can be reproduced from a
- * step number — useful when a melody sounds wrong and needs to be heard again.
+ * step number, which is useful when a melody sounds wrong and needs hearing again.
  */
 function noise(seed: number): number {
   const x = Math.sin(seed * 12.9898) * 43758.5453
@@ -127,7 +127,7 @@ export class Music {
     }
     // Off unless the player has asked for it. A game that starts singing on its
     // own is a game opened on a bus with the volume up, and the soundtrack is
-    // generative — there is no track to recognise and want back, so silence is
+    // generative, so there is no track to recognize and want back, so silence is
     // the safer first impression. The stored preference still wins both ways.
     this.off = stored !== "1"
   }
@@ -138,7 +138,7 @@ export class Music {
 
   /**
    * Called from the first real user gesture. Until then there is deliberately no
-   * AudioContext at all — one built before a gesture starts life suspended, and
+   * AudioContext at all: one built before a gesture starts life suspended, and
    * mobile browsers hold that against the page.
    */
   enable(): void {
@@ -174,14 +174,14 @@ export class Music {
     try {
       localStorage.setItem(MUSIC_KEY, this.off ? "0" : "1")
     } catch {
-      // See above — the switch works, it just will not be remembered.
+      // See above. The switch works, it just will not be remembered.
     }
     if (this.off) this.stop()
     else this.enable()
     return this.off
   }
 
-  /** Silence without forgetting the preference — for muting and for tab-away. */
+  /** Silence without forgetting the preference, for muting and for tab-away. */
   suspend(): void {
     if (this.timer !== null) {
       clearInterval(this.timer)
@@ -222,7 +222,7 @@ export class Music {
     const palette = PALETTES[this.mood]
     const eighth = 30 / palette.bpm
 
-    // A long stall — a backgrounded tab, a slow frame — leaves `nextAt` in the
+    // A long stall, from a backgrounded tab or a slow frame, leaves `nextAt` in the
     // past, and catching up note by note would dump the whole backlog at once.
     if (this.nextAt < ctx.currentTime) this.nextAt = ctx.currentTime + 0.05
 
@@ -239,7 +239,7 @@ export class Music {
     const chord = palette.changes[bar % palette.changes.length] ?? 0
     const root = palette.key + chord
 
-    // Bass on the downbeat and the half — the pulse everything else hangs off.
+    // Bass on the downbeat and the half: the pulse everything else hangs off.
     if (beat === 0 || beat === 4) {
       this.voice(at, step(C5, root - 12), 60 / palette.bpm, "sine", beat === 0 ? 0.55 : 0.3)
     }
@@ -258,7 +258,7 @@ export class Music {
     }
   }
 
-  /** `start` is an audio-clock time, always in the future — never `currentTime`. */
+  /** `start` is an audio-clock time, always in the future, never `currentTime`. */
   private voice(
     start: number,
     freq: number,

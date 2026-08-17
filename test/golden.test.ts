@@ -2,7 +2,7 @@
  * Golden vectors: recorded runs, replayed, asserted to the last chip.
  *
  * Their day job is catching a balance edit that quietly changes a score
- * somewhere nobody was looking. Their second job is the portability contract —
+ * somewhere nobody was looking. Their second job is the portability contract:
  * if these rules are ever reimplemented, that implementation is correct exactly
  * when it reproduces this file.
  *
@@ -37,7 +37,7 @@ describe("golden vectors", () => {
 
   /*
    * A vector recorded against different numbers is not a failure to fix, it is
-   * a baseline to re-record — and the two need telling apart before anyone
+   * a baseline to re-record, and the two need telling apart before anyone
    * reads a hundred changed scores as a hundred bugs.
    */
   it("was recorded at the current content version", () => {
@@ -50,7 +50,7 @@ describe("golden vectors", () => {
 
   for (const vector of vectors) {
     const rerun = () => replay(vector.seed, vector.actions, realWords, vector.ascension)
-    describe(`${vector.name} — ${vector.covers}`, () => {
+    describe(`${vector.name}: ${vector.covers}`, () => {
       it("replays to the same scores", () => {
         expect(rerun().expected.guesses).toEqual(vector.expected.guesses)
       })
@@ -67,7 +67,7 @@ describe("golden vectors", () => {
 
       /*
        * Every action here was legal when it was recorded, so this asserts a
-       * property rather than a number — and that is the point of asserting it
+       * property rather than a number, and that is the point of asserting it
        * separately instead of adding an always-empty list to `expected`. A
        * re-record would write the new empty list as happily as the old one; a
        * rule that quietly started refusing something would then reach the diff

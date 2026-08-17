@@ -26,7 +26,7 @@ const type = (word: string): Action[] => [
 ]
 
 /** A run at a chosen level for one category, with nothing else in the way. */
-const levelled = (id: string, level: number): RunState => ({
+const leveled = (id: string, level: number): RunState => ({
   ...startRun(1, words).state,
   levels: { [id]: level },
 })
@@ -57,7 +57,7 @@ describe("word categories", () => {
 
   it("splits the whole answer list between twinned and distinct", () => {
     // The two are complements, which is what makes `categoryOf` total rather
-    // than merely lucky — every word falls into one of them if nothing rarer
+    // than merely lucky: every word falls into one of them if nothing rarer
     // claims it first.
     for (const word of realWords.answers) {
       expect(isCategory("twinned", word)).toBe(!isCategory("distinct", word))
@@ -98,18 +98,18 @@ describe("category levels", () => {
   it("pays one step per level above the first", () => {
     const distinct = CATEGORY_BY_ID.get("distinct")
     if (!distinct) throw new Error("no distinct category")
-    const bonus = levelBonus(levelled("distinct", 4), distinct)
+    const bonus = levelBonus(leveled("distinct", 4), distinct)
     expect(bonus).toEqual({ level: 4, chips: distinct.chips * 3, mult: distinct.mult * 3 })
   })
 
   it("lands on the base, so the guess scores more chips and more mult", () => {
-    // CRANE is Distinct: 7 chips x 7 mult unlevelled.
+    // CRANE is Distinct: 7 chips x 7 mult unleveled.
     const plain = apply(startRun(1, words).state, type("crane"))
     expect(plain.round.guesses[0]).toMatchObject({ chips: 7, mult: 7 })
 
     const distinct = CATEGORY_BY_ID.get("distinct")
     if (!distinct) throw new Error("no distinct category")
-    const raised = apply(levelled("distinct", 3), type("crane"))
+    const raised = apply(leveled("distinct", 3), type("crane"))
     expect(raised.round.guesses[0]).toMatchObject({
       chips: 7 + distinct.chips * 2,
       mult: 7 + distinct.mult * 2,
@@ -117,8 +117,8 @@ describe("category levels", () => {
   })
 
   it("only pays the category the word actually scored as", () => {
-    // SHRUB is a Cluster, so a levelled Distinct does nothing for it.
-    const raised = apply(levelled("distinct", 5), type("shrub"))
+    // SHRUB is a Cluster, so a leveled Distinct does nothing for it.
+    const raised = apply(leveled("distinct", 5), type("shrub"))
     const plain = apply(startRun(1, words).state, type("shrub"))
     expect(raised.round.guesses[0]?.score).toBe(plain.round.guesses[0]?.score)
   })
@@ -127,7 +127,7 @@ describe("category levels", () => {
     const quiet = reduce(apply(startRun(1, words).state, type("crane")), { type: "submit" }, words)
     expect(quiet.events.some((event) => event.type === "category")).toBe(false)
 
-    let state = levelled("distinct", 2)
+    let state = leveled("distinct", 2)
     for (const letter of "crane")
       state = reduce(state, { type: "type_letter", letter }, words).state
     const { events } = reduce(state, { type: "submit" }, words)
@@ -141,7 +141,7 @@ describe("category levels", () => {
     // to the base first, so the doubling lands on the raised figure.
     const distinct = CATEGORY_BY_ID.get("distinct")
     if (!distinct) throw new Error("no distinct category")
-    const state: RunState = { ...levelled("distinct", 2), relics: [{ id: "anagrammer" }] }
+    const state: RunState = { ...leveled("distinct", 2), relics: [{ id: "anagrammer" }] }
     const played = apply(state, type("crane"))
     expect(played.round.guesses[0]?.mult).toBe((7 + distinct.mult) * 2)
   })
@@ -178,7 +178,7 @@ describe("buying a level", () => {
     expect(levelOf(revived, "distinct")).toBe(2)
   })
 
-  it("refuses a category it does not recognise, without taking the gold", () => {
+  it("refuses a category it does not recognize, without taking the gold", () => {
     const state: RunState = {
       ...inShop(null),
       shop: { items: [{ kind: "level", id: "palindrome", cost: 6 }], rerolls: 0 },

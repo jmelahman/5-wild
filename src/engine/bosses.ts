@@ -11,13 +11,13 @@ import type { RoundState, RunState, Tile } from "./state"
  *
  * They are banded by stage, and the band is the load-bearing part. This used to
  * be eight bosses across eight stages drawn without replacement, so a run met
- * each exactly once — a nice property, and one that a ninth boss would have
+ * each exactly once, a nice property and one that a ninth boss would have
  * silently deleted, turning the sequence into a random subset. Worse, it would
  * have let The Auditor, which caps the solve multiplier at ×2, land on stage 1
  * where no build exists yet to survive it.
  *
  * So the draw is now without replacement *within a band*. A run meets three of
- * the five early bosses, three of the five mid, two of the five late — never
+ * the five early bosses, three of the five mid and two of the five late, never
  * the same one twice, never a late boss early, and never the same set twice
  * either, which is what the old scheme gave up in exchange for completeness.
  *
@@ -50,7 +50,7 @@ export type Boss = {
   transform?: (tiles: Tile[]) => void
   /**
    * A line about the guess, recorded on it and shown beside the row. Asked
-   * *before* `transform`, so it reads the feedback as it actually fell — which
+   * *before* `transform`, so it reads the feedback as it actually fell, which
    * is the only reason it can exist at all for a boss whose whole trick is to
    * overwrite that.
    *
@@ -65,20 +65,20 @@ export type Boss = {
   /**
    * `tileChips` reads the column, so what a letter is worth is not a fact about
    * the letter. Declared rather than inferred because the UI is what needs to
-   * know: anything that prices a single letter — the key's tip, most obviously
-   * — has to stop quoting a number and start quoting the rule.
+   * know: anything that prices a single letter, the key's tip most obviously,
+   * has to stop quoting a number and start quoting the rule.
    */
   positional?: true
   /**
    * Letter modifiers do not fire this round. A flag rather than a hook because
-   * there is nothing to compute — the layer is simply switched off, and the one
+   * there is nothing to compute. The layer is simply switched off, and the one
    * place that decides whether to run a modifier is the one place that reads it.
    */
   noModifiers?: true
   /**
    * `timesMult` does nothing; mult may only be added. Same reasoning as
    * `noModifiers`, and it deliberately catches everything multiplicative at
-   * once — relics, modifiers, category levels — rather than naming a source.
+   * once, across relics, modifiers and category levels, rather than naming a source.
    */
   noTimesMult?: true
   /** Rewrites the solve multiplier, relics included. Applied last, so a cap caps. */
@@ -93,31 +93,32 @@ export const BOSSES: readonly Boss[] = [
     text: "Misplaced letters score as absent, and read as absent. You are told only how many.",
     /**
      * This used to say nothing at all, and it was the worst-behaved card in the
-     * game — a mid-tier boss doing something harsher than anything in the late
+     * game, a mid-tier boss doing something harsher than anything in the late
      * band.
      *
      * Two probes (AROSE, UNLIT) across 300 fresh rounds: yellow is the dominant
      * signal at 1.17 tiles a guess against 0.38 green, so silencing it costs 35%
-     * of what those probes banked — the mult base is only 1 + 1.17 + 3×0.38, and
+     * of what those probes banked: the mult base is only 1 + 1.17 + 3×0.38, and
      * a flat −1.17 is a third of it. That part is a fair price and stays.
      *
      * The part that did not was the lie. On 95% of those rounds at least one
-     * letter that *is* in the word read gray, so the ordinary Wordle inference —
-     * gray means gone, never type it again — produced a wrong elimination. The
+     * letter that *is* in the word read gray, so the ordinary Wordle inference
+     * that gray means gone and should never be typed again produced a wrong
+     * elimination. The
      * Fog and The Mirror lie too, but invertibly: under the Fog you know a gray
      * might be a yellow, under the Mirror you know the row is backwards and can
      * turn it round. There was no undoing this one, because a gray had become
-     * two different facts wearing the same colour.
+     * two different facts wearing the same color.
      *
      * The count separates them again. You learn how many of your letters are in
-     * the word and not which, which is Bulls and Cows rather than Wordle — a
+     * the word and not which, which is Bulls and Cows rather than Wordle: a
      * harder deduction instead of a broken one. The scoring stays as it was, and
      * that is what keeps this from collapsing into The Fog with a badge.
      */
     note: (tiles) => {
       const misplaced = tiles.filter((tile) => tile.color === "yellow").length
-      // Zero is the loudest reading this ever gives — every letter not already
-      // green is absent — so it gets said in words rather than shown as a 0.
+      // Zero is the loudest reading this ever gives, since every letter not
+      // already green is absent, so it gets said in words rather than shown as a 0.
       return misplaced === 0 ? "none misplaced" : `${misplaced} misplaced`
     },
     transform: (tiles) => {
@@ -196,7 +197,7 @@ export const BOSSES: readonly Boss[] = [
     tier: "early",
     name: "The Purist",
     text: "No letter may appear twice in a guess.",
-    // Aimed at the fat scoring words — JAZZY, FUZZY, MUMMY are all chips and no
+    // Aimed at the fat scoring words. JAZZY, FUZZY and MUMMY are all chips and no
     // information, and all built on a doubled letter. Deduction barely notices;
     // a chip build loses its best line. The answer pool is filtered by this
     // same rule, so the word is always reachable.
@@ -235,7 +236,7 @@ export const BOSSES: readonly Boss[] = [
     text: "Three guesses only.",
     // The Clock, late and meant it. Three guesses is barely a deduction at all,
     // so this is the round that asks whether the build can simply out-score the
-    // target — and it hands you a ×4 solve multiplier if you can do it at once.
+    // target, and it hands you a ×4 solve multiplier if you can do it at once.
     maxGuesses: 3,
   },
   {
@@ -246,7 +247,7 @@ export const BOSSES: readonly Boss[] = [
     // Aimed squarely at the permanent upgrade line: a run that bought four
     // etchings meets a round where none of them exist. It reads `LETTER_CHIPS`
     // rather than subtracting them, so it stays correct if the upgrade rules
-    // ever change — the claim is "what the letter started as", not "minus what
+    // ever change: the claim is "what the letter started as", not "minus what
     // you added". Which is why it caught alphabet range levels for free, and
     // why the text says upgrades rather than naming either line.
     tileChips: (_base, tile) => LETTER_CHIPS[tile.letter] ?? 0,
@@ -257,12 +258,12 @@ export const BOSSES: readonly Boss[] = [
     name: "The Margin",
     text: "The first and last letters score no chips.",
     // The first boss that cares *where* a letter was played, which is a pole
-    // nothing else in the set attacks — every other chip boss asks what the
+    // nothing else in the set attacks. Every other chip boss asks what the
     // letter is or whether it has been spent. The columns are the expensive
     // ones: 2.34 and 2.15 mean chips against 1.48–1.69 for the middle three, so
     // this takes 4.49 of an average word's 9.30. Nearly half, and all of it
     // recoverable by a player who moves the heavy letters inward, which is the
-    // counterplay — an early boss should teach a habit rather than tax one.
+    // counterplay: an early boss should teach a habit rather than tax one.
     //
     // ×0.85 on the mean round score over 250 seeds, which lands it exactly on
     // The Drought in the same band. Two early bosses that each cost a sixth of
@@ -285,7 +286,7 @@ export const BOSSES: readonly Boss[] = [
     //
     // The bite scales with what the run actually bought, which is the property
     // worth having. Over 250 seeds it costs a board with one modifier ×0.60, two
-    // ×0.52, three ×0.45 — and a run that placed nothing does not notice it at
+    // ×0.52 and three ×0.45, and a run that placed nothing does not notice it at
     // all. No other boss prices itself off the player's own investment, and it
     // is why this one can hit as hard as a late boss without landing like one.
     noModifiers: true,
@@ -296,15 +297,15 @@ export const BOSSES: readonly Boss[] = [
     name: "The Plateau",
     text: "Multiplying effects do nothing. Mult may only be added.",
     // The late band is where builds are finished, and a finished build wins by
-    // multiplying — Anagrammer, Speedrunner, The Chorus, a levelled category, a
+    // multiplying, whether by Anagrammer, Speedrunner, The Chorus, a leveled category or a
     // ×mult etching. Nothing in the game attacked that side, so the answer to
     // every late boss was the same stack. This one asks the opposite question:
     // what does the build score when only the flat half fires? A run that bought
     // Masochist and Sunk Cost walks through it, which is the whole idea.
     //
     // ×0.51 over 250 seeds against a tray holding one ×mult relic, which puts it
-    // level with The Auditor — the other late boss that takes a multiplier away
-    // — and they take different ones, so a build cannot be safe from both.
+    // level with The Auditor, the other late boss that takes a multiplier away,
+    // and they take different ones, so a build cannot be safe from both.
     noTimesMult: true,
   },
 ]
@@ -332,7 +333,7 @@ export const bossesIn = (tier: BossTier): readonly Boss[] =>
  * same boss twice and never meets a late boss early.
  *
  * Each band gets its own RNG stream, keyed by the band name. Deriving a whole
- * band's order up front — rather than picking one boss per stage — keeps the
+ * band's order up front, rather than picking one boss per stage, keeps the
  * sequence stable if stages are ever skipped or replayed, and keying by name
  * rather than by index means adding a band cannot reshuffle the others.
  */

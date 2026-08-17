@@ -1,9 +1,9 @@
 import type { Color, Tile } from "./state"
 
 /**
- * Wordle's colouring, including the part everyone gets wrong the first time:
+ * Wordle's coloring, including the part everyone gets wrong the first time:
  * duplicate letters. Greens are claimed first, then yellows draw only from the
- * copies left over. Guessing LOLLY against SILLY marks the leading L *gray* —
+ * copies left over. Guessing LOLLY against SILLY marks the leading L *gray*:
  * both of the answer's Ls are already spoken for by the two green ones. A
  * single pass cannot produce that; hence two.
  */
@@ -37,7 +37,7 @@ export function computeFeedback(guess: string, answer: string): Color[] {
 
 /**
  * `color` drives scoring, `shown` drives the screen. They are equal except when
- * a boss lies to the player — The Fog hides yellows without disarming them.
+ * a boss lies to the player. The Fog hides yellows without disarming them.
  */
 export function toTiles(guess: string, colors: readonly Color[]): Tile[] {
   return Array.from(guess, (letter, i) => {
@@ -46,7 +46,7 @@ export function toTiles(guess: string, colors: readonly Color[]): Tile[] {
   })
 }
 
-/** The best colour known for each letter so far, for painting the keyboard. */
+/** The best color known for each letter so far, for painting the keyboard. */
 export function keyboardColors(guesses: ReadonlyArray<{ tiles: readonly Tile[] }>) {
   const rank: Record<Color, number> = { gray: 0, yellow: 1, green: 2 }
   const best = new Map<string, Color>()

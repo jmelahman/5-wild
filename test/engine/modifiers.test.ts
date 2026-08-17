@@ -65,7 +65,7 @@ describe("letter modifiers", () => {
   it("Steel multiplies what the word has scored so far", () => {
     // The multiply lands where the tile does, so position is worth real mult:
     // CRANE's E is last and multiplies the finished 7, its C is first and
-    // multiplies the 1 that was there at the time — and the 6 between those two
+    // multiplies the 1 that was there at the time, and the 6 between those two
     // is the whole reason the rule is worth having.
     expect(play("e", "steel", "crane").last.mult).toBe(14)
     expect(play("c", "steel", "crane").last.mult).toBe(8)
@@ -77,14 +77,14 @@ describe("letter modifiers", () => {
     expect(play("s", "steel", "sassy").last.mult).toBe(12)
   })
 
-  it("Wild pays on every colour, and pays a worse one more", () => {
-    // Against BRAID, QUAZY's Q is gray and its A is green — the two ends of the
+  it("Wild pays on every color, and pays a worse one more", () => {
+    // Against BRAID, QUAZY's Q is gray and its A is green: the two ends of the
     // ladder. Both pay, and the gray pays far more, which is the whole shape:
     // the card is for the guess that went wrong, but a card paying *nothing* on
     // a green is a card telling you not to solve, so the green rung is load
     // bearing and the assertion below is not a formality.
     //
-    // Read as a shape. The numbers have been resized twice — once from a pure
+    // Read as a shape. The numbers have been resized twice, once from a pure
     // promotion, where "green pays nothing" was true and this assertion would
     // have failed, and once from a flat floor that paid more on the solve than
     // on the miss. The golden vectors are what pin them.
@@ -95,7 +95,7 @@ describe("letter modifiers", () => {
     const onGreen = play("a", "wild", "quazy").last
     expect(onGray.mult).toBeGreaterThan(onGreen.mult)
     expect(onGreen.mult).toBeGreaterThan(plain.mult)
-    // Mult only — the tile keeps the colour it landed, which is what leaves the
+    // Mult only. The tile keeps the color it landed, which is what leaves the
     // relics that read gray something to read.
     expect(onGray.chips).toBe(plain.chips)
   })
@@ -125,8 +125,8 @@ describe("letter modifiers", () => {
   })
 
   it("Glass never breaks a letter the answer needs", () => {
-    // AAHED's second A is gray — BRAID's only A is spoken for by the first —
-    // and its roll would break. Breaking it would leave a round nobody could
+    // AAHED's second A is gray, since BRAID's only A is spoken for by the
+    // first, and its roll would break. Breaking it would leave a round nobody could
     // solve, so the answer is checked before the dice are.
     const { state } = play("a", "glass", "aahed")
     expect(state.letters.a?.destroyed).toBe(false)
@@ -134,7 +134,7 @@ describe("letter modifiers", () => {
 
   it("fires before the relics see the tile", () => {
     // Both land on CRANE's A: 4 mult standing, +3 for the green, ×2 from steel
-    // is 14, and only then Vowel Hoarder's +4 — twice over, counting the E. The
+    // is 14, and only then Vowel Hoarder's +4, twice over, counting the E. The
     // other order would have multiplied the relic's mult too, for 26.
     const state = { ...withMod("a", "steel"), relics: [{ id: "vowel_hoarder" }] }
     expect(apply(state, type("crane")).round.guesses[0]?.mult).toBe(22)
@@ -182,14 +182,14 @@ describe("buying a modifier", () => {
     expect(again.letters.e?.mod).toBe("gold")
   })
 
-  it("leaves an etching alone — the two upgrades stack with each other", () => {
+  it("leaves an etching alone, since the two upgrades stack with each other", () => {
     const state = apply(shopping({ letter: "e", id: "chip", cost: 4 }), [{ type: "buy", index: 0 }])
     expect(state.letters.e).toMatchObject({ etch: 0, mod: "chip" })
   })
 
   it("Anchor pays only where the letter lands green", () => {
     // Against BRAID, CRANE puts R and A in their right places and everything
-    // else wrong — so the same card is worth a pile on R and nothing at all on
+    // else wrong, so the same card is worth a pile on R and nothing at all on
     // C. The gap between those two is the card: what it is worth depends on the
     // letter it was sold on, not on the price it was sold at.
     //
@@ -211,7 +211,7 @@ describe("buying a modifier", () => {
   })
 
   it("Echo pays on every copy of a letter the word repeats", () => {
-    // AAHED carries two As, so Echo fires twice — the card is bought for the
+    // AAHED carries two As, so Echo fires twice. The card is bought for the
     // words that double it, and is worth nothing in the ones that do not.
     const plain = apply(startRun(1, words).state, type("aahed")).round.guesses[0]
     if (!plain) throw new Error("no guess was scored")

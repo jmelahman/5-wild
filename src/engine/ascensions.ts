@@ -6,8 +6,8 @@ import type { RunState } from "./state"
 /**
  * Ascensions: the run's standing difficulty, chosen before it starts.
  *
- * Linear, in Slay the Spire's model — ascension N plays every rule up to and
- * including N — rather than a weighted or random selection. Weighted sounds like
+ * Linear, in Slay the Spire's model, where ascension N plays every rule up to
+ * and including N, rather than a weighted or random selection. Weighted sounds like
  * more content and is less: a player cannot learn a difficulty they cannot
  * predict, a build cannot be planned against a rule that might not appear, and
  * every combination becomes a balance surface nobody tested. Linear gives an
@@ -15,7 +15,7 @@ import type { RunState } from "./state"
  * verify instead of a thousand and twenty-three.
  *
  * The ladder is in two halves. Rungs 1–10 are written by hand and each adds a
- * *rule* — five of them guess rules sharing their machinery with the bosses,
+ * *rule*: five of them guess rules sharing their machinery with the bosses,
  * five of them bends in the run's own arithmetic. Above 10 there are no rules
  * left worth inventing, so the ladder stops pretending: every rung after the
  * tenth is the targets rising another notch, forever. That is deliberate. A
@@ -27,23 +27,23 @@ import type { RunState } from "./state"
  * They stack in roughly the order they hurt: the guess rules first, because
  * they cost a play and not a run, then the economy, then the curve, then the
  * tray, then the money for a word not found, then the word not found at all.
- * The last two are the same rule twice and that is deliberate — see rung 10.
+ * The last two are the same rule twice and that is deliberate; see rung 10.
  * The tenth is the sharpest thing in the game.
  *
  * Measured over 250 seeds a piece, reported as mean final stage. The stage rather
  * than the win rate, because above rung 6 the win rate is low enough that 250
- * seeds cannot separate two neighbouring rungs and the stage can:
+ * seeds cannot separate two neighboring rungs and the stage can:
  *
  *   A0  4.79   A6  4.64   A8  3.95   A10  3.26
  *   A5  5.02   A7  4.36   A9  3.92
  *
- * — about a fifth of an stage a rung through the middle and two thirds at the
+ * That is about a fifth of a stage a rung through the middle and two thirds at the
  * capstone, which is the shape the ladder wanted: every step felt, none a wall.
  *
  * That reads off a bot that deduces honestly and will farm a round it cannot
  * solve, and the distinction matters far more than it sounds. Every number in
  * this file up to rung 8 was first taken with a bot that reads the answer and
- * always solves, and such a bot cannot price the top of this ladder at all — it
+ * always solves, and such a bot cannot price the top of this ladder at all. It
  * scored rungs 9 and 10 as byte-identical, on win rate, final stage, rounds
  * cleared and gold per round alike, because a player who always finds the word
  * is a player no must-solve rule can touch. What that instrument called free is
@@ -84,8 +84,8 @@ export const ASCENSIONS: readonly Ascension[] = [
     level: 2,
     name: "Once Only",
     text: "No word twice in the same round.",
-    // Barely a constraint on its own — nobody guesses the same word twice on
-    // purpose — but it is the floor the next one is built on.
+    // Barely a constraint on its own, since nobody guesses the same word twice
+    // on purpose, but it is the floor the next one is built on.
     validate: (word, state) =>
       state.round.guesses.some((guess) => guess.word === word)
         ? "already guessed this round"
@@ -104,7 +104,7 @@ export const ASCENSIONS: readonly Ascension[] = [
     level: 4,
     name: "Anchored",
     text: "Every guess must use the letters you have placed.",
-    // Greens, unpositioned — the step between hard mode and The Tyrant. Once
+    // Greens, unpositioned: the step between hard mode and The Tyrant. Once
     // level 5 lands this can no longer fire on its own, since a letter kept in
     // its place is by definition still in the word.
     validate: (word, state) => useFound(word, found(state.round, "green")),
@@ -125,7 +125,7 @@ export const ASCENSIONS: readonly Ascension[] = [
     /*
      * Where the ladder stops asking about words and starts asking about money.
      *
-     * A flat dollar off the base — $3/$4/$5 becomes $2/$3/$4 — rather than the
+     * A flat dollar off the base, $3/$4/$5 becoming $2/$3/$4, rather than the
      * obvious alternative, which was to stop paying for unused guesses. That
      * alternative would have been actively wrong. The unused-guess dollar is the
      * only reward in the game on a different axis from the score curve, and the
@@ -135,12 +135,12 @@ export const ASCENSIONS: readonly Ascension[] = [
      *
      * Cutting the base does the opposite. At $2 instead of $3 the unused-guess
      * dollars are a larger share of the take, so the higher a run climbs the more
-     * it is paid to finish early — which is the behaviour the rest of the ladder
+     * it is paid to finish early, which is the behavior the rest of the ladder
      * is about to start demanding outright at rung 10.
      *
      * A dollar sounds small and is a quarter of the base: $12 a lap becomes $9.
-     * Measured against everything a run actually earns — unused-guess dollars and
-     * interest included, which is why the headline number overstates it — income
+     * Measured against everything a run actually earns, unused-guess dollars and
+     * interest included, which is why the headline number overstates it, income
      * falls 12%, from $9.29 a round to $8.20, and the win rate from 24.8% to
      * 21.2% over 250 seeds. Interest is capped at $5 and so cushions almost none
      * of it; what the run loses is close to one shop visit in eight.
@@ -153,13 +153,13 @@ export const ASCENSIONS: readonly Ascension[] = [
     text: "Every target is 15% higher.",
     /*
      * The curve itself, and the shape every rung above 10 repeats at a gentler
-     * angle — see `ENDLESS_STEP`.
+     * angle; see `ENDLESS_STEP`.
      *
      * 15% is picked against the stage growth rather than in the abstract. Targets
      * multiply by 2.2 an stage, so a notch this size is worth about a fifth of an
      * stage of standing pressure: enough to feel on the round it lands on, not
      * enough to end a run by itself. It measures at 21.2% to 17.2%, final stage
-     * 6.56 to 6.34, over 250 seeds — and it is the only authored rung that takes
+     * 6.56 to 6.34, over 250 seeds, and it is the only authored rung that takes
      * nothing away, which is why it can sit this high while costing this little.
      * Every other rung removes a resource; this one just moves the finish line.
      */
@@ -172,8 +172,8 @@ export const ASCENSIONS: readonly Ascension[] = [
     /*
      * The build, capped.
      *
-     * This was written first as a cut to the *shelf* — the shop dealing one relic
-     * instead of two — and 250 seeds said that rule does nothing at all: win rate
+     * This was written first as a cut to the *shelf*, the shop dealing one relic
+     * instead of two, and 250 seeds said that rule does nothing at all: win rate
      * 17.2% either way, tray value $32.1 to $31.1, and the same 4.97 cards held at
      * the end. Which makes sense in hindsight. A run visits the shop around
      * nineteen times, so even one look a visit is nineteen looks for five slots;
@@ -183,8 +183,8 @@ export const ASCENSIONS: readonly Ascension[] = [
      * Taking the slot instead bites: 17.2% to 12.4%, tray value $32.1 to $26.0,
      * 4.97 cards held to 3.98. The difference is that this one cannot be waited
      * out. Every relic bought past the fourth now has to displace one already
-     * earning, so the rung asks a question the shelf-cut never did — not "did you
-     * find it" but "is it better than what you have" — and it asks it in every
+     * earning, so the rung asks a question the shelf-cut never did, not "did you
+     * find it" but "is it better than what you have", and it asks it in every
      * shop for the rest of the run.
      *
      * The −19% of tray value is the honest measure of the cost, and it is worth
@@ -200,14 +200,14 @@ export const ASCENSIONS: readonly Ascension[] = [
     /*
      * The hedge, priced in money before rung 10 prices it in the run.
      *
-     * What stood here was "Five" — five guesses instead of six — and it is worth
+     * What stood here was "Five", five guesses instead of six, and it is worth
      * recording why it is gone, because it was the largest misjudgement on the
      * ladder. It reads like a sibling of the boss guess rules and it is not: it
      * hits three ways at once. The deduction gets a guess harder, the farming
      * line loses its biggest chip contributor, and the unused-guess dollars are
      * capped one lower on top of Lean Years having already taken a dollar off
      * the base. Measured against a bot that has to actually find the word it
-     * cost 1.22 of a mean final stage in a single step — against 0.84 for rungs 1
+     * cost 1.22 of a mean final stage in a single step, against 0.84 for rungs 1
      * through 8 put together. One rung outweighed the first eight, and it landed
      * on players who had just been handed the relic-slot cut. The first boss
      * killed 26% of runs at A9 and 43% at A10.
@@ -217,7 +217,7 @@ export const ASCENSIONS: readonly Ascension[] = [
      * once in a word it failed to find. That bot put the rung at 0.36.
      *
      * This asks the same question Finish It asks, in money first: clear the
-     * target off five wrong words and the round is survived and pays nothing —
+     * target off five wrong words and the round is survived and pays nothing:
      * no base, no unused-guess dollars, no interest. 3.95 to 3.92 by the stage,
      * which is a cheap rung and is meant to be. What it takes is a habit, one
      * rung before the capstone starts taking runs for the same habit.
@@ -234,11 +234,11 @@ export const ASCENSIONS: readonly Ascension[] = [
      * never finding the answer; this deletes that line, and with it the whole
      * deduction-versus-greed hedge. The word is the point again. Everything above
      * it is pressure rather than rule, so this is the last thing the ladder ever
-     * has to teach — the right note to end the taught half on, and the wrong one
+     * has to teach, the right note to end the taught half on and the wrong one
      * to have buried in the middle of it.
      *
-     * It is also the rung the old harness scored at exactly zero — identical win
-     * rate, final stage, rounds cleared and gold per round at A9 and A10 — because
+     * It is also the rung the old harness scored at exactly zero, with identical
+     * win rate, final stage, rounds cleared and gold per round at A9 and A10, because
      * a bot that solves every round it can already obeys this rule and never
      * noticed it arrive. That was never evidence the rung is free; it is evidence
      * of what the rung taxes. A bot that deduces honestly and hedges prices it at
@@ -249,8 +249,8 @@ export const ASCENSIONS: readonly Ascension[] = [
      * that round is lost.
      *
      * It swallows rung 9 whole, and the measurement says so to the decimal: a
-     * ladder carrying both rules scores identically at A10 — every column, not
-     * merely the stage — to a ladder carrying only this one. There is nothing left
+     * ladder carrying both rules scores identically at A10, on every column and
+     * not merely the stage, to a ladder carrying only this one. There is nothing left
      * to withhold from a round that has already ended the run, so the capstone is
      * the last two rungs at once. That is escalation along one axis rather than a
      * rung going to waste: lose the money for not finding the word, then lose the
@@ -269,11 +269,11 @@ export const AUTHORED_ASCENSIONS = ASCENSIONS.length
  * of everything below it. Steeper's rule at roughly half Steeper's angle, and
  * the halving is the whole reason the endless half is worth having.
  *
- * It was written at 15% first — the same notch, on the theory that a repeated
+ * It was written at 15% first, the same notch, on the theory that a repeated
  * rung repeating something *else* would be a new rule wearing a number, and the
  * ladder cannot owe the player ninety explanations. Compounding settled it. At
  * 1.15 the climb ran out in about five rungs: 5.7 stages cleared at A10, 2.2 at
- * A15, nothing alive by A22 — a scoreboard with five marks on it. At 1.08 the
+ * A15, nothing alive by A22: a scoreboard with five marks on it. At 1.08 the
  * same bot spans sixteen: 5.54 stages at A10, 4.75 at A14, 3.28 at A18, 2.48 at
  * A20, 1.10 by A26, with wins still turning up as high as A20. About a quarter
  * of an stage a rung.
@@ -288,8 +288,8 @@ const ENDLESS_STEP = 1.08
 /**
  * A ceiling on the dial, not a top to the ladder.
  *
- * The endless half is endless in the sense that matters — nobody is going to
- * exhaust it — but a number that a save can carry and a stepper can walk needs
+ * The endless half is endless in the sense that matters, since nobody is going
+ * to exhaust it, but a number that a save can carry and a stepper can walk needs
  * *some* bound, or a hand-edited record could ask for a target of Infinity and
  * get a run with no legal outcome. A hundred is far past anything survivable:
  * rung 100 carries 1.08^90 on top of Steeper's own 15%, which is a little over a
@@ -301,9 +301,9 @@ export const MAX_ASCENSION = 100
 /**
  * What a level actually means, for a screen that has to explain the choice.
  *
- * Synthesised above the authored ladder rather than stored, because storing
+ * Synthesized above the authored ladder rather than stored, because storing
  * ninety near-identical entries would be a list nobody could read and a codex
- * nobody could scroll. The synthesised rung says what it does and what it has
+ * nobody could scroll. The synthesized rung says what it does and what it has
  * come to in total, since "another 15%" stops being useful information around
  * the third time it is said.
  */
@@ -317,7 +317,7 @@ export function ascensionAt(level: number): Ascension | undefined {
   return {
     level,
     name: "Steeper",
-    text: `Targets rise another ${Math.round((ENDLESS_STEP - 1) * 100)}% — ×${total.toFixed(2)} in all.`,
+    text: `Targets rise another ${Math.round((ENDLESS_STEP - 1) * 100)}% (×${total.toFixed(2)} in all).`,
     targets: ENDLESS_STEP,
   }
 }
@@ -330,8 +330,8 @@ export const clampAscension = (level: number): number =>
  * Everything the ladder bends about a run, folded into one object.
  *
  * One fold rather than a lookup at each call site, and that is the whole reason
- * this type exists. The alternative — `rulesFor(state).some(…)` wherever a
- * number is needed — worked while the only bend was `solveRequired`, and would
+ * this type exists. The alternative, `rulesFor(state).some(…)` wherever a
+ * number is needed, worked while the only bend was `solveRequired`, and would
  * have meant the reducer asking the ladder five separate questions about five
  * separate fields, none of which could account for the endless half without
  * inventing ninety `Ascension` records to iterate over.
@@ -411,7 +411,7 @@ export const mustSolve = (state: RunState): boolean => difficultyOf(state).mustS
  * The order is by scope: the run's rules before the round's, and within the
  * run's, the order they were learned. A player who breaks two rules at once
  * gets told about the one that holds every round of the run rather than the one
- * that expires with this boss, and — the part that actually matters — gets told
+ * that expires with this boss, and, the part that actually matters, gets told
  * the *same* thing every time, because the sequence never depends on which rule
  * happened to be checked first.
  */

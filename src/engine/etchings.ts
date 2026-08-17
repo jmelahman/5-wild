@@ -4,7 +4,7 @@ import { ALPHABET, isVowel } from "../content/letters"
  * Permanent chip upgrades sold by the group.
  *
  * Etching used to be sold one letter at a time for one chip, against a modifier
- * line that sold twenty chips for the same four gold — which made it a slot the
+ * line that sold twenty chips for the same four gold, which made it a slot the
  * shop wasted rather than a decision. The fix is not a bigger number, it is a
  * different axis: **a modifier is depth, an etching is breadth.** One letter
  * doing something dramatic, against many letters each doing something small.
@@ -12,8 +12,8 @@ import { ALPHABET, isVowel } from "../content/letters"
  * They stack, and that is the point. Nothing here is a one-time purchase; a run
  * that keeps buying Etch Vowels is a run that has decided what it is.
  *
- * The groups deliberately overlap only in one direction — Consonants is the
- * broad, boring floor that touches everything the other three do not — so no
+ * The groups deliberately overlap only in one direction, since Consonants is
+ * the broad, boring floor that touches everything the other three do not, so no
  * card is a strictly better version of another at a similar price.
  */
 export type Etching = {

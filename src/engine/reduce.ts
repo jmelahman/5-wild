@@ -49,7 +49,7 @@ import { computeFeedback, toTiles } from "./words"
  *   reduce(state, action, words) -> { state, events }
  *
  * No I/O, no clock, no ambient randomness. The state is never mutated in
- * place — callers can hold onto the old one, which is what makes undo, replay
+ * place, so callers can hold onto the old one, which is what makes undo, replay
  * and the golden vectors possible.
  */
 
@@ -88,10 +88,10 @@ function freshLetters(): Record<string, LetterState> {
 /**
  * Answers must avoid destroyed letters, or a broken keyboard could be handed a
  * word it cannot type. If breaking ever narrows the pool to nothing the alphabet
- * heals rather than dead-ends the run — unreachable in practice, since
+ * heals rather than dead-ends the run, which is unreachable in practice since
  * Pyromaniac refuses to break below fifteen live letters.
  *
- * The answer must also be a legal guess under every rule in force — the boss's
+ * The answer must also be a legal guess under every rule in force, the boss's
  * and the run's ascension both. The Glutton demands two vowels of every guess,
  * and roughly a fifth of the answer list has only one; ascension 3 forbids
  * repeating a word the run has already used, which would strand a round on an
@@ -141,15 +141,15 @@ function beginRound(state: RunState, words: WordSource, events: GameEvent[]): vo
   const difficulty = difficultyOf(state)
 
   // The empty round is installed before the answer is drawn, so guess rules that
-  // read the round's history — The Tyrant reads its greens, and so does
-  // ascension 5 — judge candidate answers against this round rather than the one
+  // read the round's history, since The Tyrant reads its greens and so does
+  // ascension 5, judge candidate answers against this round rather than the one
   // just finished.
   state.round = {
     answer: "",
     target: scaleTarget(roundTargets(state.stage)[state.roundIndex], difficulty.targets),
     // The tighter of the two wins rather than the boss's number simply winning.
-    // No rung cuts the run's allowance any more — `Dead Weight` records why the
-    // one that did was removed — so today this is the boss's number or the base
+    // No rung cuts the run's allowance any more, and `Dead Weight` records why
+    // the one that did was removed, so today this is the boss's number or the base
     // six and the min never fires. It stays because it is the composition rule
     // rather than a special case of it: a run-level cut must never *loosen* a
     // boss. The Clock deals four, and a run that asked for five may not be
@@ -181,8 +181,8 @@ function beginRound(state: RunState, words: WordSource, events: GameEvent[]): vo
 /**
  * Roll the shop and stand the player in it.
  *
- * Shared by the two ways in — banking a reward, and choosing to play on past the
- * win — so the endless path cannot drift from the ordinary one. The hooks run
+ * Shared by the two ways in, banking a reward and choosing to play on past the
+ * win, so the endless path cannot drift from the ordinary one. The hooks run
  * before the roll, so a relic that bends the shop bends the one it is about to
  * be shown rather than the next one.
  */
@@ -196,7 +196,7 @@ function enterShop(state: RunState, events: GameEvent[]): void {
 }
 
 /**
- * The fail state: score below target when the round ends — and, at ascension 10,
+ * The fail state: score below target when the round ends and, at ascension 10,
  * a word left unsolved however big the pile is. One rung lower the same round is
  * survived and paid nothing.
  */
@@ -204,7 +204,7 @@ function resolveRound(state: RunState, events: GameEvent[]): void {
   const round = state.round
 
   // Before the win/lose branch, so a relic that grows on a round ending counts
-  // the round that ended — including the one that ended the run. Losing makes
+  // the round that ended, including the one that ended the run. Losing makes
   // that moot rather than wrong, and the alternative is a hook whose firing
   // depends on an outcome it might itself be about to read.
   //
@@ -225,18 +225,18 @@ function resolveRound(state: RunState, events: GameEvent[]): void {
 
   // Paying for unused guesses is the counterweight to chip-farming: the economy
   // rewards exactly the restraint the scoring punishes. Which is why ascension 6
-  // cuts the base and leaves this alone — see `Lean Years`.
+  // cuts the base and leaves this alone; see `Lean Years`.
   const base = Math.max(0, ROUND_PAYOUT[state.roundIndex] - difficulty.payoutCut)
   const unusedGuesses = (round.maxGuesses - round.guesses.length) * GOLD_PER_UNUSED_GUESS
   // Relics get to bend this the way they bend the solve multiplier, in slot
-  // order and after the cap — so a card that zeroes it really zeroes it.
+  // order and after the cap, so a card that zeroes it really zeroes it.
   let interest = Math.min(INTEREST_CAP, Math.floor(state.gold / INTEREST_PER))
   for (const instance of state.relics) {
     const bend = RELIC_BY_ID.get(instance.id)?.interest
     if (bend) interest = bend(interest, state)
   }
 
-  // Dead Weight: the round was cleared on chips alone, so it funds nothing —
+  // Dead Weight: the round was cleared on chips alone, so it funds nothing:
   // base, unused-guess dollars and interest together. Interest included on
   // purpose. Withholding only the base would leave the farming line paying most
   // of what it used to, since a farmed round spends every guess and so was never
@@ -291,7 +291,7 @@ function applyItem(state: RunState, item: ShopItem): string | null {
     case "level": {
       const category = CATEGORY_BY_ID.get(item.id)
       if (!category) return "unknown category"
-      // Written on first purchase rather than initialised at run start, so a run
+      // Written on first purchase rather than initialized at run start, so a run
       // that never levels anything keeps `levels` out of its save.
       state.levels = { ...state.levels, [category.id]: levelOf(state, category.id) + 1 }
       return null
@@ -314,7 +314,7 @@ function applyItem(state: RunState, item: ShopItem): string | null {
       if (item.letter === undefined) return "that one needs a letter first"
       const entry = state.letters[item.letter]
       if (!entry) return "unknown letter"
-      // A letter holds one modifier, so this replaces rather than stacks — the
+      // A letter holds one modifier, so this replaces rather than stacks, and the
       // card says so before the gold is spent.
       entry.mod = item.id
       return null
@@ -368,7 +368,7 @@ const PLACEHOLDER_ROUND: RoundState = {
  * A new run, at the difficulty it was asked for.
  *
  * The ascension arrives as an argument rather than being read from anywhere: the
- * engine has no idea what the player has unlocked, and should not — which level
+ * engine has no idea what the player has unlocked, and should not. Which level
  * is on offer is a question about a profile, and profiles live where browsers do.
  */
 export function startRun(seed: number, words: WordSource, ascension = 0): Reduced {
@@ -398,7 +398,7 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
   const events: GameEvent[] = []
   const next = clone(state)
 
-  /** Refusals leave the original state untouched — the UI just flashes a reason. */
+  /** Refusals leave the original state untouched; the UI just flashes a reason. */
   const reject = (reason: string): Reduced => ({ state, events: [{ type: "rejected", reason }] })
 
   switch (action.type) {
@@ -442,9 +442,9 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
       // say something about the feedback is the same boss about to destroy it.
       //
       // It is deliberately *not* re-asked after The Magician promotes a tile
-      // below. The note is a fact about the guess — how many of these letters
-      // are in the word — and stays true whether or not one of them was
-      // afterwards handed back its colour. A player who reads "2 misplaced" and
+      // below. The note is a fact about the guess, how many of these letters
+      // are in the word, and stays true whether or not one of them was
+      // afterwards handed back its color. A player who reads "2 misplaced" and
       // can see one of them knows where the other is not, which is the counter
       // doing its job rather than a contradiction.
       const note = boss?.note?.(tiles) ?? null
@@ -483,7 +483,7 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
         solveBonus: result.solveBonus,
         score: result.score,
         // Spread rather than assigned, so a guess under any other boss carries
-        // no key at all — the same discipline `ascension` follows in a vector
+        // no key at all, the same discipline `ascension` follows in a vector
         // and `data` follows on a relic.
         ...(note ? { note } : {}),
       })
@@ -491,7 +491,7 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
       round.draft = ""
       // The run's own record of what it has said. Kept whatever the ascension,
       // because the rule that reads it cannot be the thing that decides whether
-      // it was written — a run that started recording halfway would enforce
+      // it was written. A run that started recording halfway would enforce
       // "no word twice" against half a run.
       next.history = [...(next.history ?? []), word]
 
@@ -514,7 +514,7 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
         // Growth earned while scoring gets the same announcement as growth
         // earned at a round's end. Only slots that actually wrote turn up here,
         // so this never fires for a card that merely read its own counter, and
-        // the label is whatever the card wears — floater and relic agree.
+        // the label is whatever the card wears, so floater and relic agree.
         const label = RELIC_BY_ID.get(instance.id)?.detail?.(instance)
         if (label) events.push({ type: "relic_grew", slot, id: instance.id, label })
       }
@@ -525,7 +525,7 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
       }
       events.push({ type: "guess_scored", score: result.score, total: round.score })
 
-      // The solve bonus lands on the running total, after the guess is banked —
+      // The solve bonus lands on the running total, after the guess is banked,
       // so it multiplies the farming as well as the finish. Emitted last
       // because that is the order it reads on screen: the guess scores, then
       // the whole pile multiplies.
@@ -587,7 +587,7 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
     case "continue_run": {
       if (next.phase !== "victory") return reject("the run is not won")
       // Picks up exactly where `collect` stopped. The win was offered *instead*
-      // of the shop, so continuing is that shop, rolled now rather than then —
+      // of the shop, so continuing is that shop, rolled now rather than then,
       // which is why a player who banks the win never fires a shop hook for a
       // shop they will not see.
       enterShop(next, events)
@@ -603,7 +603,7 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
       if (next.gold < item.cost) return reject("not enough gold")
 
       // A pack is the one item that is not applied when it is bought. It opens,
-      // and the gold buys the choice rather than any particular card in it —
+      // and the gold buys the choice rather than any particular card in it,
       // which is why the contents are rolled here, at open time, and why the
       // reroll count is in the coordinate: rerolling the shelf to get a
       // different pack has to get different cards in it too.
@@ -654,8 +654,8 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
       const letter = action.letter.toLowerCase()
       // The same question the shop asked before it stocked the card and before
       // it took the gold, asked once more against the alphabet as it is now.
-      // Nothing can have changed it in between — the shop is held while a
-      // modifier is in hand — but the picker is the only one of the three whose
+      // Nothing can have changed it in between, since the shop is held while a
+      // modifier is in hand, but the picker is the only one of the three whose
       // input comes from outside.
       if (!placeableLetters(next, modifier).includes(letter)) {
         return reject(`${modifier.name} cannot go on ${letter.toUpperCase()}`)
@@ -680,7 +680,7 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
       if (!next.pack) return reject("no pack is open")
       const item = next.pack.options[action.index]
       if (!item) return reject("already taken")
-      // Nothing is charged — the pack was. A pick can still be refused, though,
+      // Nothing is charged; the pack was. A pick can still be refused, though,
       // by whatever the item itself needs: a relic with no slot free is the
       // ordinary case, and the pack stays open so the choice can go elsewhere.
       const reason = applyItem(next, item)
@@ -747,7 +747,7 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
       // geometric past the last hand-set stage and `bossForStage` wraps within its
       // band, so stage 9 and stage 90 are both ordinary stages as far as this is
       // concerned. The win was already offered when the reward for the final
-      // stage's last round was banked, which is the only place it belongs — this
+      // stage's last round was banked, which is the only place it belongs. This
       // gate could only ever have fired for a run that skipped that one.
       beginRound(next, words, events)
       return { state: next, events }

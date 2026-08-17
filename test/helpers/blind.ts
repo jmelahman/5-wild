@@ -1,15 +1,15 @@
 /**
  * A player that does not know the answer.
  *
- * Every bot in `test/golden/scenarios.ts` reads `state.round.answer` — line 79,
- * line 90, line 132 — and is right to: a recorder wants a run that reaches a
+ * Every bot in `test/golden/scenarios.ts` reads `state.round.answer` (line 79,
+ * line 90, line 132) and is right to: a recorder wants a run that reaches a
  * particular rule, and the shortest path there is to type the word. That makes
  * them useless for the other question. "Is the stage 6 target fair" is a question
  * about somebody who has to *find* the word, and nothing that reads the answer
  * can answer it.
  *
  * So this one is handed a `PlayerView`, which is the run state with `answer`
- * destructured off it. Not a convention — the field is genuinely absent from the
+ * destructured off it. Not a convention: the field is genuinely absent from the
  * object at runtime, so a policy that tried to cheat would read `undefined`
  * rather than the word, and `test/sim.test.ts` asserts the absence. The point of
  * a blind player is the claim that it played blind, and a claim enforced by
@@ -17,7 +17,7 @@
  *
  * It is deliberately *not* pure the way a scenario is. A scenario has to be, or
  * the recorder could not reproduce its action list; this thing records nothing,
- * so it is free to carry the one piece of state that makes it affordable — the
+ * so it is free to carry the one piece of state that makes it affordable, the
  * shrinking candidate pool. Re-deriving that from scratch on every guess is what
  * took the first draft from seconds to minutes.
  */
@@ -28,7 +28,7 @@ import { placeMod } from "../golden/scenarios"
 
 /**
  * The run as a player sees it. `round.answer` is gone; everything else stays,
- * including `bossId` and `round.target` — both are on the screen, and a player
+ * including `bossId` and `round.target`. Both are on the screen, and a player
  * who could not see what they were up against would be blind in a way the game
  * never asks anyone to be.
  */
@@ -44,7 +44,7 @@ export function playerView(state: RunState): PlayerView {
  * is which of these two a round wants, so the simulator's job is to price both
  * rather than to pick one.
  *
- * Everything *else* the two do — shopping, packs, where a modifier goes — is
+ * Everything *else* the two do, shopping, packs, where a modifier goes, is
  * shared code below, on purpose. If the shop policies differed, a gap between
  * the two lines would not be attributable to the line.
  */
@@ -57,28 +57,28 @@ export type Policy =
 /**
  * How many guesses the farmer keeps in hand to actually find the word with.
  *
- * Four, which leaves it two to farm — and four because the income line gets
+ * Four, which leaves it two to farm, and four because the income line gets
  * worse the harder it is played. Over 60 seeds at v21, median stage reached:
  * reserve 2 → 1, reserve 3 → 3, reserve 4 → 5, against the solver's 5.
  *
  * Median saturates there, so it is the wrong column to read at the top end: at
  * reserve 4 the farmer ties the solver on it. Over 300 seeds the run win rate
- * separates them and the ordering holds — 7.3% for the solver against 3.3% for
+ * separates them and the ordering holds: 7.3% for the solver against 3.3% for
  * this farmer, which is as close as the income line ever gets.
  *
  * That ordering is not a quirk of this policy, it is the scoring rule showing
- * through. Mult comes from colours and colours come from being right, so a
- * guess thrown at chips alone scores its tiles at ×1 and buys nothing towards
+ * through. Mult comes from colors and colors come from being right, so a
+ * guess thrown at chips alone scores its tiles at ×1 and buys nothing toward
  * the next one. Income is worth taking when a guess you wanted anyway happens to
  * be rich; it does not survive being made the plan. The constant is set to the
- * kindest version of the strategy on purpose — a strawman farmer would make the
+ * kindest version of the strategy on purpose, since a strawman farmer would make the
  * comparison say nothing.
  */
 const FARMER_RESERVE = 4
 
 /**
  * Openers are ranked once and reused. The first guess of every round faces the
- * same untouched candidate pool, so the ranking cannot change — only which of
+ * same untouched candidate pool, so the ranking cannot change, only which of
  * the top few a boss will accept, and what the run's etchings have done to the
  * chip tie-break.
  */
@@ -185,7 +185,7 @@ export function blindPlayer(policy: Policy): BlindPlayer {
    *
    * The filter is `computeFeedback(guess, candidate) === what we were shown`,
    * which is exact where a hand-rolled green/yellow/gray check gets duplicate
-   * letters wrong — and it is the engine's own function, so the player is
+   * letters wrong, and it is the engine's own function, so the player is
    * reasoning with precisely the rule it is being scored under.
    *
    * Note `tile.shown` rather than `tile.color`. Under The Fog and The Mirror
@@ -238,7 +238,7 @@ export function blindPlayer(policy: Policy): BlindPlayer {
 
     // Income first, while there is budget for it. The farmer is buying tiles,
     // not information, so it reaches outside the candidate pool for the richest
-    // words in the whole allowed list — the same trade `chip-farmer` makes in
+    // words in the whole allowed list: the same trade `chip-farmer` makes in
     // the vectors, made by somebody who does not know how the round ends.
     //
     // The `fresh` filter is not a refinement, it is the difference between a
@@ -305,7 +305,7 @@ export function blindPlayer(policy: Policy): BlindPlayer {
       if (state.phase === "victory") return null
       if (state.phase === "shop") {
         // Dearest affordable thing first, relics before modifiers before packs.
-        // Shared by both policies deliberately — if the shopping differed, a gap
+        // Shared by both policies deliberately: if the shopping differed, a gap
         // between the two lines could not be blamed on the line.
         const items = state.shop?.items ?? []
         const wanted = items

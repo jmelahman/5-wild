@@ -75,7 +75,7 @@ describe("the shop layout", () => {
   it("sells modifiers with no letter on them, at the choice price", () => {
     // Which letter a modifier sits on is most of what it is worth, so the shop
     // sells the card and lets the player aim it. The pack is the half that still
-    // deals pairings — see packs.test.ts.
+    // deals pairings; see packs.test.ts.
     let offered = 0
     for (let seed = 1; seed <= 200; seed++) {
       const item = shopAt(seed).items[3]
@@ -90,7 +90,7 @@ describe("the shop layout", () => {
   it("stops offering a modifier with nowhere left to put it", () => {
     // Echo is the only restricted one today, and the restriction is the point:
     // no five-letter answer repeats a J, Q or X, so Echo on one of those is a
-    // card that cannot ever fire. It goes on AELOST only — break all six and
+    // card that cannot ever fire. It goes on AELOST only, so break all six and
     // the shop has to stop stocking it rather than sell a choice with no options.
     const base = startRun(5, realWords).state
     const letters = { ...base.letters }
@@ -154,7 +154,7 @@ describe("group etchings", () => {
     expect(state.shop?.items[0]).toBeNull()
   })
 
-  it("refuses a group it does not recognise, without taking the gold", () => {
+  it("refuses a group it does not recognize, without taking the gold", () => {
     const state = inShop(1)
     const stale: RunState = {
       ...state,
@@ -194,7 +194,7 @@ describe("placing a bought modifier", () => {
     const state = buy(selling({ ...inShop(1), gold: 20 }, "steel"), 0)
     expect(state.placing).toBe("steel")
     expect(state.gold).toBe(20 - 12)
-    // Nothing else in the shop may move while a card is in hand — the same rule
+    // Nothing else in the shop may move while a card is in hand: the same rule
     // an open pack lives under, and for the same reason.
     for (const action of [
       { type: "buy", index: 0 },
@@ -232,7 +232,7 @@ describe("placing a bought modifier", () => {
   })
 
   it("refuses a letter the modifier is barred from", () => {
-    // Echo goes on AELOST only. The picker greys the rest out, but the rule has
+    // Echo goes on AELOST only. The picker grays the rest out, but the rule has
     // to live in the engine: the picker is the one input that comes from outside.
     const held = buy(selling(inShop(1), "echo"), 0)
     const { state, events } = act(held, { type: "place_mod", letter: "j" })
@@ -288,16 +288,16 @@ const shareOf = (list: readonly Rarity[], ...of: Rarity[]) =>
   list.filter((rarity) => of.includes(rarity)).length / list.length
 
 describe("what rarity the relic slots deal", () => {
-  it("starts at the shelf the catalogue was already dealing", () => {
+  it("starts at the shelf the catalog was already dealing", () => {
     // The first stage is deliberately the neutral point: the same mix a uniform
-    // draw over the whole catalogue gives. Tilting it toward cheap cards was
+    // draw over the whole catalog gives. Tilting it toward cheap cards was
     // tried three ways and every one of them cost the bots a tenth of an stage
     // and a quarter of their wins, because five relic slots fill by stage 2 and
     // a cheaper shelf is a permanently weaker tray.
     const early = relicRarities(1)
-    const catalogue = RELICS.map((relic) => relic.rarity)
+    const catalog = RELICS.map((relic) => relic.rarity)
     for (const rarity of ["common", "uncommon", "rare", "legendary"] satisfies Rarity[]) {
-      expect(shareOf(early, rarity)).toBeCloseTo(shareOf(catalogue, rarity), 1)
+      expect(shareOf(early, rarity)).toBeCloseTo(shareOf(catalog, rarity), 1)
     }
   })
 
@@ -321,8 +321,8 @@ describe("what rarity the relic slots deal", () => {
   })
 
   it("keeps dealing relics when a rarity has been bought out", () => {
-    // Owning every cheap relic must not make the slot fail four times in five —
-    // the odds are a shape for the shelf, not a promise to leave it empty.
+    // Owning every cheap relic must not make the slot fail four times in five.
+    // The odds are a shape for the shelf, not a promise to leave it empty.
     const base = startRun(3, realWords).state
     const cheap = RELICS.filter((relic) => relic.rarity !== "rare")
     const state: RunState = { ...base, stage: 1, relics: cheap.map((relic) => ({ id: relic.id })) }
@@ -330,7 +330,7 @@ describe("what rarity the relic slots deal", () => {
     expect(items.slice(0, 2).map((item) => item?.kind)).toEqual(["relic", "relic"])
   })
 
-  it("deals the whole catalogue at some stage or other", () => {
+  it("deals the whole catalog at some stage or other", () => {
     // Every rarity has to be reachable at both ends of the ramp, or a column
     // that reads as a weight is really a card the shop never sells.
     for (const stage of [1, STAGES]) {

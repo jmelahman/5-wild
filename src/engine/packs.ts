@@ -1,11 +1,11 @@
 /**
- * Packs — the shop slot that sells a *choice* rather than a card.
+ * Packs: the shop slot that sells a *choice* rather than a card.
  *
  * Balatro's booster packs, and here they answer a specific problem this game
  * had. The shop picks the letter for you: it rolls Steel, then rolls E, and the
  * pairing is what it is. That makes every letter modifier a bet on a letter you
  * did not choose, which is why the conditional ones had to be priced for the
- * worst letter they might land on — and why Echo needed a pool of letters it was
+ * worst letter they might land on, and why Echo needed a pool of letters it was
  * allowed to be sold on at all, rather than the number it wanted.
  *
  * A pack lays several cards out and lets you keep one. That single change is
@@ -16,8 +16,8 @@
  * Priced off the measured uplift. A modifier dealt by the shop is worth about
  * 3.4 chips a guess averaged over every pairing the roll table can produce;
  * best-of-three is worth 6.1, a 1.77x lift, which puts a three-card pack at
- * about $9 against a $5 card. Going wider runs out of road quickly — best of
- * four is 2.00x and best of five 2.18x — so three is where most of the choice
+ * about $9 against a $5 card. Going wider runs out of road quickly, since best
+ * of four is 2.00x and best of five 2.18x, so three is where most of the choice
  * is bought, and the prices below sit a little under fair on purpose. A pack
  * should be the exciting thing on the shelf, not the correct thing.
  *
@@ -27,7 +27,7 @@
  * visits only 37% of stage 1 visits and 36% of stage 2 visits could afford the
  * $9 relic pack, while from stage 4 on every single visit could. Gold compounds
  * through interest and these prices never moved, so the number was a wall for
- * two stages and free forever after — an unlock wearing a price tag.
+ * two stages and free forever after: an unlock wearing a price tag.
  *
  * So down $2 each. The same visits could afford $7 82% of the time at stage 1
  * and 66% at stage 2, which is a decision in both rather than a card to walk
@@ -77,7 +77,7 @@ export const PACKS: readonly Pack[] = [
     // Under-priced against its contents at $7, and it was under-priced at $9
     // too: over 1,656 opened relic packs the best card in the pack was a
     // legendary 26.8% of the time, a rare 42.5%, an uncommon 28.0% and a common
-    // only 2.7%, for a mean shelf price of $7.87 — before counting the choice,
+    // only 2.7%, for a mean shelf price of $7.87, before counting the choice,
     // which is the thing actually being sold. The shelf price is the wrong
     // ceiling for a pack; what caps this one is the tray it feeds.
     cost: 7,

@@ -112,7 +112,7 @@ describe("the first-round coach", () => {
     expect(state.roundIndex).toBe(1)
     expect(state.round.guesses.length).toBe(0)
     // A board that looks exactly like the one the tutorial opened on, and it is
-    // silent — the first time is the only thing being taught, and it is spent.
+    // silent: the first time is the only thing being taught, and it is spent.
     expect(coachStep(state)).toBeNull()
     expect(coachSpent(state)).toBe(true)
   })
@@ -133,23 +133,23 @@ describe("the first-round coach", () => {
 })
 
 /**
- * Every beat's prose, checked once. The wording is the deliverable here — a card
+ * Every beat's prose, checked once. The wording is the deliverable here, and a card
  * that fires at the right moment and says nothing useful is the failure mode
- * this whole file otherwise cannot see — so this pins the claims that would be
+ * this whole file otherwise cannot see, so this pins the claims that would be
  * wrong if the content moved underneath them.
  */
 describe("what the coach actually claims", () => {
   const words: WordSource = realWords
 
-  it("names the colour multipliers the engine uses", () => {
+  it("names the color multipliers the engine uses", () => {
     const step = coachStep(apply(startRun(3, words).state, type(MISS)))
     expect(step?.text).toContain("green +3")
     expect(step?.text).toContain("yellow +1")
   })
 
   it("keeps every card to a length a phone can hold", () => {
-    // Measured in the browser at 390×844, where the longest of these — the solve
-    // card, 127 characters — sets three lines in the 301px the text column comes
+    // Measured in the browser at 390×844, where the longest of these, the solve
+    // card at 127 characters, sets three lines in the 301px the text column comes
     // out at and stands 67px tall against a board row of 71. So the cap is three
     // lines' worth at the ~51 characters a line holds there, and it is the card
     // staying inside a single board row that it is really buying: the beat that

@@ -48,22 +48,22 @@ describe("what a shop card says it is", () => {
     }
   })
 
-  it("says the kind and leaves the rarity to the colour", () => {
+  it("says the kind and leaves the rarity to the color", () => {
     const state = fresh()
-    // Snowball is rare, Keystone uncommon, Head Start common — one tag between
+    // Snowball is rare, Keystone uncommon, Head Start common, one tag between
     // them. Rarity is on the border, on the tag's own ink and on the tray the
     // relic is bound for; saying it a fourth time cost the name room on the
     // line and pushed the kind, which is what the tag is for, into second place.
     for (const id of ["snowball", "keystone", "head_start"]) {
       expect(describeItem({ kind: "relic", id, cost: 6 }, state).tag, id).toBe("Relic")
     }
-    // The rarity itself still comes back, because the card is coloured by it.
+    // The rarity itself still comes back, because the card is colored by it.
     expect(describeItem(ONE_OF_EACH.relic, state).rarity).toBe("rare")
   })
 
   /**
    * A range card is bought for the letters it covers, and "A–E" is the one form
-   * of that fact a player has to expand themselves — mid-shop, under a price,
+   * of that fact a player has to expand themselves: mid-shop, under a price,
    * against their own vocabulary. F–M is the case that matters: nobody reciting
    * the endpoints thinks of I or L, which are the letters that decide whether
    * the level is worth $7.
@@ -117,12 +117,12 @@ describe("what a shop card says it is", () => {
     expect(relic.blocked).toBe(false)
 
     // The consumable keeps it, because nothing on the shop screen empties a full
-    // hand — a card is used in a round — so the tap has no answer but this one.
+    // hand, since a card is used in a round, so the tap has no answer but this one.
     const card = describeItem(ONE_OF_EACH.consumable, full)
     expect(card.tag).toBe("Consumable · slots full")
     expect(card.blocked).toBe(true)
 
-    // The kinds that need no seat are never blocked, however full the run is —
+    // The kinds that need no seat are never blocked, however full the run is:
     // an etching lands on letters that are always there.
     expect(describeItem(ONE_OF_EACH.etch, full).blocked).toBe(false)
     expect(describeItem(ONE_OF_EACH.pack, full).blocked).toBe(false)
@@ -169,7 +169,7 @@ describe("what a shop card says it is", () => {
       expect(describeItem({ kind: "mod", letter: "e", id: "glass", cost: 9 }, fresh()).swap).toBe(
         "",
       )
-      // The shop's unaimed card, which has not picked a letter yet — the picker
+      // The shop's unaimed card, which has not picked a letter yet. The picker
       // is where that question gets asked, and it asks it there.
       expect(describeItem(ONE_OF_EACH.mod, withMod("e", "steel")).swap).toBe("")
       // Nothing else on the shelf displaces anything, whatever the run holds.
@@ -181,7 +181,7 @@ describe("what a shop card says it is", () => {
 
     it("says nothing when the card is the modifier already on the letter", () => {
       // `placeableLetters` keeps this off the shelf and out of a pack in the
-      // first place, so the card should not exist — but if one ever does, the
+      // first place, so the card should not exist, but if one ever does, the
       // honest thing for it to say is nothing rather than "Replaces Steel ×2"
       // about the Steel it is not going to move.
       const state = withMod("e", "steel")

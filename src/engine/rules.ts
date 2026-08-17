@@ -4,7 +4,7 @@ import type { RoundState } from "./state"
  * The primitives that guess rules are built out of.
  *
  * Bosses and ascensions both restrict what may be typed, and they overlap by
- * design — ascension 5 *is* The Tyrant. Sharing the implementation is what keeps
+ * design: ascension 5 *is* The Tyrant. Sharing the implementation is what keeps
  * the two from drifting into two slightly different definitions of the same
  * sentence, which the player would experience as the rule changing meaning
  * depending on which system happened to impose it.
@@ -13,8 +13,8 @@ import type { RoundState } from "./state"
  * `tile.shown`, what the board displayed. That is load-bearing rather than
  * incidental: a rule derived from real feedback is one the answer itself always
  * satisfies, so the answer is always a legal guess and no round can be argued
- * into being unwinnable. Built on `shown` instead, The Mirror — which moves
- * feedback to positions it did not come from — could demand a letter that is in
+ * into being unwinnable. Built on `shown` instead, The Mirror, which moves
+ * feedback to positions it did not come from, could demand a letter that is in
  * no word at all, and the player would simply be unable to submit anything.
  *
  * The cost is that a lying boss makes the refusal message say more than the
@@ -36,7 +36,7 @@ export function knownGreens(round: RoundState): Map<number, string> {
 /**
  * Letters proven to be in the word.
  *
- * `only` narrows it to one colour, because the ascension ladder demands yellows
+ * `only` narrows it to one color, because the ascension ladder demands yellows
  * two steps before it demands greens and the two have to be askable apart.
  * Insertion order is guess order, then tile order, which is what makes the
  * refusal a player sees for a given board the same one every time.
