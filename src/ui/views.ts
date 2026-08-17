@@ -101,7 +101,10 @@ export type Handlers = {
   cycleDecor: () => void
   openMenu: () => void
   openHelp: () => void
-  /** Retire the first-round coaching, now and for good. */
+  /**
+   * Start the first round without the coaching, now and for good. Offered once,
+   * on that round's intro card, beside the button that starts it with them.
+   */
   skipCoach: () => void
   openCodex: () => void
   /** The shape panel, from the board or from the shop. */
@@ -132,6 +135,12 @@ export type Chrome = {
   musicOff: boolean
   decor: Decor
   coach: CoachStep | null
+  /**
+   * Whether the intro card on screen should ask about the tutorial before it
+   * starts. Computed by `App` rather than here, because half the answer is a
+   * `localStorage` flag that outlives the run and no view may read one.
+   */
+  coachOffer: boolean
 }
 
 /**
@@ -387,7 +396,7 @@ function consumableRow(state: RunState, on: Handlers): HTMLElement | null {
 
 /* --------------------------------------------------------------- the round */
 
-function grid(state: RunState, coach: CoachStep | null, on: Handlers): HTMLElement {
+function grid(state: RunState, coach: CoachStep | null): HTMLElement {
   const round = state.round
   const width = round.answer.length
   const active = round.guesses.length
@@ -465,7 +474,7 @@ function grid(state: RunState, coach: CoachStep | null, on: Handlers): HTMLEleme
     h("div", { class: "grid", style: `--rows:${round.maxGuesses};--cols:${width}` }, ...rows),
     // The coaching card, laid over the board's unplayed rows. See `coachSlot`
     // for why this is the one place on the round screen with room for it.
-    coachSlot(coach, on),
+    coachSlot(coach),
   )
 }
 
@@ -491,9 +500,9 @@ function grid(state: RunState, coach: CoachStep | null, on: Handlers): HTMLEleme
  * changes with the letters being typed, and a node that came and went would
  * leave the patch with nowhere to write.
  */
-function coachSlot(coach: CoachStep | null, on: Handlers): HTMLElement {
+function coachSlot(coach: CoachStep | null): HTMLElement {
   const slot = h("div", { class: "coach-slot" })
-  fillCoach(slot, coach, on)
+  fillCoach(slot, coach)
   return slot
 }
 
@@ -503,26 +512,16 @@ function coachSlot(coach: CoachStep | null, on: Handlers): HTMLElement {
  * and one of them quotes its running chip count. A card a keystroke behind the
  * number it is pointing at would be teaching the wrong lesson.
  */
-export function fillCoach(slot: Element, coach: CoachStep | null, on: Handlers): void {
+export function fillCoach(slot: Element, coach: CoachStep | null): void {
   slot.replaceChildren()
   if (!coach) return
+  // No button. The card is a sentence about the board, and the one decision it
+  // ever asked for was moved to the intro card that precedes it; see `coachAsks`.
   slot.append(
     h(
       "div",
       { class: "coach", "data-step": coach.id },
       h("p", { class: "coach-text" }, coach.text),
-      // One press ends the whole tutorial rather than advancing it, and it says
-      // so: "skip" on a five-card sequence would otherwise read as "next".
-      h(
-        "button",
-        {
-          class: "coach-skip",
-          type: "button",
-          "aria-label": "Stop showing tips",
-          onclick: () => on.skipCoach(),
-        },
-        "got it",
-      ),
     ),
   )
 }
@@ -974,7 +973,7 @@ export function roundView(state: RunState, on: Handlers, chrome: Chrome): HTMLEl
     boss && h("div", { class: "boss" }, h("strong", {}, boss.name), h("span", {}, ` ${boss.text}`)),
     relicRow(state),
     consumableRow(state, on),
-    grid(state, chrome.coach, on),
+    grid(state, chrome.coach),
     categorySlot(state, on),
     // The toggle is the readout's sibling and not its child on purpose:
     // `fillReadout` calls `replaceChildren` on every keystroke, so a button
@@ -1003,9 +1002,23 @@ export function introView(state: RunState, on: Handlers, chrome: Chrome): HTMLEl
   // read, which matters most for the one that changes the rules.
   const token = boss ? "boss" : state.roundIndex === 0 ? "normal" : "elite"
 
+  // The one question the tutorial asks, on the one screen it can be asked from:
+  // before the board, on the round the cards would run on. Everywhere else is
+  // either too early to mean anything (the title screen, where "tips" is about a
+  // game nobody has seen) or too late to be a choice (the board, where the first
+  // card has already been read by the time its button is found).
+  const asking = chrome.coachOffer
+
   return h(
     "div",
-    { class: "screen center intro", onclick: () => on.play() },
+    // Tapping anywhere plays, which is the right shortcut for a card that says
+    // one thing and is dismissed. It is withdrawn while the card is asking
+    // something: a stray tap must not answer a question on the player's behalf,
+    // least of all by picking the option they were reaching past.
+    {
+      class: `screen center intro ${asking ? "asking" : ""}`,
+      ...(asking ? {} : { onclick: () => on.play() }),
+    },
     h(
       "div",
       { class: "intro-stage" },
@@ -1031,7 +1044,29 @@ export function introView(state: RunState, on: Handlers, chrome: Chrome): HTMLEl
       ),
       standing(state),
     ),
-    h("button", { class: "primary", type: "button", onclick: () => on.play() }, "Play"),
+    // Said before the buttons rather than written into them, because the choice
+    // is only meaningful to someone who knows what they are turning down, and
+    // "tips" alone does not say that the board is about to explain itself.
+    asking &&
+      h(
+        "p",
+        { class: "intro-ask" },
+        "First run. The board can talk you through the scoring as you play.",
+      ),
+    h(
+      "button",
+      { class: "primary", type: "button", onclick: () => on.play() },
+      asking ? "Play with tips" : "Play",
+    ),
+    // Second, quieter, and phrased as the whole tutorial rather than as this
+    // card: it is the last time the question is asked, so it must not read as
+    // "not now".
+    asking &&
+      h(
+        "button",
+        { class: "secondary", type: "button", onclick: () => on.skipCoach() },
+        "Skip the tips",
+      ),
     muteButton(on, chrome),
   )
 }

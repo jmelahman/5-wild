@@ -2,7 +2,7 @@ import type { Action, GameEvent, RunState, WordSource } from "../engine"
 import { MODIFIER_BY_ID, MULT_FOR_COLOR, reduce, startRun } from "../engine"
 import { Sound } from "./audio"
 import type { CoachStep } from "./coach"
-import { coachSpent, coachStep } from "./coach"
+import { coachAsks, coachSpent, coachStep } from "./coach"
 import { clear, h, wait } from "./dom"
 import { formatNumber as num } from "./format"
 import { chosenAscension, Profile } from "./meta"
@@ -366,7 +366,7 @@ export class App {
     // It also has to be reapplied *after* `fillReadout` in any case, since that
     // rebuilds the readout's children and takes the class down with them.
     const coach = this.root.querySelector(".coach-slot")
-    if (coach) fillCoach(coach, this.coach, this.handlers)
+    if (coach) fillCoach(coach, this.coach)
     this.lightCoach()
     return true
   }
@@ -1102,12 +1102,18 @@ export class App {
       this.overlay = "help"
       this.render()
     },
-    // Spent rather than dismissed: a card that came back on the next keystroke
-    // would make the button a lie, and there is nothing here worth reading twice
-    // by someone who has already said they have it.
+    // Declined rather than deferred. The offer is made once, on the intro card
+    // of the round the cards would run on, so a flag that let them come back
+    // would be letting them back in through a door that is never opened again.
+    //
+    // It plays the round on the way past, because the button it sits beside is
+    // the one that starts it: two buttons where only one starts the game would
+    // be a screen that answers a question and then asks the player to confirm
+    // they still want to play.
     skipCoach: () => {
       this.coachOwed = false
       markCoachSeen()
+      this.intro = false
       this.render()
     },
     openCodex: () => {
@@ -1162,7 +1168,22 @@ export class App {
       musicOff: this.music.isOff,
       decor: this.decor,
       coach: this.coach,
+      coachOffer: this.coachOffer,
     }
+  }
+
+  /**
+   * Whether the intro card on screen is the one that has to ask about the
+   * tutorial.
+   *
+   * `coachAsks` is the run's half: this is the first round and nothing has been
+   * played in it. Everything ANDed in front is the session's, and it is the same
+   * list `coach` carries for the same reason, bar `busy`: the intro card is up
+   * before there is anything to animate.
+   */
+  private get coachOffer(): boolean {
+    if (!this.coachOwed || !this.intro || this.overlay || this.atTitle) return false
+    return coachAsks(this.state)
   }
 
   /**
@@ -1515,6 +1536,17 @@ export class App {
       }
       if (this.state.phase !== "round") return
       if (this.intro) {
+        // Ordinarily any key at all deals the board, which is what an intro card
+        // is for. While it is asking about the tutorial it is a question, and a
+        // question must not be answered by a player leaning on the keyboard, so
+        // only the two keys that mean "the default" take it. Anything aimed at a
+        // focused control belongs to the control: without this, tabbing to Skip
+        // and pressing Enter would be read here first and start the round with
+        // the tips still on, which is the opposite of what was pressed.
+        if (this.coachOffer) {
+          if (event.target instanceof HTMLButtonElement) return
+          if (event.key !== "Enter" && event.key !== " ") return
+        }
         this.handlers.play()
         event.preventDefault()
         return

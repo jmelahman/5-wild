@@ -39,6 +39,14 @@ import { formatNumber as num } from "./format"
  * state it describes. A player who solves on their first guess never sees the
  * last two beats. That is correct: the round is over, and the sheet is still in
  * the menu for whoever wants the rest.
+ *
+ * Whether the cards run at all is asked once, on the round's intro card, before
+ * any of this is reachable; see `coachAsks` below. The cards themselves carry no
+ * button. They used to carry a "got it" that retired the tutorial mid-sentence,
+ * and it was in the wrong place twice over: it sat on the board, where the whole
+ * point is that nothing competes with the numbers being explained, and it asked
+ * the question five times when the honest moment to ask it is before the first
+ * card, when a player still has the attention to answer.
  */
 export type CoachStep = {
   /** Stable name, so a test can pin a beat without quoting its prose. */
@@ -149,6 +157,29 @@ export function coachStep(state: RunState): CoachStep | null {
 
   const beat = BEATS.find((candidate) => candidate.when(state))
   return beat ? { id: beat.id, text: beat.say(state), anchor: beat.anchor } : null
+}
+
+/**
+ * Whether this is the round the tutorial would open on, and so the round whose
+ * intro card has to ask whether it should.
+ *
+ * The same gate `coachStep` opens on, plus "nothing has been played yet", which
+ * is what makes it a question rather than an interruption. It is deliberately
+ * not the negation of `coachSpent`: that one answers "can the flag be retired",
+ * which is true on every screen in the game bar one, and the offer has to be
+ * made on exactly the one.
+ *
+ * Whether the offer is *owed* is still the caller's question, for the reason it
+ * always was: the answer outlives the run and this file only knows about one.
+ */
+export function coachAsks(state: RunState): boolean {
+  return (
+    state.phase === "round" &&
+    state.stage === 1 &&
+    state.roundIndex === 0 &&
+    !state.round.done &&
+    state.round.guesses.length === 0
+  )
 }
 
 /**

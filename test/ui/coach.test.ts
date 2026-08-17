@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import type { Action, RunState, WordSource } from "../../src/engine"
 import { draftChips, reduce, solveBonusFor, startRun } from "../../src/engine"
-import { coachSpent, coachStep } from "../../src/ui/coach"
+import { coachAsks, coachSpent, coachStep } from "../../src/ui/coach"
 import { realWords } from "../helpers/words"
 
 const apply = (state: RunState, actions: Action[]): RunState =>
@@ -167,5 +167,54 @@ describe("what the coach actually claims", () => {
       expect(text.length).toBeGreaterThan(0)
       expect(text.length).toBeLessThanOrEqual(160)
     }
+  })
+})
+
+/**
+ * The question the intro card asks before any of the above is reachable.
+ *
+ * It is the one decision the tutorial offers, and it is offered once, so what
+ * matters is that the window it is offered in is exactly one screen wide. A
+ * round that is nearly the first round must not reopen it, and the round that is
+ * must not still be asking after it has been played in.
+ */
+describe("the offer to skip the coaching", () => {
+  it("is made on the round the cards would run on", () => {
+    expect(coachAsks(fresh())).toBe(true)
+  })
+
+  it("is withdrawn the moment the round has been played in", () => {
+    // A guess is an answer to the question by other means. The intro card is
+    // long gone by here, and the offer must not come back with it if the player
+    // walks to the title screen and resumes.
+    expect(coachAsks(played(fresh(), 1))).toBe(false)
+  })
+
+  it("is not reopened by a later round that looks the same", () => {
+    const state = apply(apply(fresh(), guess(fresh().round.answer)), [
+      { type: "collect" },
+      { type: "next_round" },
+    ])
+    expect(state.roundIndex).toBe(1)
+    expect(state.round.guesses.length).toBe(0)
+    expect(coachAsks(state)).toBe(false)
+  })
+
+  it("is not made away from the board", () => {
+    const state = apply(fresh(), guess(fresh().round.answer))
+    expect(state.phase).toBe("reward")
+    expect(coachAsks(state)).toBe(false)
+  })
+
+  // The two are not each other's negation, and this is the seam. On the opening
+  // board the offer stands and the tutorial is not spent; a caller that read
+  // `!coachSpent` as "ask now" would ask on every screen in the game.
+  it("is narrower than the question of whether the tutorial is finished", () => {
+    const mid = apply(fresh(), type("ja"))
+    expect(coachAsks(mid)).toBe(true)
+    expect(coachSpent(mid)).toBe(false)
+    const later = played(fresh(), 1)
+    expect(coachAsks(later)).toBe(false)
+    expect(coachSpent(later)).toBe(false)
   })
 })

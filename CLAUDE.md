@@ -140,7 +140,8 @@ the scoring game the board draws on itself. Adding an optional field needs no ke
 bump; changing what an existing field means does.
 
 `5wild:coached` is the odd one: it is the only flag that is not a setting. It
-records that the first-round tutorial has been spent. There was a
+records that the first-round tutorial has been spent, whether by being played
+through or by being declined on the intro card that offers it. There was a
 `5wild:seen-help` beside it, meaning the rules sheet had already interrupted a
 first launch, and the two were kept apart because a sheet closed at the title
 screen is not a round played. It is gone: the sheet no longer opens itself, so
