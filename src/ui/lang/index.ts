@@ -195,6 +195,31 @@ export const LANG_NAMES: Record<Lang, string> = {
   de: "Deutsch",
 }
 
+/**
+ * A flag per language, which is a lie everyone reads correctly.
+ *
+ * A flag is a country and a language is not: English is not the United Kingdom's
+ * and Spanish is spoken by more people outside Spain than in it, so this is the
+ * localization mistake every guide names. It is here anyway, and narrowly: the
+ * endonym beside it carries the meaning, and the flag is what makes one button
+ * in a stack of four findable at a glance by someone who is scanning rather than
+ * reading. Drop the endonym and the objection becomes real.
+ *
+ * They also do not render everywhere. Windows has no flag glyphs in its emoji
+ * font at all and draws the two regional-indicator letters instead — "GB", "ES"
+ * — which is a legible degradation precisely because the word is doing the work.
+ * Android, which is what the APK runs on, has Noto Color Emoji and draws them.
+ */
+export const LANG_FLAGS: Record<Lang, string> = {
+  en: "🇬🇧",
+  es: "🇪🇸",
+  fr: "🇫🇷",
+  de: "🇩🇪",
+}
+
+/** One button, one step per tap, wrapping at the end. As the speed dial. */
+export const NEXT_LANG: Record<Lang, Lang> = { en: "es", es: "fr", fr: "de", de: "en" }
+
 /** The whole catalog, for the screens that read more of it than one card. */
 export const S = (): Strings => current
 

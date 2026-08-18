@@ -12,6 +12,7 @@ import {
   growthBadge,
   loadLang,
   modPlaced,
+  NEXT_LANG,
   payoutBadge,
   readLang,
   refusalText,
@@ -226,7 +227,7 @@ export class App {
   private speed = loadSpeed()
   /**
    * The language the interface is in, which the words follow at the next run
-   * rather than at this instant. See `setLanguage`.
+   * rather than at this instant. See `cycleLanguage`.
    */
   private lang = loadLang()
   /** Which language `words` was loaded for. Equal to `lang` except while deferred. */
@@ -1231,12 +1232,11 @@ export class App {
      *
      * What that permits is a Spanish interface over an English run, which is odd
      * but is at least true, and it ends by itself at the next `newRun`. The
-     * picker says so while it is the case; see `wordsDeferred`.
+     * button says so while it is the case; see `wordsDeferred`.
      */
-    setLanguage: (lang) => {
-      if (lang === this.lang) return
-      this.lang = lang
-      setLang(lang)
+    cycleLanguage: () => {
+      this.lang = NEXT_LANG[this.lang]
+      setLang(this.lang)
       this.deferWords()
       this.render()
     },
@@ -1325,14 +1325,14 @@ export class App {
   }
 
   /**
-   * Whether the picker owes the player the sentence about when words change.
+   * Whether the pause sheet owes the player the sentence about when words change.
    *
    * Both halves, and both are load-bearing. A run has to be open, or there is
    * nothing being deferred and the line is a warning about nothing — which is
-   * the state the title screen is in, and it is where the picker is most likely
-   * to be used. And the languages have to actually differ, so that switching
-   * away and back mid-run leaves no line behind claiming a change that has
-   * un-happened.
+   * the state the title screen is in, and it is where the language button is most
+   * likely to be used. And the languages have to actually differ, so that
+   * cycling all the way around mid-run leaves no line behind claiming a change
+   * that has un-happened.
    */
   private get wordsDeferred(): boolean {
     return !this.atTitle && this.lang !== this.wordsLang
@@ -1342,7 +1342,7 @@ export class App {
    * Start fetching the list the next run will want, or stop caring about one.
    *
    * Called whenever either side of the comparison moves: the setting, in
-   * `setLanguage`, and the run's list, in `withWords`. Switching away and back
+   * `cycleLanguage`, and the run's list, in `withWords`. Switching away and back
    * drops the request rather than holding a stale promise for a language that is
    * no longer wanted; the browser has the response cached either way, so the
    * cost of having asked is one request that nothing awaits.

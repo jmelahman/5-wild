@@ -556,12 +556,15 @@ export type Strings = {
        */
       speed: (speed: number) => string
       /**
-       * Over the four language buttons. The buttons name themselves, in
-       * themselves, so this is the only word here a translator writes.
+       * Never seen, only heard: the language button shows a flag and an endonym,
+       * and this is the noun in front of them in its accessible name, which is
+       * what tells a screen reader that "Español" is the setting rather than the
+       * destination. The endonym is a proper noun, so this is the only word here
+       * a translator writes.
        */
       language: string
       /**
-       * Said under the picker only while it is true: a run already dealt is
+       * Said under the button only while it is true: a run already dealt is
        * played out in the words it was dealt from, whatever the interface has
        * moved to since. Short, because it is a reassurance and not an
        * instruction — nothing is being asked of the player.

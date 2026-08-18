@@ -63,8 +63,8 @@ import {
   growthBadge,
   guessNote,
   keyRows,
+  LANG_FLAGS,
   LANG_NAMES,
-  LANGS,
   modifierCard,
   packCard,
   payoutBadge,
@@ -120,13 +120,8 @@ export type Handlers = {
   cycleDecor: () => void
   /** Step the animations up a rung, wrapping back to the speed they are drawn at. */
   cycleSpeed: () => void
-  /**
-   * The language, chosen outright rather than cycled. Four of them is two taps
-   * too many for a wrapping button, and unlike the other two this is not a dial
-   * a player nudges to taste: they want the one they read, and every tap on the
-   * way to it is a screen they cannot.
-   */
-  setLanguage: (lang: Lang) => void
+  /** Step the interface to the next language, wrapping back to English. */
+  cycleLanguage: () => void
   openMenu: () => void
   openHelp: () => void
   /**
@@ -2001,51 +1996,47 @@ function cleared(state: RunState, won: boolean): HTMLElement | null {
  * cannot afford.
  */
 /**
- * The language, as four buttons rather than one that cycles.
+ * The language, as one wrapping button rather than four.
  *
- * Every other setting on this sheet is a wrapping button, and this one is not,
- * for a reason the others do not have: a player who cannot read the interface
- * cannot read the button that changes it either. A cycle would ask them to tap
- * through up to three languages they do not want, reading nothing, to reach the
- * one they do. Four labelled buttons ask them to recognize one word, in their
- * own script, and the endonyms in `LANG_NAMES` are that word.
+ * It was four, labelled, on the argument that a player who cannot read the
+ * interface cannot read the button that changes it, so a cycle would ask them to
+ * tap past languages they do not want while reading nothing. That argument
+ * survives the change and is answered by it rather than by the count: every stop
+ * on this cycle names itself, in its own script, so nobody is ever reading a
+ * language they do not have. The worst case is three taps, each of which lands
+ * on a legible word, against a labelled 2×2 block sitting under Play on the
+ * first screen anybody sees — four buttons' worth of chrome charged to every
+ * player forever so that the few who need it save two taps once.
  *
- * The chosen one is marked with `aria-pressed` rather than only with a class,
- * because "which of these four am I on" is the whole content of this control and
- * a screen reader that cannot answer it has been given four identical buttons.
+ * So it is a `.secondary` and nothing else, which is what puts it in line with
+ * Play, How to play and Codex: `.screen.center .secondary` sizes all of them to
+ * 22rem, and `.sheet-actions` stretches all of them across the pause sheet. The
+ * flag is there to be found by someone scanning rather than reading; see
+ * `LANG_FLAGS` for why the word beside it is the part that means anything.
  *
- * The line underneath is the honest part. Changing this repaints every sentence
- * on screen immediately and does not touch the run: a run is dealt from one word
- * list and keeps it, so the answer stays in the language it was drawn from. That
- * is worth saying while it is true and worth not saying otherwise, which is what
- * `wordsDeferred` decides. See `setLanguage` in `app.ts`.
+ * The accessible name is the one place the word "Language" still appears, and it
+ * is the answer to a question the visible label leaves open: a button reading
+ * "Español" could be the language in force or the one it switches to. It reads
+ * as `Idioma: Español`, so the visible text is contained in the spoken name and
+ * voice control still matches on it.
+ *
+ * See `cycleLanguage` in `app.ts` for the half of this that is not the label:
+ * the interface changes now, the run keeps the words it was dealt from.
  */
-function languagePicker(on: Handlers, chrome: Chrome): HTMLElement {
-  const copy = ui().pause
+function languageButton(on: Handlers, chrome: Chrome): HTMLElement {
   return h(
-    "div",
-    { class: "lang-picker" },
-    h("p", { class: "lang-label" }, copy.language),
-    h(
-      "div",
-      { class: "lang-row" },
-      ...LANGS.map((lang) =>
-        h(
-          "button",
-          {
-            class: `secondary lang-option${lang === chrome.lang ? " chosen" : ""}`,
-            type: "button",
-            "aria-pressed": lang === chrome.lang ? "true" : "false",
-            // The button is in the language it names, not in the one on screen,
-            // so it gets its own tag rather than inheriting the document's.
-            lang,
-            onclick: () => on.setLanguage(lang),
-          },
-          LANG_NAMES[lang],
-        ),
-      ),
-    ),
-    chrome.wordsDeferred ? h("p", { class: "lang-note" }, copy.wordsNextRun) : null,
+    "button",
+    {
+      class: "secondary lang-button",
+      type: "button",
+      "aria-label": `${ui().pause.language}: ${LANG_NAMES[chrome.lang]}`,
+      onclick: () => on.cycleLanguage(),
+    },
+    // No `lang` attribute on either: the button names the language it is
+    // written in now, which is the document's, and `setLang` has already said
+    // so on `<html>`.
+    h("span", { class: "lang-flag" }, LANG_FLAGS[chrome.lang]),
+    LANG_NAMES[chrome.lang],
   )
 }
 
@@ -2086,12 +2077,17 @@ export function titleView(on: Handlers, chrome: Chrome, meta: MetaState): HTMLEl
       { class: "secondary", type: "button", onclick: () => on.openCodex() },
       common.codex,
     ),
-    muteButton(on, chrome),
     // Here as well as on the pause sheet, and this is the copy that matters more
     // of the two: the title screen is the first screen anybody sees, and a
     // player who has landed on the wrong language needs the way out of it before
     // they have started a run, not from a menu inside one.
-    languagePicker(on, chrome),
+    //
+    // Last of the four rather than first, because the flag finds the eye on its
+    // own and the three above it are what the screen is for. No deferred-words
+    // line under it: `wordsDeferred` is false at the title by construction, and
+    // it is the only screen where that is true of every language.
+    languageButton(on, chrome),
+    muteButton(on, chrome),
     h("p", { class: "title-build" }, buildStamp()),
   )
 }
@@ -2902,7 +2898,13 @@ export function menuView(on: Handlers, chrome: Chrome): HTMLElement {
         { class: "secondary", type: "button", onclick: () => on.cycleSpeed() },
         copy.speed(chrome.speed),
       ),
-      languagePicker(on, chrome),
+      languageButton(on, chrome),
+      // The honest footnote, on screen only while it is true. Changing the
+      // language repaints every sentence here immediately and does not touch the
+      // run: a run is dealt from one word list and keeps it, so the answer stays
+      // in the language it was drawn from. Said here and not on the title
+      // screen, because `wordsDeferred` needs a run open to be true at all.
+      chrome.wordsDeferred ? h("p", { class: "lang-note" }, copy.wordsNextRun) : null,
       // Letter values are not here. The board is dense by design, with a value on
       // every key and a pip on every modifier, and that density is the scoring
       // game asking to be played; some of the time the player is doing the other
