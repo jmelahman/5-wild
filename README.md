@@ -1,6 +1,6 @@
 <h1 align="center">5 Wild</h1>
 
-<p align="center"><b>A word game that turns into a numbers game.</b></p>
+<p align="center"><b>A word-guessing roguelike.</b></p>
 
 <p align="center">
   <a href="https://5-wild.com"><img alt="Play now" src="https://img.shields.io/badge/Play%20now-5--wild.com-538d4e?style=for-the-badge&logoColor=white"></a>
@@ -11,19 +11,20 @@
   <img src="assets/screenshot.png" alt="A boss round of 5 Wild in progress: The Tyrant demanding every guess reuse the greens found, five relics along the top, and a score of 7,972 against an 8,800 target" width="380">
 </p>
 
+---
+
 Guess the five letter word, but every guess you play is also a hand you score.
-Letters carry chips, the green and yellow feedback carries the multiplier, and
-the relics you buy between rounds quietly rewrite the arithmetic underneath.
+Letters score points based on how rare they are, the green and yellow feedback
+multiplies them, and the relics you buy between rounds quietly rewrite the
+arithmetic underneath. It is a word game that turns into a numbers game.
 
-## The hook
+A guess that narrows the word down is usually made of cheap letters and scores
+almost nothing. A guess built to score plays the letters you have upgraded, and
+spends one of the six you get.
 
-Guess to *learn* and you narrow the word down; guess to *earn* and you stack fat
-letters, echoes and steel into a monster of a hand. Solving pays a tempo bonus
-and ends the round on the spot, which is the problem: the round you end early is
-the round you stopped farming.
-
-Six guesses, fewer if the boss says so. That squeeze is the whole game, and it
-gets tighter every stage.
+Solving multiplies the round's whole pile by the guesses you had left, and the
+guesses you never spent pay gold at the shop. Farming one more big hand costs you
+both — and the target is often high enough that you have to.
 
 ## What you are playing with
 
