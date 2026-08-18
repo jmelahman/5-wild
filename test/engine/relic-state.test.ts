@@ -30,8 +30,6 @@ const FIXTURES: Relic[] = [
   {
     // Counts its own firings and pays what it has counted.
     id: "test_grower",
-    name: "Test Grower",
-    text: "grows",
     rarity: "common",
     cost: 4,
     onGuess: (ctx) => {
@@ -39,13 +37,11 @@ const FIXTURES: Relic[] = [
       ctx.setData("n", grown)
       ctx.addMult(grown)
     },
-    detail: (instance) => `+${instance.data?.n ?? 0} mult`,
+    growth: (instance) => ({ amount: instance.data?.n ?? 0, unit: "mult" }),
   },
   {
     // Writes then reads inside one guess, to prove reads see uncommitted writes.
     id: "test_readback",
-    name: "Test Readback",
-    text: "reads its own write",
     rarity: "common",
     cost: 4,
     onGuess: (ctx) => {
@@ -56,8 +52,6 @@ const FIXTURES: Relic[] = [
   {
     // Records both streams so they can be compared for collision.
     id: "test_roller",
-    name: "Test Roller",
-    text: "rolls",
     rarity: "common",
     cost: 4,
     onTile: (ctx, _tile, index) => {
@@ -67,8 +61,6 @@ const FIXTURES: Relic[] = [
   },
   {
     id: "test_ender",
-    name: "Test Ender",
-    text: "grows when a round ends",
     rarity: "common",
     cost: 4,
     onRoundEnd: (ctx, round) => {
@@ -78,7 +70,8 @@ const FIXTURES: Relic[] = [
         type: "relic_grew",
         slot: ctx.slot,
         id: "test_ender",
-        label: `${grown}`,
+        amount: grown,
+        unit: "mult",
       })
     },
   },
@@ -141,7 +134,12 @@ describe("relic instance state", () => {
   it("reports what it has grown to", () => {
     const state = withFixture("test_grower", "crane", "crane")
     const relic = RELIC_BY_ID.get("test_grower")
-    expect(relic?.detail?.(state.relics[0] ?? { id: "test_grower" })).toBe("+2 mult")
+    // The pair, not the sentence. Spelling it is the catalog's job, and asking
+    // this test about the wording would make it a test of English.
+    expect(relic?.growth?.(state.relics[0] ?? { id: "test_grower" })).toEqual({
+      amount: 2,
+      unit: "mult",
+    })
   })
 })
 
@@ -193,15 +191,19 @@ describe("the run-level hooks", () => {
       state = reduce(state, { type: "type_letter", letter }, words).state
     }
     const { events } = reduce(state, { type: "submit" }, words)
-    expect(events).toContainEqual({ type: "relic_grew", slot: 1, id: "test_ender", label: "1" })
+    expect(events).toContainEqual({
+      type: "relic_grew",
+      slot: 1,
+      id: "test_ender",
+      amount: 1,
+      unit: "mult",
+    })
   })
 
   it("fires onShopEnter before the shop is rolled", () => {
     let shopAtFire: unknown = "never fired"
     RELIC_BY_ID.set("test_shopper", {
       id: "test_shopper",
-      name: "Test Shopper",
-      text: "watches the shop",
       rarity: "common",
       cost: 4,
       onShopEnter: (ctx) => {

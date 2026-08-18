@@ -1,4 +1,4 @@
-import type { RoundState } from "./state"
+import type { Refusal, RoundState } from "./state"
 
 /**
  * The primitives that guess rules are built out of.
@@ -20,6 +20,11 @@ import type { RoundState } from "./state"
  * The cost is that a lying boss makes the refusal message say more than the
  * board does. That is the right way round: a rule that cannot be satisfied is
  * broken, a rule that gives something away is merely generous.
+ *
+ * Both validators return a `Refusal` rather than a sentence, which is what lets
+ * the shared implementation stay shared: the boss and the ascension that impose
+ * the same rule now hand the player the same *code*, and the catalog says it
+ * once.
  */
 
 /** Positions the player has already locked in green. */
@@ -53,17 +58,19 @@ export function found(round: RoundState, only?: "green" | "yellow"): Set<string>
 }
 
 /** Every proven letter has to appear somewhere in the guess. */
-export function useFound(word: string, letters: Iterable<string>): string | null {
+export function useFound(word: string, letters: Iterable<string>): Refusal | null {
   for (const letter of letters) {
-    if (!word.includes(letter)) return `must use ${letter.toUpperCase()}`
+    if (!word.includes(letter)) return { code: "must_use", letter }
   }
   return null
 }
 
 /** Every green has to stay exactly where it was found. The Tyrant, and ascension 5. */
-export function keepGreens(word: string, round: RoundState): string | null {
+export function keepGreens(word: string, round: RoundState): Refusal | null {
   for (const [i, letter] of knownGreens(round)) {
-    if (word[i] !== letter) return `must keep ${letter.toUpperCase()} in position ${i + 1}`
+    // One-based on the way out: the engine indexes tiles from zero and the
+    // player counts them from one, and this is the only place the two meet.
+    if (word[i] !== letter) return { code: "must_keep", letter, position: i + 1 }
   }
   return null
 }

@@ -140,9 +140,8 @@ describe("letter modifiers", () => {
     expect(apply(state, type("crane")).round.guesses[0]?.mult).toBe(22)
   })
 
-  it("gives every modifier a distinct id, name and price", () => {
+  it("gives every modifier a distinct id and a price", () => {
     expect(new Set(MODIFIERS.map((mod) => mod.id)).size).toBe(MODIFIERS.length)
-    expect(new Set(MODIFIERS.map((mod) => mod.name)).size).toBe(MODIFIERS.length)
     for (const mod of MODIFIERS) expect(mod.cost).toBeGreaterThan(0)
   })
 })

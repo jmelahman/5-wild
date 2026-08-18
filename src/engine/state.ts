@@ -52,12 +52,20 @@ export type TileScore = {
   chips: number
   mult: number
   /**
-   * What the letter's modifier said here, in the words the animation used:
-   * "+20", "×3 mult". Absent when the letter carries none, when a boss silenced
-   * the layer, and when a chance modifier rolled and lost: three different
-   * silences, which the view tells apart by asking the letter what it carries.
+   * What the letter's modifier did here. Absent when the letter carries none,
+   * when a boss silenced the layer, and when a chance modifier rolled and lost:
+   * three different silences, which the view tells apart by asking the letter
+   * what it carries.
+   *
+   * The `string` arm is a save written before this was a `Payout`, where the
+   * field held the finished sentence. Kept rather than bumping the save key,
+   * because what is at stake is one line of one tip on rows already played: a
+   * run refused would be a worse answer than a run whose open round explains its
+   * older tiles in the language they were scored in. It empties itself: no code
+   * writes a string here any more, so the arm is gone from every save by the end
+   * of the round that upgraded.
    */
-  mod?: string
+  mod?: Payout | string
   /**
    * The relics that paid on this tile, in the slot order they fired in, each
    * with the words it used. Only the `onTile` half of the tray: an `onGuess`
@@ -71,8 +79,13 @@ export type TileScore = {
    * worth reporting because the modifier is stuck to this letter, but a tray of
    * five would otherwise print five lines of "nothing" under every tile on the
    * board.
+   *
+   * `label` keeps its name now that it holds a `Payout` rather than the words it
+   * was named for, on the same reasoning as `mod` above and for the same key: a
+   * rename reads as absent, and absent here is a tip that has forgotten which
+   * cards paid on the tile it is explaining.
    */
-  relics?: Array<{ id: string; label: string }>
+  relics?: Array<{ id: string; label: Payout | string }>
 }
 
 export type GuessRecord = {
@@ -105,8 +118,12 @@ export type GuessRecord = {
    * so by the time a view could ask, the truth it would have to count is gone.
    * Optional, so every save and every vector written before it existed reads
    * back unchanged.
+   *
+   * The `string` arm is a save from before this was a count, on the same footing
+   * as `TileScore.mod`: the sentence outlives the round it was written in and
+   * nothing writes another.
    */
-  note?: string
+  note?: GuessNote | string
 }
 
 export type Rarity = "common" | "uncommon" | "rare" | "legendary"
@@ -326,28 +343,178 @@ export type Action =
   | { type: "skip_pack" }
 
 /**
+ * What a one-shot card did, for the toast to say.
+ *
+ * The card knows what happened and the catalog knows how to say it, so this
+ * carries the former and nothing of the latter. It was a preformatted `label`
+ * until the prose left the engine, and the shapes are exactly what those
+ * sentences interpolated: The Oracle names a letter and a position, The Hermit
+ * a letter, The Fool a score, The Magician nothing at all.
+ */
+export type ConsumableNote =
+  | { card: "oracle"; letter: string; position: number }
+  | { card: "hermit"; letter: string }
+  | { card: "magician" }
+  | { card: "fool"; score: number }
+
+/**
+ * Enough of a shop item to name it on screen: which table to look it up in,
+ * which row, and the letter when the item is a modifier already pointed at one.
+ *
+ * Deliberately not a `ShopItem`, which carries prices and roll data the toast
+ * has no use for, and deliberately not a string, which is what it used to be.
+ */
+export type PickedItem = {
+  kind: "relic" | "consumable" | "etch" | "level" | "range" | "mod" | "pack"
+  id: string
+  letter?: string
+}
+
+/**
+ * What a scaling relic has banked so far, in the only two currencies one can
+ * bank. Read twice: on the card, as the line under its name, and in the toast
+ * the moment it grows, which is why it is one type rather than two agreeing
+ * ones. The union on `unit` is the whole guard — a relic that grew in gold
+ * would not compile until someone taught the catalog to say so.
+ */
+export type Growth = { amount: number; unit: "chips" | "mult" }
+
+/**
+ * What one effect did to the two numbers, at the moment it did it.
+ *
+ * This is the narration layer of the scoring pipeline, and it used to be a
+ * string: `addChips` said `+20` and `timesMult` said `×3 mult`, and the sentence
+ * travelled out on the event and into the save. Five shapes is all there ever
+ * were, so the union costs nothing and buys the thing a string could not — a
+ * language that puts the unit first, or spells `×` as a word, gets to.
+ *
+ * `blocked` is The Plateau eating a multiply. It is a shape of its own rather
+ * than `times` with a factor of 1, because the two mean opposite things: one is
+ * a card that multiplied by one, which no card does, and the other is a card
+ * that would have multiplied and was stopped.
+ */
+export type Payout =
+  | { kind: "chips"; amount: number }
+  | { kind: "mult"; amount: number }
+  | { kind: "times"; factor: number }
+  | { kind: "blocked" }
+  | { kind: "gold"; amount: number }
+
+/**
+ * What a boss says about a guess in place of showing it. One boss does this and
+ * one count is all it has to say, which is why the union has a single arm: The
+ * Silence replaces the row's colors with a number, and zero is the loudest
+ * reading it gives, since every letter not already green is absent.
+ *
+ * A code and a count rather than the finished line, because "none misplaced"
+ * and "2 misplaced" are one sentence in English and need not be in another,
+ * where zero can take a different word or a different agreement.
+ */
+export type GuessNote = { code: "misplaced"; count: number }
+
+/**
+ * Why the engine turned an action down.
+ *
+ * These were English sentences until the prose left the engine, and they are the
+ * half of it that was hardest to argue about: a refusal is not decoration, it is
+ * the rules speaking, and it is the only text in the game the player reads at the
+ * exact moment they are confused. It still has to be said in their language.
+ *
+ * So a code and its operands, and the sentence is the catalog's. The codes are
+ * grouped below the way the reducer produces them rather than by what they mean,
+ * because the grouping a reader wants when one of these is wrong is "where does
+ * this come from".
+ *
+ * A word on the `unknown_*` family. Every one of those means a lookup that
+ * cannot fail did: a corrupt save, or a table and an id that disagree. They are
+ * refusals rather than throws because a run that cannot spend $6 is better than
+ * a run that stops, and they are spelled out one at a time rather than collapsed
+ * into one diagnostic because which lookup failed is the whole of what they
+ * have to say. A translator may reasonably leave them in English.
+ */
+export type Refusal =
+  // Typing and submitting.
+  | { code: "not_your_turn" }
+  | { code: "not_a_letter" }
+  | { code: "letter_broken"; letter: string }
+  | { code: "no_room" }
+  | { code: "wrong_length"; length: number }
+  | { code: "not_in_word_list" }
+  // The rules in force on the guess: bosses, ascensions, and the primitives the
+  // two share. `position` is one-based, as the player counts tiles.
+  | { code: "must_use"; letter: string }
+  | { code: "must_keep"; letter: string; position: number }
+  | { code: "needs_two_vowels" }
+  | { code: "no_repeated_letters" }
+  | { code: "already_guessed_round" }
+  | { code: "already_used_run" }
+  // One-shot cards, and the four ways one can have nothing left to do.
+  | { code: "only_during_round" }
+  | { code: "no_such_card" }
+  | { code: "unknown_card" }
+  | { code: "word_already_revealed" }
+  | { code: "nothing_to_reveal" }
+  | { code: "nothing_to_rule_out" }
+  | { code: "already_prepared" }
+  | { code: "no_guess_to_repeat" }
+  // Between rounds.
+  | { code: "nothing_to_collect" }
+  | { code: "run_not_won" }
+  // The shop, which refuses more than anything else because it is the one screen
+  // that holds itself: a pack or a modifier in hand freezes every other button.
+  | { code: "not_in_shop" }
+  | { code: "sell_only_in_shop" }
+  | { code: "finish_pack_first" }
+  | { code: "place_mod_first" }
+  | { code: "already_bought" }
+  | { code: "not_enough_gold" }
+  | { code: "no_such_relic" }
+  | { code: "no_relic_slots" }
+  | { code: "no_card_slots" }
+  | { code: "pack_empty" }
+  | { code: "no_pack_open" }
+  | { code: "already_taken" }
+  | { code: "nothing_to_place" }
+  | { code: "no_letter_for_mod" }
+  /**
+   * The one refusal that has to name a card. It carries the id rather than a
+   * name for the reason the whole file carries ids: the letter needs uppercasing
+   * in one language and a preposition in another, and the modifier's name is the
+   * catalog's to spell.
+   */
+  | { code: "mod_not_allowed"; id: ModId; letter: string }
+  | { code: "mod_needs_letter" }
+  | { code: "nested_pack" }
+  | { code: "unknown_letter" }
+  | { code: "unknown_etching" }
+  | { code: "unknown_category" }
+  | { code: "unknown_range" }
+  | { code: "unknown_modifier" }
+  | { code: "unknown_pack" }
+
+/**
  * A flat, ordered log the UI replays as animation. Scoring events carry the
  * *running* chips and mult so the screen can render them without re-deriving
  * anything, so the UI stays a dumb projection of this stream.
  */
 export type GameEvent =
-  | { type: "rejected"; reason: string }
+  | { type: "rejected"; refusal: Refusal }
   | { type: "tile"; index: number; gained: number; chips: number; mult: number }
-  | { type: "relic"; slot: number; id: string; label: string; chips: number; mult: number }
+  | { type: "relic"; slot: number; id: string; paid: Payout; chips: number; mult: number }
   /**
    * A relic permanently growing. Distinct from `relic` because it happens
    * outside the scoring pipeline, where there is no running chips or mult for
    * it to quote, and because the screen should say "this is worth more now"
    * differently from how it says "this just paid".
    */
-  | { type: "relic_grew"; slot: number; id: string; label: string }
+  | ({ type: "relic_grew"; slot: number; id: string } & Growth)
   /** A letter's own modifier firing, on the tile that carried it. */
   | {
       type: "mod"
       index: number
       letter: string
       id: ModId
-      label: string
+      paid: Payout
       chips: number
       mult: number
     }
@@ -356,22 +523,22 @@ export type GameEvent =
    * emitted when it is actually worth something. At level one the category is
    * still named on the board, but it has nothing to announce.
    */
-  | { type: "category"; id: string; name: string; level: number; chips: number; mult: number }
+  | { type: "category"; id: string; level: number; chips: number; mult: number }
   /** `total` is the round's score *after* the multiply, not the guess's. */
   | { type: "solve_bonus"; factor: number; total: number }
   | { type: "guess_scored"; score: number; total: number }
   | { type: "letter_destroyed"; letter: string }
-  | { type: "consumable"; id: string; label: string }
+  | { type: "consumable"; id: string; note: ConsumableNote }
   /** A bought modifier landing on the letter the player chose for it. */
-  | { type: "mod_placed"; id: ModId; letter: string; label: string }
+  | { type: "mod_placed"; id: ModId; letter: string }
   | { type: "round_won" }
   | { type: "round_lost" }
   | { type: "gold"; delta: number; reason: string }
   | { type: "shop_entered" }
   /** A pack laid out on the table, waiting to be chosen from. */
-  | { type: "pack_opened"; id: string; name: string; options: number }
-  /** A card taken out of a pack, or the pack walked away from when `label` is null. */
-  | { type: "pack_picked"; id: string; label: string | null }
+  | { type: "pack_opened"; id: string; options: number }
+  /** A card taken out of a pack, or the pack walked away from when `taken` is null. */
+  | { type: "pack_picked"; id: string; taken: PickedItem | null }
   | { type: "run_won" }
 
 export type Reduced = { state: RunState; events: GameEvent[] }

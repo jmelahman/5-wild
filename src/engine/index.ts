@@ -13,7 +13,6 @@ export {
   INTEREST_CAP,
   INTEREST_PER,
   RELIC_SLOTS,
-  ROUND_NAMES,
   ROUND_PAYOUT,
   ROUNDS_PER_STAGE,
   roundTargets,

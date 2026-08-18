@@ -57,7 +57,7 @@ describe("winning the run", () => {
   it("refuses to continue a run that has not won", () => {
     for (const state of [startRun(7, words).state, atReward(STAGES, 2)]) {
       const { events } = reduce(state, { type: "continue_run" }, words)
-      expect(events).toContainEqual({ type: "rejected", reason: "the run is not won" })
+      expect(events).toContainEqual({ type: "rejected", refusal: { code: "run_not_won" } })
     }
   })
 })

@@ -73,7 +73,7 @@ describe("run structure", () => {
     const state = startRun(5, realWords).state
     const { state: after, events } = reduce(state, { type: "buy", index: 0 }, realWords)
     expect(after).toBe(state)
-    expect(events).toEqual([{ type: "rejected", reason: "not in the shop" }])
+    expect(events).toEqual([{ type: "rejected", refusal: { code: "not_in_shop" } }])
   })
 })
 
@@ -129,7 +129,7 @@ describe("shop", () => {
   it("refuses a purchase you cannot afford", () => {
     const shop = { ...enterShop(50), gold: 0 }
     const { state, events } = reduce(shop, { type: "buy", index: 0 }, words)
-    expect(events).toEqual([{ type: "rejected", reason: "not enough gold" }])
+    expect(events).toEqual([{ type: "rejected", refusal: { code: "not_enough_gold" } }])
     expect(state.gold).toBe(0)
   })
 
@@ -148,7 +148,7 @@ describe("shop", () => {
     const index = state.shop?.items.findIndex((item) => item?.kind === "relic") ?? -1
     if (index >= 0) {
       const { events } = reduce(state, { type: "buy", index }, words)
-      expect(events).toEqual([{ type: "rejected", reason: "no relic slots free" }])
+      expect(events).toEqual([{ type: "rejected", refusal: { code: "no_relic_slots" } }])
     }
   })
 

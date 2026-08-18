@@ -155,12 +155,11 @@ describe("relics", () => {
       letters: { ...base.letters, q: { etch: 0, destroyed: true, mod: null } },
     }
     const { events } = reduce(state, { type: "type_letter", letter: "q" }, words)
-    expect(events).toEqual([{ type: "rejected", reason: "Q is broken" }])
+    expect(events).toEqual([{ type: "rejected", refusal: { code: "letter_broken", letter: "q" } }])
   })
 
-  it("gives every relic a distinct id, name and price", () => {
+  it("gives every relic a distinct id and a price", () => {
     expect(new Set(RELICS.map((relic) => relic.id)).size).toBe(RELICS.length)
-    expect(new Set(RELICS.map((relic) => relic.name)).size).toBe(RELICS.length)
     for (const relic of RELICS) expect(relic.cost).toBeGreaterThan(0)
   })
 })
@@ -272,16 +271,17 @@ describe("the relics that close a build", () => {
       type: "relic_grew",
       slot: 0,
       id: "snowball",
-      label: "+2 mult",
+      amount: 2,
+      unit: "mult",
     })
   })
 
   it("wears what it has grown to, so the board never has to be guessed at", () => {
     for (const id of ["snowball", "hot_streak", "hoarder"]) {
       const relic = RELICS.find((entry) => entry.id === id)
-      expect(relic?.detail, `${id} has no detail`).toBeDefined()
-      expect(relic?.detail?.({ id })).toMatch(/^\+0 /)
-      expect(relic?.detail?.({ id, data: { mult: 5, chips: 5 } })).toMatch(/^\+5 /)
+      expect(relic?.growth, `${id} has no growth`).toBeDefined()
+      expect(relic?.growth?.({ id }).amount).toBe(0)
+      expect(relic?.growth?.({ id, data: { mult: 5, chips: 5 } }).amount).toBe(5)
     }
   })
 })

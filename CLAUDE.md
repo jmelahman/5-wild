@@ -19,6 +19,45 @@ A run is a closed world. Anything outliving one belongs in `src/ui/meta.ts`, not
 the engine. Ascension is the clear case: it is an *input* to `startRun`, the UI
 remembers which level was chosen, and the engine never learns a browser exists.
 
+**The engine authors no prose.** It used to author about a third of the game's:
+every relic, boss, modifier, etching, consumable, pack, ascension and category
+carried its own `name` and `text`, and all 44 `reject(…)` calls in `reduce.ts`
+wrote English sentences that reached the player verbatim. Those are gone. A table
+carries its `id` and its numbers; `reject` takes a `Refusal`, which is a code plus
+whatever operands the sentence will need; and every string lives in
+`src/ui/lang/`, keyed by that id or that code. The seam is not a style preference:
+`test/engine-purity.test.ts` lets engine files import only from `src/engine` and
+`src/content`, so a catalog that knew about locale could not live in either
+without making the engine language-aware and a run's prose part of run state.
+
+## Language
+
+`src/ui/lang/types.ts` is the contract and `en.ts` is the reference filling of
+it. A new language is one module of type `Strings` and nothing else: if it
+compiles it is complete, because a missing key is a build error rather than an
+`undefined` on a screen. Anything a translator would otherwise re-type out of the
+balance tables is a parameter instead, so a nerf never has to be chased through
+four files.
+
+The catalog in force is a module-level value in `lang/index.ts`, not an argument
+threaded through the views, and that is safe for the same reason everything else
+here is: every dispatch rebuilds the whole screen, so there is never a
+half-rendered tree holding strings from before a switch. `current` is the prose;
+`currentLang` beside it is the *choice*, which is a different question, because
+three of the four languages fall back to the English catalog until their
+translations land — the keyboard layout has to read the choice, not the prose.
+
+Two things that look like notation are prose: the abbreviation ladder
+(`10^9` is a billion in English and a milliard in French) and the keyboard
+(QWERTY, AZERTY, QWERTZ). Both live in the language layer. The ladder is *pushed*
+into `format.ts` by `useLang` rather than read from it, because every catalog
+imports `formatNumber` to build its own sentences and a read back would be a
+cycle.
+
+Accents fold to base letters everywhere — CAFÉ is CAFE, ñ is n — which is what
+keeps the alphabet at 26 and leaves every letter-indexed system (etchings,
+ranges, modifiers, `MIN_LIVE_LETTERS`, the keyboard) working untouched.
+
 ## The UI
 
 No framework. `h()` in `src/ui/dom.ts` builds DOM, `views.ts` is pure
@@ -161,12 +200,27 @@ style but not its prose is half-finished.
 
 ## Storage
 
-`5wild:run:v2` (the run save), `5wild:meta:v2` (the record), and five settings:
-`5wild:plain`, `5wild:speed`, `5wild:muted`, `5wild:music`, `5wild:coached`. All
-are booleans except two: `5wild:plain` holds one of `all`, `minimal` or `none`,
-how much of the scoring game the board draws on itself, and `5wild:speed` holds
-`1`, `2` or `3`, how many times faster than authored the animations play. Adding an optional field needs no key
-bump; changing what an existing field means does.
+`5wild:run:v2` (the run save), `5wild:run:lang` beside it, `5wild:meta:v2` (the
+record), and six settings: `5wild:plain`, `5wild:speed`, `5wild:lang`,
+`5wild:muted`, `5wild:music`, `5wild:coached`. All are booleans except three:
+`5wild:plain` holds one of `all`, `minimal` or `none`, how much of the scoring
+game the board draws on itself; `5wild:speed` holds `1`, `2` or `3`, how many
+times faster than authored the animations play; and `5wild:lang` holds one of
+`en`, `es`, `fr`, `de`. Adding an optional field needs no key bump; changing what
+an existing field means does.
+
+`5wild:run:lang` is the only key that is neither a setting nor part of a blob,
+and it is required rather than optional, which is unusual enough to say why. The
+language drives two things on two clocks: the interface changes the instant it is
+set, and the words change at the *next* run, because a run is dealt from one word
+list and every guess is validated against it, so swapping the list under a live
+run strands the answer outside `allowed` and the only honest repair is to discard
+the run. A settings tap must not cost a run. That means a save and the setting can
+legitimately disagree, and on launch the shell has to pick a word list *before*
+the app exists and cannot tell from those two alone which way the disagreement
+runs. So the run's own language is written beside it. Absent means a save from
+before the key, which was necessarily English. See `setLanguage` and `withWords`
+in `app.ts`.
 
 `5wild:coached` is the odd one: it is the only flag that is not a setting. It
 records that the first-round tutorial has been spent, whether by being played
@@ -188,6 +242,16 @@ counters, `loadMeta` already reads them one at a time, so it reads the old
 spelling where the new one is missing and keeps everything, including the
 `cleared` that gates the ladder, which a bump would have thrown away to make a
 point about schemas.
+
+`cracked` became `crackedBy` the same way, and it is the one of the three that
+changed shape rather than spelling: a flat list of every answer ever found is
+read against one language's answer pool, so a Spanish word in it is a fraction
+that can pass 100%, and ACTOR — an answer in English and in Spanish both — was
+one crack credited for two. Keyed by language, and the old flat list is filed
+under `en`, which is not a guess: a record from before the languages was
+necessarily English. It is merged only when `crackedBy` is absent entirely.
+Merging per-language would resurrect the same words on every launch, because the
+dead `cracked` stays in the blob and this build has already read it once.
 
 ## Backlog
 

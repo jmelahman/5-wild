@@ -40,8 +40,6 @@ export type PackId = "alphabet" | "relic" | "category"
 
 export type Pack = {
   id: PackId
-  name: string
-  text: string
   cost: number
   /** How many cards the pack lays out. */
   options: number
@@ -55,8 +53,6 @@ const OPTIONS = 3
 export const PACKS: readonly Pack[] = [
   {
     id: "alphabet",
-    name: "Alphabet Pack",
-    text: "Choose one of three letter modifiers",
     // The measurement above lands this at $8.9, and the affordability one takes
     // it further down than rounding would. This is the pack that exists to fix
     // the letter-pairing problem, so of the three it is the one that most has
@@ -67,8 +63,6 @@ export const PACKS: readonly Pack[] = [
   },
   {
     id: "relic",
-    name: "Relic Pack",
-    text: "Choose one of three relics",
     // A shade above the alphabet pack though relics average $6, because relics
     // are the only line that multiplies and choosing among three is how a run
     // actually gets the one it wants. Held down by the slot cap: the fifth
@@ -86,8 +80,6 @@ export const PACKS: readonly Pack[] = [
   },
   {
     id: "category",
-    name: "Category Pack",
-    text: "Choose one of three word categories to level",
     // The dearest of the three, and the only one whose choice is strategic
     // rather than tactical. The shop deals a category and you take the level it
     // offers; this hands you the shape to build toward, and a level is the one

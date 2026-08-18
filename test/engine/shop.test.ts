@@ -163,7 +163,7 @@ describe("group etchings", () => {
     }
     const { state: after, events } = reduce(stale, { type: "buy", index: 0 }, realWords)
     expect(after.gold).toBe(20)
-    expect(events).toContainEqual({ type: "rejected", reason: "unknown etching" })
+    expect(events).toContainEqual({ type: "rejected", refusal: { code: "unknown_etching" } })
   })
 
   it("prices breadth against depth rather than under it", () => {
@@ -204,7 +204,7 @@ describe("placing a bought modifier", () => {
     ] satisfies Action[]) {
       expect(act(state, action).events).toContainEqual({
         type: "rejected",
-        reason: "place the modifier first",
+        refusal: { code: "place_mod_first" },
       })
     }
   })
@@ -214,12 +214,7 @@ describe("placing a bought modifier", () => {
     const { state, events } = act(held, { type: "place_mod", letter: "e" })
     expect(state.letters.e?.mod).toBe("steel")
     expect(state.placing).toBeNull()
-    expect(events).toContainEqual({
-      type: "mod_placed",
-      id: "steel",
-      letter: "e",
-      label: "Steel E",
-    })
+    expect(events).toContainEqual({ type: "mod_placed", id: "steel", letter: "e" })
   })
 
   it("trades away whatever the letter was already carrying", () => {
@@ -237,7 +232,12 @@ describe("placing a bought modifier", () => {
     const held = buy(selling(inShop(1), "echo"), 0)
     const { state, events } = act(held, { type: "place_mod", letter: "j" })
     expect(state.letters.j?.mod).toBeNull()
-    expect(events).toContainEqual({ type: "rejected", reason: "Echo cannot go on J" })
+    // Names the card by id and leaves the spelling to the catalog, which is the
+    // only refusal in the game that has to name anything at all.
+    expect(events).toContainEqual({
+      type: "rejected",
+      refusal: { code: "mod_not_allowed", id: "echo", letter: "j" },
+    })
   })
 
   it("refuses a letter that has broken", () => {
@@ -264,7 +264,7 @@ describe("placing a bought modifier", () => {
     // nowhere to put it and a shop that will not let them leave.
     expect(state.gold).toBe(20)
     expect(state.placing).toBeUndefined()
-    expect(events).toContainEqual({ type: "rejected", reason: "no letter left for that" })
+    expect(events).toContainEqual({ type: "rejected", refusal: { code: "no_letter_for_mod" } })
   })
 })
 

@@ -100,7 +100,7 @@ uninstall to move to Play, and the save goes with it.
 src/engine/     pure TypeScript rules engine: no DOM, no clocks, no ambient RNG
 src/content/    letter tables and round curves
 src/ui/         DOM rendering and the scoring animation
-public/words/   answer and allowed-guess lists
+public/words/   answer and allowed-guess lists, one directory per language
 test/           unit tests, golden vectors, and the engine-purity guard
 tools/          word-list and icon generation
 assets/         icon source art

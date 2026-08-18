@@ -22,18 +22,20 @@ import type { RunState } from "./state"
  */
 export type Category = {
   id: string
-  name: string
-  /**
-   * The rule, in words, for the codex to read out.
+  /*
+   * The rule in words used to live here, and the argument for it was the best
+   * of any table's: a relic says what it does on its own card, but `matches` is
+   * a function, and a player who has never seen the source has no way at all to
+   * find out what Cluster means. A description that drifts from the predicate it
+   * describes is worse than no description.
    *
-   * Carried beside the predicate rather than written on the screen that shows
-   * it, for the reason the whole content layer is: a shape whose description
-   * lives somewhere else drifts away from the shape it describes. This is the
-   * only table where that mattered enough to add a field. A relic says what it
-   * does on its own card, but `matches` is a function, and a player who has
-   * never seen the source has no way at all to find out what Cluster means.
+   * It went to `src/ui/lang` anyway, because the drift it was guarding against
+   * is a smaller problem than the one it created: a sentence that cannot be
+   * translated is not a description in any language but one. The guard that
+   * replaces it is `category[id]` being a required key of `Strings`, so a shape
+   * added here without a sentence written for it fails to compile. Proximity
+   * was doing the work of a type; now the type does it.
    */
-  text: string
   /** What one level above the first adds to the base, before relics see it. */
   chips: number
   mult: number
@@ -55,8 +57,6 @@ export type Category = {
 export const CATEGORIES: readonly Category[] = [
   {
     id: "alphabetical",
-    name: "Alphabetical",
-    text: "Its letters never go backwards",
     chips: 40,
     mult: 5,
     // "" sorts below every letter, so the missing predecessor at index 0 is
@@ -65,16 +65,12 @@ export const CATEGORIES: readonly Category[] = [
   },
   {
     id: "vowel_heavy",
-    name: "Vowel Heavy",
-    text: "Three or more vowels",
     chips: 32,
     mult: 4,
     matches: (word) => [...word].filter(isVowel).length >= 3,
   },
   {
     id: "cluster",
-    name: "Cluster",
-    text: "Three consonants in a row",
     chips: 25,
     mult: 3,
     matches: (word) => {
@@ -88,8 +84,6 @@ export const CATEGORIES: readonly Category[] = [
   },
   {
     id: "twinned",
-    name: "Twinned",
-    text: "Some letter appears twice",
     chips: 20,
     mult: 3,
     matches: (word) => new Set(word).size < word.length,
@@ -98,8 +92,6 @@ export const CATEGORIES: readonly Category[] = [
     // The floor, and the one a good opening probe always lands in. Cheapest step
     // per level because it is the shape you get for free by playing well.
     id: "distinct",
-    name: "Distinct",
-    text: "No letter repeats",
     chips: 15,
     mult: 2,
     matches: (word) => new Set(word).size === word.length,

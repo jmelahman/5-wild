@@ -1,7 +1,7 @@
 import { BASE_GUESSES, RELIC_SLOTS } from "../content/rounds"
 import { getBoss } from "./bosses"
 import { found, keepGreens, useFound } from "./rules"
-import type { RunState } from "./state"
+import type { Refusal, RunState } from "./state"
 
 /**
  * Ascensions: the run's standing difficulty, chosen before it starts.
@@ -111,11 +111,15 @@ import type { RunState } from "./state"
 export type Ascension = {
   /** The level this arrives at. A run at level N plays every rule at or below N. */
   level: number
-  name: string
-  /** The rule in words, for the screen that has to sell it before it is chosen. */
-  text: string
-  /** A rejection reason, or null to allow the guess. */
-  validate?: (word: string, state: RunState) => string | null
+  /**
+   * The two numbers the synthesized endless rung describes itself with, set
+   * only on that rung. The authored ten are a lookup in `ascension[level]` and
+   * need nothing; this one is computed from how far past the ladder the run has
+   * climbed, so the numbers come from here and the sentence from the catalog.
+   */
+  endless?: { percent: number; total: number }
+  /** Why a guess is refused, or null to allow it. */
+  validate?: (word: string, state: RunState) => Refusal | null
   /** Ascension 10 alone: clearing the target stops being enough. */
   solveRequired?: true
   /** Gold this rule takes off every round's base payout. */
@@ -131,16 +135,12 @@ export type Ascension = {
 export const ASCENSIONS: readonly Ascension[] = [
   {
     level: 1,
-    name: "Hunted",
-    text: "Every guess must use the letters you have found.",
     // Wordle's hard mode, and the mildest thing here: it costs the player their
     // throwaway probing words, and nothing else.
     validate: (word, state) => useFound(word, found(state.round, "yellow")),
   },
   {
     level: 2,
-    name: "Once Only",
-    text: "No word twice in the same round.",
     /*
      * Nobody guesses the same word twice on purpose, so to a player who is
      * deducing this is free: 0.00 of a mean final stage at every placement
@@ -156,13 +156,11 @@ export const ASCENSIONS: readonly Ascension[] = [
      */
     validate: (word, state) =>
       state.round.guesses.some((guess) => guess.word === word)
-        ? "already guessed this round"
+        ? { code: "already_guessed_round" }
         : null,
   },
   {
     level: 3,
-    name: "Steeper",
-    text: "Every target is 15% higher.",
     /*
      * The curve itself, and the shape every rung above 10 repeats at a gentler
      * angle; see `ENDLESS_STEP`.
@@ -187,8 +185,6 @@ export const ASCENSIONS: readonly Ascension[] = [
   },
   {
     level: 4,
-    name: "Anchored",
-    text: "Every guess must use the letters you have placed.",
     // Greens, unpositioned: the step between hard mode and The Tyrant. Once
     // level 5 lands this can no longer fire on its own, since a letter kept in
     // its place is by definition still in the word.
@@ -201,8 +197,6 @@ export const ASCENSIONS: readonly Ascension[] = [
   },
   {
     level: 5,
-    name: "Tyranny",
-    text: "Letters you have placed must stay where you placed them.",
     /*
      * The Tyrant, permanently. Shares its implementation with the boss rather
      * than restating it, so the run-long version cannot drift from the one the
@@ -228,8 +222,6 @@ export const ASCENSIONS: readonly Ascension[] = [
   },
   {
     level: 6,
-    name: "Crowded",
-    text: "Four relic slots, not five.",
     /*
      * The build, capped.
      *
@@ -264,8 +256,6 @@ export const ASCENSIONS: readonly Ascension[] = [
   },
   {
     level: 7,
-    name: "Lean Years",
-    text: "Every round pays $1 less.",
     /*
      * The money, behind the tray that has to be bought with it.
      *
@@ -299,8 +289,6 @@ export const ASCENSIONS: readonly Ascension[] = [
   },
   {
     level: 8,
-    name: "Dead Weight",
-    text: "A round you did not solve pays nothing.",
     /*
      * The hedge, priced in money before rung 10 prices it in the run.
      *
@@ -339,8 +327,6 @@ export const ASCENSIONS: readonly Ascension[] = [
   },
   {
     level: 9,
-    name: "No Echoes",
-    text: "No word twice in the whole run.",
     /*
      * The rule that ends a way of playing rather than costing a guess, which is
      * why it is this late and why it used to be rung 3.
@@ -364,12 +350,11 @@ export const ASCENSIONS: readonly Ascension[] = [
      * guesses wherever this rule is absent. That is what the rung takes from
      * everyone, and it is why it is the one players argue about.
      */
-    validate: (word, state) => (state.history?.includes(word) ? "already used this run" : null),
+    validate: (word, state) =>
+      state.history?.includes(word) ? { code: "already_used_run" } : null,
   },
   {
     level: 10,
-    name: "Finish It",
-    text: "Reaching the target is not enough. You have to solve the word.",
     /*
      * The sharpest rule in the game, and the reason it is the last authored one.
      * Every other round can be won by farming chips off five wrong guesses and
@@ -456,11 +441,12 @@ export function ascensionAt(level: number): Ascension | undefined {
   if (!Number.isInteger(level) || level <= AUTHORED_ASCENSIONS || level > MAX_ASCENSION) {
     return undefined
   }
-  const total = difficultyAt(level).targets
   return {
     level,
-    name: "Steeper",
-    text: `Targets rise another ${Math.round((ENDLESS_STEP - 1) * 100)}% (×${total.toFixed(2)} in all).`,
+    endless: {
+      percent: Math.round((ENDLESS_STEP - 1) * 100),
+      total: difficultyAt(level).targets,
+    },
     targets: ENDLESS_STEP,
   }
 }
@@ -558,7 +544,7 @@ export const mustSolve = (state: RunState): boolean => difficultyOf(state).mustS
  * the *same* thing every time, because the sequence never depends on which rule
  * happened to be checked first.
  */
-export function validateGuess(word: string, state: RunState): string | null {
+export function validateGuess(word: string, state: RunState): Refusal | null {
   for (const rule of rulesFor(state)) {
     const refusal = rule.validate?.(word, state)
     if (refusal) return refusal

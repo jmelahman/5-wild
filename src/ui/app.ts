@@ -1,10 +1,23 @@
-import type { Action, GameEvent, RunState, WordSource } from "../engine"
+import type { Action, GameEvent, Refusal, RunState, WordSource } from "../engine"
 import { MODIFIER_BY_ID, MULT_FOR_COLOR, reduce, startRun } from "../engine"
 import { Sound } from "./audio"
 import type { CoachStep } from "./coach"
 import { coachAsks, coachSpent, coachStep } from "./coach"
 import { clear, h, wait } from "./dom"
 import { formatNumber as num } from "./format"
+import type { Lang } from "./lang"
+import {
+  categoryLevel,
+  consumableNote,
+  growthBadge,
+  loadLang,
+  modPlaced,
+  payoutBadge,
+  readLang,
+  refusalText,
+  setLang,
+  ui,
+} from "./lang"
 import { chosenAscension, Profile } from "./meta"
 import type { Mood } from "./music"
 import { Music } from "./music"
@@ -20,6 +33,7 @@ import {
   fillReadout,
   helpView,
   introView,
+  loadingView,
   menuView,
   meterFill,
   NEXT_DECOR,
@@ -47,6 +61,36 @@ import {
  * keeping live.
  */
 const SAVE_KEY = "5wild:run:v2"
+
+/**
+ * Which word list the saved run was dealt from.
+ *
+ * A sibling key rather than a field on `RunState`, which is engine state: the
+ * engine is handed a `WordSource` and never learns there was a choice of them,
+ * and adding a field would cost a `v3` bump and every save in the wild for a
+ * fact the shell owns.
+ *
+ * It is not optional, which a run-scoped setting normally would be. On launch
+ * the shell has a save and a setting and, if the two disagree, no way to tell
+ * whether the setting was changed after the save was written or the save was
+ * written under it — and it has to pick a list *before* the app exists. Absent
+ * means a save from before this key, which was necessarily English.
+ */
+const RUN_LANG_KEY = "5wild:run:lang"
+
+/**
+ * The shell's half of the word lists: which one arrived, and how to ask for
+ * another.
+ *
+ * Fetching stays in `main.ts`, whose whole job it is. This is the handle back to
+ * it, so that a setting changed in a sheet can start a network request without
+ * the app knowing what a URL is.
+ */
+export type WordLists = {
+  /** The language the `words` passed alongside this were loaded for. */
+  lang: Lang
+  load: (lang: Lang) => Promise<WordSource>
+}
 
 /**
  * Set once the first round has been coached, or the coaching waved off.
@@ -181,6 +225,25 @@ export class App {
    */
   private speed = loadSpeed()
   /**
+   * The language the interface is in, which the words follow at the next run
+   * rather than at this instant. See `setLanguage`.
+   */
+  private lang = loadLang()
+  /** Which language `words` was loaded for. Equal to `lang` except while deferred. */
+  private wordsLang: Lang
+  /**
+   * The next run's list, already on its way.
+   *
+   * `newRun` is called straight out of a click handler and the lists are a
+   * ~100 KB fetch, so the alternative to holding this is a button that does
+   * nothing for a second. Kicked off the moment the setting changes, which is
+   * the earliest the answer is knowable and typically many seconds before it is
+   * wanted; by the time it is, it has resolved. Null when nothing is deferred.
+   */
+  private incoming: Promise<WordSource> | null = null
+  /** True only while a run is being held up waiting for one. See `withWords`. */
+  private loading = false
+  /**
    * True while the first round is still owed its explanation.
    *
    * The only piece of the coaching that is remembered anywhere. Everything else
@@ -196,9 +259,16 @@ export class App {
 
   constructor(
     private readonly root: HTMLElement,
-    private readonly words: WordSource,
+    /**
+     * Not `readonly` any more: a language change swaps it, at the next run. Every
+     * `reduce` and `startRun` below already reads it per dispatch rather than
+     * closing over it, so the swap is the whole of that change.
+     */
+    private words: WordSource,
     saved: RunState | null,
+    private readonly lists: WordLists,
   ) {
+    this.wordsLang = lists.lang
     // A run is built either way so the rest of the class never has to deal with
     // a null state; it simply is not persisted until the player commits to it.
     this.state = saved ?? startRun(rootSeed(), words).state
@@ -208,6 +278,13 @@ export class App {
     // only thing that remembers.
     setDecor(this.decor)
     setSpeed(this.speed)
+    // The shell already put the catalog up, since its own failure screen is
+    // written in it; this is the same call and it is not free to skip. A save
+    // whose language differs from the setting means the app opens with `words`
+    // from one language and a screen in another, and the fetch for the other has
+    // to be running before the player can reach the button that needs it.
+    setLang(this.lang)
+    this.deferWords()
     this.bindPhysicalKeyboard()
     this.bindAudioWake()
     this.bindTips()
@@ -268,7 +345,7 @@ export class App {
 
     const refusal = events.find((event) => event.type === "rejected")
     if (refusal) {
-      this.refuse(refusal.reason)
+      this.refuse(refusal.refusal)
       return
     }
 
@@ -301,9 +378,13 @@ export class App {
     // Both are a card leaving the player's hands and landing somewhere, and in
     // the shop there is no keyboard on screen to show where, so the toast is
     // the only confirmation that the Steel went on the E and not the R.
-    const label =
-      events.find((event) => event.type === "consumable")?.label ??
-      events.find((event) => event.type === "mod_placed")?.label
+    const consumed = events.find((event) => event.type === "consumable")
+    const placed = events.find((event) => event.type === "mod_placed")
+    const label = consumed
+      ? consumableNote(consumed.note)
+      : placed
+        ? modPlaced(placed.id, placed.letter)
+        : undefined
 
     // A letter arriving or leaving is the one action that touches a single row
     // and nothing else on the screen, so it is the one action that patches
@@ -399,15 +480,25 @@ export class App {
    */
   private async submit(): Promise<void> {
     if (this.busy) return
+    const before = this.state
     const { state, events } = reduce(this.state, { type: "submit" }, this.words)
 
     const refusal = events.find((event) => event.type === "rejected")
     if (refusal) {
-      this.refuse(refusal.reason)
+      this.refuse(refusal.refusal)
       return
     }
 
     this.state = state
+    // The cost of being the one action that skips `dispatch`, and it went unpaid
+    // for as long as this path has existed: `tally` was called there and only
+    // there, and a submit is the *only* action that plays a guess. So every
+    // figure on the record screen that comes off a round — the guess tally, the
+    // word counts, the solve histogram, the streaks, the collection — was dead,
+    // and it read as a screen of zeroes that nobody could make move. Ahead of
+    // `save`, in dispatch's order, since `save` reports the stage to the same
+    // record and the two writes should land in the order they happened.
+    this.tally(before)
     this.save()
 
     this.busy = true
@@ -507,7 +598,7 @@ export class App {
           // that fired is the letter, and it is already on screen.
           const tile = tiles[event.index]
           tile?.classList.add("fired")
-          this.floater(screen, event.label)
+          this.floater(screen, payoutBadge(event.paid))
           this.sound.relic()
           readout(event.chips, event.mult)
           await this.pace(PACE.relic)
@@ -517,7 +608,7 @@ export class App {
         case "relic": {
           const slot = screen.querySelector(`.relic[data-slot="${event.slot}"]`)
           slot?.classList.add("fired")
-          this.floater(screen, event.label)
+          this.floater(screen, payoutBadge(event.paid))
           this.sound.relic()
           readout(event.chips, event.mult)
           await this.pace(PACE.relic)
@@ -529,7 +620,7 @@ export class App {
           // the label the player read before submitting is the thing that pays.
           const line = screen.querySelector(".category")
           line?.classList.add("fired")
-          this.floater(screen, `${event.name} Lv ${event.level}`)
+          this.floater(screen, categoryLevel(event.id, event.level))
           this.sound.relic()
           readout(event.chips, event.mult)
           await this.pace(PACE.relic)
@@ -543,7 +634,7 @@ export class App {
           // exactly what distinguishes growing from firing.
           const slot = screen.querySelector(`.relic[data-slot="${event.slot}"]`)
           slot?.classList.add("fired")
-          this.floater(screen, event.label)
+          this.floater(screen, growthBadge(event))
           this.sound.relic()
           await this.pace(PACE.relic)
           slot?.classList.remove("fired")
@@ -553,7 +644,7 @@ export class App {
           // Arrives after the guess has already been counted onto the total, so
           // this is the pile itself multiplying, the biggest number movement in
           // the game, and the one the whole round was building toward.
-          this.floater(screen, `solve ×${event.factor}`)
+          this.floater(screen, ui().board.solveFactor(event.factor))
           screen.querySelector(".readout")?.classList.add("solved")
           this.sound.solve()
           this.countUp(scoreEl, onScreen, event.total, meter)
@@ -574,7 +665,7 @@ export class App {
           break
         }
         case "letter_destroyed":
-          this.floater(screen, `${event.letter.toUpperCase()} broken`)
+          this.floater(screen, ui().board.letterBroken(event.letter))
           this.sound.break()
           await this.pace(PACE.relic)
           break
@@ -774,8 +865,8 @@ export class App {
    * actually has, *which* of the things on screen was refused, in the half
    * second before they get round to reading the sentence.
    */
-  private refuse(reason: string): void {
-    this.toast(reason)
+  private refuse(refusal: Refusal): void {
+    this.toast(refusalText(refusal))
     if (this.state.phase !== "round") return
     const row = this.root.querySelector(`.row[data-row="${this.state.round.guesses.length}"]`)
     this.replay(row, "rejected", 420)
@@ -1088,18 +1179,10 @@ export class App {
       this.render()
     },
     newRun: () => {
-      this.state = startRun(rootSeed(), this.words, chosenAscension(this.profile.stats)).state
-      this.atTitle = false
-      this.overlay = null
-      this.intro = true
-      // Counted here rather than in the constructor: the class always holds a
-      // run so that nothing downstream has to handle a null one, and most of
-      // those are scaffolding the player never sees.
-      this.profile.started()
-      // Persisted before the first keypress: a fresh run is already a run, and
-      // closing the app on the intro card should not silently reroll the word.
-      this.save()
-      this.render()
+      // The one place the two clocks meet. Everything after the await is what
+      // `newRun` has always done; the await itself is almost always already
+      // settled, because the fetch started when the setting did.
+      void this.withWords(() => this.startFresh())
     },
     // Kept on the record rather than in a field of this class, because it
     // outlives the session: the dial is where the player last left it, not where
@@ -1134,6 +1217,27 @@ export class App {
     cycleSpeed: () => {
       this.speed = NEXT_SPEED[this.speed]
       setSpeed(this.speed)
+      this.render()
+    },
+    /**
+     * The interface changes now; the words change at the next run.
+     *
+     * Two clocks because they answer to different things. The interface is
+     * repainted on every dispatch anyway, so a new catalog costs one render and
+     * nothing else. The words are the run: the answer was drawn from one list and
+     * every guess is validated against it, so swapping the list under a live run
+     * strands the answer outside `allowed` and the only honest thing left to do
+     * is discard the run. A settings tap must not cost a run, so it does not.
+     *
+     * What that permits is a Spanish interface over an English run, which is odd
+     * but is at least true, and it ends by itself at the next `newRun`. The
+     * picker says so while it is the case; see `wordsDeferred`.
+     */
+    setLanguage: (lang) => {
+      if (lang === this.lang) return
+      this.lang = lang
+      setLang(lang)
+      this.deferWords()
       this.render()
     },
     openMenu: () => {
@@ -1213,9 +1317,86 @@ export class App {
       musicOff: this.music.isOff,
       decor: this.decor,
       speed: this.speed,
+      lang: this.lang,
+      wordsDeferred: this.wordsDeferred,
       coach: this.coach,
       coachOffer: this.coachOffer,
     }
+  }
+
+  /**
+   * Whether the picker owes the player the sentence about when words change.
+   *
+   * Both halves, and both are load-bearing. A run has to be open, or there is
+   * nothing being deferred and the line is a warning about nothing — which is
+   * the state the title screen is in, and it is where the picker is most likely
+   * to be used. And the languages have to actually differ, so that switching
+   * away and back mid-run leaves no line behind claiming a change that has
+   * un-happened.
+   */
+  private get wordsDeferred(): boolean {
+    return !this.atTitle && this.lang !== this.wordsLang
+  }
+
+  /**
+   * Start fetching the list the next run will want, or stop caring about one.
+   *
+   * Called whenever either side of the comparison moves: the setting, in
+   * `setLanguage`, and the run's list, in `withWords`. Switching away and back
+   * drops the request rather than holding a stale promise for a language that is
+   * no longer wanted; the browser has the response cached either way, so the
+   * cost of having asked is one request that nothing awaits.
+   */
+  private deferWords(): void {
+    this.incoming = this.lang === this.wordsLang ? null : this.lists.load(this.lang)
+  }
+
+  /**
+   * Put the deferred list in hand, then do the thing that needed it.
+   *
+   * The screen goes to a loading card only if there is genuinely something to
+   * wait for, which on every ordinary path there is not: the fetch started when
+   * the setting changed, seconds or minutes ago, and this await settles in the
+   * same tick. A first switch on a slow connection is the case that sees the
+   * card, and it is the case that would otherwise see a Play button that did
+   * nothing.
+   *
+   * A failed fetch keeps the list already in hand and plays on in it, rather
+   * than refusing to start a run. The interface is in the new language and the
+   * words are not, which is exactly the state the deferral describes anyway, and
+   * the next attempt will try the fetch again.
+   */
+  private async withWords(then: () => void): Promise<void> {
+    const incoming = this.incoming
+    if (incoming) {
+      this.loading = true
+      this.render()
+      try {
+        this.words = await incoming
+        this.wordsLang = this.lang
+      } catch {
+        // Left in the old language, and `deferWords` below will ask again.
+      }
+      this.loading = false
+      this.deferWords()
+    }
+    then()
+  }
+
+  /** The body of `newRun`, once there is a word list to start one from. */
+  private startFresh(): void {
+    this.state = startRun(rootSeed(), this.words, chosenAscension(this.profile.stats)).state
+    this.atTitle = false
+    this.overlay = null
+    this.intro = true
+    // Counted here rather than in the constructor: the class always holds a
+    // run so that nothing downstream has to handle a null one, and most of
+    // those are scaffolding the player never sees.
+    this.profile.started()
+    // Persisted before the first keypress: a fresh run is already a run, and
+    // closing the app on the intro card should not silently reroll the word.
+    this.save()
+    this.render()
   }
 
   /**
@@ -1293,17 +1474,19 @@ export class App {
       document.activeElement instanceof HTMLElement
         ? document.activeElement.dataset.focus
         : undefined
-    const view = this.atTitle
-      ? titleView(this.handlers, this.chrome, this.profile.stats)
-      : phase === "round" && this.intro && !as
-        ? introView(this.state, this.handlers, this.chrome)
-        : phase === "reward"
-          ? rewardView(this.state, this.handlers)
-          : phase === "shop"
-            ? shopView(this.state, this.handlers)
-            : phase === "game_over" || phase === "victory"
-              ? endView(this.state, this.handlers)
-              : roundView(this.state, this.handlers, this.chrome)
+    const view = this.loading
+      ? loadingView()
+      : this.atTitle
+        ? titleView(this.handlers, this.chrome, this.profile.stats)
+        : phase === "round" && this.intro && !as
+          ? introView(this.state, this.handlers, this.chrome)
+          : phase === "reward"
+            ? rewardView(this.state, this.handlers)
+            : phase === "shop"
+              ? shopView(this.state, this.handlers)
+              : phase === "game_over" || phase === "victory"
+                ? endView(this.state, this.handlers)
+                : roundView(this.state, this.handlers, this.chrome)
 
     // Overlays sit beside the screen rather than replacing it, so the board is
     // still visible behind the sheet and the player keeps their bearings.
@@ -1319,7 +1502,12 @@ export class App {
           : this.overlay === "shapes"
             ? shapesView(this.state, this.handlers, phase === "round" ? wordInPlay(this.state) : "")
             : this.overlay === "stats"
-              ? statsView(this.profile.stats, this.words.answers.length, this.handlers)
+              ? statsView(
+                  this.profile.stats,
+                  this.words.answers.length,
+                  this.wordsLang,
+                  this.handlers,
+                )
               : this.overlay === "menu"
                 ? menuView(this.handlers, this.chrome)
                 : this.overlay === "quit"
@@ -1531,6 +1719,11 @@ export class App {
    * questions into the engine's vocabulary. What the record wants to know,
    * which guess found the word and whether a relic is new to the tray, is a
    * difference between two runs, and both runs are right here.
+   *
+   * Both callers, and that is the thing to keep true: `dispatch` and `submit`
+   * are the two places a run advances, and a new one would be a third. Anything
+   * that moves the state without coming through here is a round the record never
+   * hears about.
    */
   private tally(before: RunState): void {
     const round = this.state.round
@@ -1539,7 +1732,7 @@ export class App {
     const played = round.guesses[before.round.guesses.length]
     if (played) this.profile.guessed(played.word)
     if (round.solved && !before.round.solved) {
-      this.profile.solved(round.answer, round.guesses.length)
+      this.profile.solved(round.answer, round.guesses.length, this.wordsLang)
     } else if (round.done && !before.round.done) {
       this.profile.missed()
     }
@@ -1555,6 +1748,11 @@ export class App {
   private save(): void {
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify(this.state))
+      // Beside the run and written in the same breath, because the pair is only
+      // meaningful together: a save whose language is a guess is a save that can
+      // be resumed against the wrong dictionary, where every legal word is
+      // refused and nothing on screen says why.
+      localStorage.setItem(RUN_LANG_KEY, this.wordsLang)
     } catch {
       // A full or disabled store costs the player their resume, not their run.
     }
@@ -1740,8 +1938,29 @@ function trapTab(sheet: HTMLElement, event: KeyboardEvent): void {
 function clearSave(): void {
   try {
     localStorage.removeItem(SAVE_KEY)
+    // The pair goes together. Left behind it would be a language belonging to no
+    // run, and the next save writes over it before anything reads it, but a key
+    // that outlives what it describes is a thing to explain later.
+    localStorage.removeItem(RUN_LANG_KEY)
   } catch {
     // Nothing to do: the run is gone from memory either way.
+  }
+}
+
+/**
+ * Which list the saved run was dealt from, for the shell to fetch before there
+ * is an app to ask.
+ *
+ * Null where there is no answer, which the caller reads as English: see
+ * `RUN_LANG_KEY`. Deliberately not defaulted here, so that "no save" and "a save
+ * from the build before this key" stay distinguishable at the one place that can
+ * tell them apart.
+ */
+export function loadRunLang(): Lang | null {
+  try {
+    return readLang(localStorage.getItem(RUN_LANG_KEY))
+  } catch {
+    return null
   }
 }
 

@@ -81,15 +81,29 @@ export type MetaState = {
   /** The longest that run of solves has ever been. */
   bestStreak: number
   /**
-   * Every distinct answer ever cracked, sorted.
+   * Every distinct answer ever cracked, sorted, in the language it was cracked
+   * in.
    *
-   * The one growing field, and the only one that earns it: it is bounded by the
-   * answer list rather than by play, so a player who cracked every word in the
-   * game has a 2,300-entry array and no way to make it longer. It is also the
-   * one collection this game has. "Which words have I beaten" is a question
-   * worth a screen, and it cannot be answered by a counter.
+   * The one growing field, and the only one that earns it: each list is bounded
+   * by that language's answer list rather than by play, so a player who cracked
+   * every word in the game has four arrays totalling 8,300 entries and no way to
+   * make any of them longer. It is also the one collection this game has. "Which
+   * words have I beaten" is a question worth a screen, and it cannot be answered
+   * by a counter.
+   *
+   * Keyed by language because the screen reads it as a fraction, and the
+   * denominator is one language's pool. Flat, it counted a Spanish answer
+   * against the English list it could never have come from, which is a number
+   * that can pass 100%. The keys collide as well as the totals: ACTOR is an
+   * answer in English and in Spanish, and a set that held it once would credit
+   * one crack for two.
+   *
+   * A `Record` rather than a `Record<Lang, …>`, for the same reason the tables
+   * below are: this is parsed from a store a previous build wrote and a future
+   * one might, and a language dropped from the game should not take a player's
+   * words with it on the way past.
    */
-  cracked: string[]
+  crackedBy: Record<string, string[]>
   /**
    * How often the most-played words have been played. Capped; see `tally`.
    */
@@ -109,7 +123,7 @@ const FRESH: MetaState = {
   missed: 0,
   streak: 0,
   bestStreak: 0,
-  cracked: [],
+  crackedBy: {},
   words: {},
   relics: {},
 }
@@ -150,6 +164,16 @@ export const isLocked = (meta: MetaState, level: number): boolean => level > unl
  * shorter ladder, reads as the nearest legal one instead of refusing to start a run.
  */
 export const chosenAscension = (meta: MetaState): number => clampAscension(meta.ascension)
+
+/**
+ * How many distinct answers have been cracked in one language.
+ *
+ * One language and never the sum, because the only number to read it against is
+ * that language's answer pool, and the only pool whose size the app knows is the
+ * one it currently has loaded.
+ */
+export const crackedIn = (meta: MetaState, lang: string): number =>
+  (meta.crackedBy[lang] ?? []).length
 
 /** Rounds whose word was found, on whichever guess found it. */
 export const wordsFound = (meta: MetaState): number =>
@@ -277,18 +301,24 @@ export class Profile {
    * score, since cracking it is the thing being remembered, and a player who found
    * the word and still fell short of the target found the word.
    */
-  solved(answer: string, guesses: number): void {
+  solved(answer: string, guesses: number, lang: string): void {
     const at = Math.min(Math.max(1, Math.round(guesses)), GUESS_CAP)
     const solves = [...this.state.solves]
     while (solves.length <= at) solves.push(0)
     solves[at] = (solves[at] ?? 0) + 1
-    const known = this.state.cracked.includes(answer)
+    // The language the word was *dealt* in, not the one the interface is wearing:
+    // those disagree for as long as a run outlives a settings tap, and the answer
+    // came from one list and belongs to it.
+    const found = this.state.crackedBy[lang] ?? []
+    const known = found.includes(answer)
     const streak = this.state.streak + 1
     this.write({
       solves,
       streak,
       bestStreak: Math.max(this.state.bestStreak, streak),
-      ...(known ? {} : { cracked: [...this.state.cracked, answer].sort() }),
+      ...(known
+        ? {}
+        : { crackedBy: { ...this.state.crackedBy, [lang]: [...found, answer].sort() } }),
     })
   }
 
@@ -344,7 +374,11 @@ export function loadMeta(): MetaState {
     // ascension ladder. Reading the old name where the new one is absent costs
     // two lines and keeps the record whole; the next write puts it back under
     // the new spelling, and the dead key is ignored from then on.
-    const legacy = parsed as Partial<Record<"bestAnte" | "jokers", unknown>>
+    // `cracked` joined them when the words gained languages. A flat list is a
+    // list from before there was more than one, which was necessarily English —
+    // the same reading `5wild:run:lang` gives its own absence — so it is not
+    // discarded, it is filed under `en`.
+    const legacy = parsed as Partial<Record<"bestAnte" | "jokers" | "cracked", unknown>>
     return {
       runs: count(meta.runs),
       wins: count(meta.wins),
@@ -359,7 +393,7 @@ export function loadMeta(): MetaState {
       // record claiming a streak of 400 should say so on one line, not quietly
       // promote itself to a best as well.
       bestStreak: count(meta.bestStreak),
-      cracked: collection(meta.cracked),
+      crackedBy: collections(meta.crackedBy, collection(legacy.cracked)),
       words: table(meta.words, WORD_SLOTS),
       relics: table(meta.relics ?? legacy.jokers),
     }
@@ -392,6 +426,28 @@ function table(value: unknown, slots?: number): Record<string, number> {
     .sort((a, b) => count(b[1]) - count(a[1]))
     .slice(0, slots ?? Infinity)
   return Object.fromEntries(kept.map(([key, cell]) => [key, count(cell)]))
+}
+
+/**
+ * The collections, one per language, with a fallback for the flat one that came
+ * before them.
+ *
+ * The fallback lands under `en` only when there is no `crackedBy` at all, not
+ * per-language: once this build has written the field once, an old `cracked`
+ * still sitting in the blob is a value this build already read and migrated, and
+ * merging it again on every launch would resurrect words a player has no way to
+ * remove and keep resurrecting them forever.
+ */
+function collections(value: unknown, fallback: string[]): Record<string, string[]> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return fallback.length > 0 ? { en: fallback } : {}
+  }
+  const out: Record<string, string[]> = {}
+  for (const [lang, words] of Object.entries(value as Record<string, unknown>)) {
+    const found = collection(words)
+    if (found.length > 0) out[lang] = found
+  }
+  return out
 }
 
 /**

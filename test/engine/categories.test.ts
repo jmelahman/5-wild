@@ -64,15 +64,6 @@ describe("word categories", () => {
     }
   })
 
-  it("states its rule in words as well as in code", () => {
-    // The codex reads these out, and a shape is the one thing in the game a
-    // player cannot work out by looking: `matches` is a predicate with no
-    // player-facing form. An empty string here is a shape nobody can learn.
-    for (const category of CATEGORIES) {
-      expect(category.text.length, category.id).toBeGreaterThan(0)
-    }
-  })
-
   it("grades the step by how hard the shape is to hit", () => {
     const chips = CATEGORIES.map((category) => category.chips)
     const mult = CATEGORIES.map((category) => category.mult)
@@ -132,7 +123,7 @@ describe("category levels", () => {
       state = reduce(state, { type: "type_letter", letter }, words).state
     const { events } = reduce(state, { type: "submit" }, words)
     expect(events).toContainEqual(
-      expect.objectContaining({ type: "category", id: "distinct", name: "Distinct", level: 2 }),
+      expect.objectContaining({ type: "category", id: "distinct", level: 2 }),
     )
   })
 
@@ -185,7 +176,7 @@ describe("buying a level", () => {
     }
     const { state: after, events } = reduce(state, { type: "buy", index: 0 }, words)
     expect(after.gold).toBe(50)
-    expect(events).toContainEqual({ type: "rejected", reason: "unknown category" })
+    expect(events).toContainEqual({ type: "rejected", refusal: { code: "unknown_category" } })
   })
 })
 

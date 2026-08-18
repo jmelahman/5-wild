@@ -51,10 +51,14 @@ export type ModCtx = ScoreCtx & {
 
 export type Modifier = {
   id: ModId
-  name: string
-  /** Reads after the letter: "K scores ×2 mult". */
-  text: string
-  /** What the key wears in the corner. One or two glyphs, since keys are small. */
+  /**
+   * What the key wears in the corner. One or two glyphs, since keys are small.
+   *
+   * The one piece of a modifier's description that stayed behind when the rest
+   * went to `src/ui/lang`: `+20` and `×2` and `⚓` are the same in every
+   * language, and a pip is sized to fit a key rather than to read as a
+   * sentence. The prose that expands it is `modifier[id].text`.
+   */
   pip: string
   rarity: Rarity
   /**
@@ -131,8 +135,6 @@ const WILD_MULT = { gray: 24, yellow: 14, green: 4 } as const
 export const MODIFIERS: readonly Modifier[] = [
   {
     id: "chip",
-    name: "Chip",
-    text: "scores +20 chips",
     pip: "+20",
     rarity: "common",
     cost: 4,
@@ -143,8 +145,6 @@ export const MODIFIERS: readonly Modifier[] = [
   },
   {
     id: "mult",
-    name: "Mult",
-    text: "scores +8 mult",
     pip: "+8",
     rarity: "common",
     cost: 5,
@@ -167,8 +167,6 @@ export const MODIFIERS: readonly Modifier[] = [
   },
   {
     id: "gold",
-    name: "Gold",
-    text: "pays $2 every time you play it",
     pip: "$2",
     rarity: "uncommon",
     cost: 6,
@@ -180,8 +178,6 @@ export const MODIFIERS: readonly Modifier[] = [
   },
   {
     id: "wild",
-    name: "Wild",
-    text: "scores +24 mult on a gray, +14 on a yellow, +4 on a green",
     pip: "★",
     rarity: "uncommon",
     cost: 6,
@@ -235,8 +231,6 @@ export const MODIFIERS: readonly Modifier[] = [
   },
   {
     id: "lucky",
-    name: "Lucky",
-    text: "has a 1 in 4 chance of scoring +20 mult",
     pip: "?",
     rarity: "uncommon",
     cost: 6,
@@ -252,8 +246,6 @@ export const MODIFIERS: readonly Modifier[] = [
   },
   {
     id: "echo",
-    name: "Echo",
-    text: "scores +60 chips when the word repeats it",
     pip: "↺",
     rarity: "uncommon",
     cost: 5,
@@ -276,8 +268,6 @@ export const MODIFIERS: readonly Modifier[] = [
   },
   {
     id: "anchor",
-    name: "Anchor",
-    text: "scores +125 chips when it lands green",
     pip: "⚓",
     rarity: "rare",
     cost: 8,
@@ -315,8 +305,6 @@ export const MODIFIERS: readonly Modifier[] = [
   },
   {
     id: "steel",
-    name: "Steel",
-    text: "scores ×2 mult",
     pip: "×2",
     rarity: "rare",
     cost: 8,
@@ -339,8 +327,6 @@ export const MODIFIERS: readonly Modifier[] = [
   },
   {
     id: "glass",
-    name: "Glass",
-    text: "scores ×3 mult, and can break when it lands gray",
     pip: "×3",
     rarity: "rare",
     cost: 9,

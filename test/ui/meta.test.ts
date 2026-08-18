@@ -3,6 +3,7 @@ import { MAX_ASCENSION } from "../../src/engine"
 import type { MetaState } from "../../src/ui/meta"
 import {
   chosenAscension,
+  crackedIn,
   favoriteRelics,
   favoriteWord,
   isLocked,
@@ -53,7 +54,7 @@ const FRESH: MetaState = {
   missed: 0,
   streak: 0,
   bestStreak: 0,
-  cracked: [],
+  crackedBy: {},
   words: {},
   relics: {},
 }
@@ -84,7 +85,7 @@ describe("reading the record", () => {
       missed: 7,
       streak: 3,
       bestStreak: 11,
-      cracked: ["crane", "slate"],
+      crackedBy: { en: ["crane", "slate"], es: ["actor"] },
       words: { crane: 88, slate: 12 },
       relics: { snowball: 3 },
     }
@@ -273,35 +274,64 @@ describe("what the runs added up to", () => {
 
   it("counts a solve under the guess that found it", () => {
     const profile = new Profile()
-    profile.solved("crane", 4)
-    profile.solved("slate", 4)
-    profile.solved("mound", 2)
+    profile.solved("crane", 4, "en")
+    profile.solved("slate", 4, "en")
+    profile.solved("mound", 2, "en")
     expect(profile.stats.solves).toEqual([0, 0, 1, 0, 2])
     expect(roundsPlayed(profile.stats)).toBe(3)
   })
 
   it("collects each answer once, however often it comes up", () => {
     const profile = new Profile()
-    profile.solved("crane", 3)
-    profile.solved("crane", 5)
-    profile.solved("adobe", 4)
+    profile.solved("crane", 3, "en")
+    profile.solved("crane", 5, "en")
+    profile.solved("adobe", 4, "en")
     // Sorted, so the array is a set with an order and the screen can show it.
-    expect(profile.stats.cracked).toEqual(["adobe", "crane"])
+    expect(profile.stats.crackedBy.en).toEqual(["adobe", "crane"])
+  })
+
+  it("keeps one collection per language, counted against its own pool", () => {
+    const profile = new Profile()
+    profile.solved("crane", 3, "en")
+    profile.solved("adobe", 4, "en")
+    profile.solved("gorra", 3, "es")
+    // Two collections, not one of five. The count is read as a fraction of one
+    // language's answer list, and a Spanish word in the English numerator is a
+    // percentage that can pass 100.
+    expect(crackedIn(profile.stats, "en")).toBe(2)
+    expect(crackedIn(profile.stats, "es")).toBe(1)
+    // A language nobody has played is nothing found, not a missing field the
+    // screen has to guard against.
+    expect(crackedIn(profile.stats, "de")).toBe(0)
+  })
+
+  it("credits a word cracked in two languages to each of them", () => {
+    const profile = new Profile()
+    // ACTOR is an answer in English and in Spanish, and they are two different
+    // words that happen to be spelled alike: cracking one has told the player
+    // nothing about the other. Flat, the set would hold it once and the second
+    // crack would count for nothing.
+    profile.solved("actor", 3, "en")
+    profile.solved("actor", 5, "es")
+    expect(crackedIn(profile.stats, "en")).toBe(1)
+    expect(crackedIn(profile.stats, "es")).toBe(1)
+    // Still two rounds solved, which is the counter that was never per-language.
+    expect(wordsFound(profile.stats)).toBe(2)
   })
 
   it("counts a round that ran out of guesses", () => {
     const profile = new Profile()
-    profile.solved("crane", 3)
+    profile.solved("crane", 3, "en")
     profile.missed()
     expect(roundsPlayed(profile.stats)).toBe(2)
-    expect(profile.stats.cracked).toEqual(["crane"])
+    expect(profile.stats.crackedBy.en).toEqual(["crane"])
   })
 
   it("counts solves back to back and keeps the longest run of them", () => {
     const profile = new Profile()
-    profile.solved("crane", 3)
-    profile.solved("slate", 4)
-    profile.solved("mound", 2)
+    profile.solved("crane", 3, "en")
+    profile.solved("slate", 4, "en")
+    profile.solved("mound", 2, "en")
     expect(profile.stats.streak).toBe(3)
     expect(profile.stats.bestStreak).toBe(3)
 
@@ -311,26 +341,26 @@ describe("what the runs added up to", () => {
     expect(profile.stats.streak).toBe(0)
     expect(profile.stats.bestStreak).toBe(3)
 
-    profile.solved("adobe", 5)
+    profile.solved("adobe", 5, "en")
     expect(profile.stats.streak).toBe(1)
     expect(profile.stats.bestStreak).toBe(3)
   })
 
   it("carries a streak across runs, because a run ending is not a word missed", () => {
     const profile = new Profile()
-    profile.solved("crane", 3)
+    profile.solved("crane", 3, "en")
     // A win, a fresh run, and the streak is still standing: it is a count of
     // words found, and nothing here is a word that was not found.
     profile.won(2)
     profile.started()
-    profile.solved("slate", 3)
+    profile.solved("slate", 3, "en")
     expect(profile.stats.streak).toBe(2)
   })
 
   it("averages over the solves and not over the rounds", () => {
     const profile = new Profile()
-    profile.solved("crane", 2)
-    profile.solved("slate", 4)
+    profile.solved("crane", 2, "en")
+    profile.solved("slate", 4, "en")
     expect(meanSolve(profile.stats)).toBe(3)
 
     // A round where the word never came has its own row on the chart. Counting
@@ -352,8 +382,8 @@ describe("what the runs added up to", () => {
 
   it("keeps a wild guess count inside the row it has", () => {
     const profile = new Profile()
-    profile.solved("crane", 0)
-    profile.solved("slate", 99)
+    profile.solved("crane", 0, "en")
+    profile.solved("slate", 99, "en")
     // Nothing is solved on guess zero, and no round runs to ninety-nine. Both
     // are clamped rather than trusted, because this array is indexed with them.
     expect(profile.stats.solves.length).toBeLessThanOrEqual(13)
@@ -382,13 +412,39 @@ describe("salvaging the longer record", () => {
   it("drops the cells it cannot read and keeps the row", () => {
     store.items.set(
       KEY,
-      JSON.stringify({ solves: [0, "two", 3.5, 4], cracked: ["crane", 7, "crane"], words: "no" }),
+      JSON.stringify({
+        solves: [0, "two", 3.5, 4],
+        crackedBy: { en: ["crane", 7, "crane"], es: "no", de: [] },
+        words: "no",
+      }),
     )
     expect(loadMeta()).toMatchObject({
       solves: [0, 0, 0, 4],
-      cracked: ["crane"],
+      // A language whose list read as nothing is dropped rather than kept as an
+      // empty array, so an absent language and an unplayed one are one case and
+      // `crackedIn` does not have to tell them apart.
+      crackedBy: { en: ["crane"] },
       words: {},
     })
+  })
+
+  it("files a collection from before the languages under English", () => {
+    // A flat `cracked` is a list from a build that had one word list, and that
+    // list was English. Discarding it would cost a player every word they ever
+    // found to say something about a schema; the record's other two renames
+    // answered this the same way, and this key does not bump for any of them.
+    store.items.set(KEY, JSON.stringify({ runs: 4, cracked: ["slate", "crane"] }))
+    expect(loadMeta()).toMatchObject({ runs: 4, crackedBy: { en: ["crane", "slate"] } })
+  })
+
+  it("does not merge the old collection back in once the new one exists", () => {
+    // The launch after the migration: this build has written `crackedBy`, and
+    // the dead `cracked` beside it is a value it has already read. Merging it
+    // again would resurrect words on every launch forever, and a player who
+    // cracked ADOBE under the old build and has since played only Spanish would
+    // find it back in the English column each time.
+    store.items.set(KEY, JSON.stringify({ cracked: ["adobe"], crackedBy: { es: ["gorra"] } }))
+    expect(loadMeta().crackedBy).toEqual({ es: ["gorra"] })
   })
 
   it("will not let a claimed streak promote itself to a record", () => {
@@ -416,7 +472,7 @@ describe("salvaging the longer record", () => {
   it("carries the statistics across sessions", () => {
     const first = new Profile()
     first.guessed("crane")
-    first.solved("crane", 1)
+    first.solved("crane", 1, "en")
     first.took("banker")
     expect(new Profile().stats).toEqual(first.stats)
   })

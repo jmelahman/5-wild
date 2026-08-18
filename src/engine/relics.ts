@@ -4,7 +4,7 @@ import { isCategory } from "./categories"
 import type { Rng } from "./rng"
 import { shuffled } from "./rng"
 import type { ScoreCtx } from "./scoring"
-import type { GameEvent, Rarity, RelicInstance, RoundState, RunState, Tile } from "./state"
+import type { GameEvent, Growth, Rarity, RelicInstance, RoundState, RunState, Tile } from "./state"
 
 /**
  * What a run-level hook gets.
@@ -26,8 +26,6 @@ export type RelicCtx = {
 
 export type Relic = {
   id: string
-  name: string
-  text: string
   rarity: Rarity
   cost: number
   /** Fires once per tile, left to right, after that tile's base chips land. */
@@ -48,11 +46,17 @@ export type Relic = {
    */
   onShopEnter?: (ctx: RelicCtx) => void
   /**
-   * What this copy has grown to, for the card to wear: "+12 mult". Only scaling
-   * relics define it, since a relic whose value never moves has nothing to report
-   * that its `text` does not already say.
+   * What this copy has grown to, for the card to wear. Only scaling relics
+   * define it, since a relic whose value never moves has nothing to report that
+   * its catalog entry does not already say.
+   *
+   * It returned the finished string ("+12 mult") until the prose left the
+   * engine. Returning the pair instead costs nothing here — every one of the
+   * three implementations was a template over exactly these two values — and it
+   * is what lets the same growth be announced by `relic_grew` and worn on the
+   * card without the two formatting it independently.
    */
-  detail?: (instance: RelicInstance) => string
+  growth?: (instance: RelicInstance) => Growth
   /**
    * Added to the round's solve multiplier. Separate from `onGuess` because the
    * board quotes this figure before the guess exists, so it has to be knowable
@@ -78,10 +82,14 @@ const grown = (instance: RelicInstance, key: string): number => instance.data?.[
  * identical: the player learns "this card just got bigger" from one animation,
  * whatever earned it.
  */
-function grow(ctx: RelicCtx, id: string, key: string, step: number, unit: string): void {
+function grow(ctx: RelicCtx, id: string, key: string, step: number, unit: "chips" | "mult"): void {
   const total = grown(ctx.instance, key) + step
   ctx.instance.data = { ...ctx.instance.data, [key]: total }
-  ctx.events.push({ type: "relic_grew", slot: ctx.slot, id, label: `+${total} ${unit}` })
+  // The running total and its unit, not the badge that used to be built here:
+  // "+120 chips" is a sentence with a word in it, and the word belongs to a
+  // language. `unit` narrows to the two the badge can actually say, so a third
+  // one would have to be taught to the catalog rather than smuggled past it.
+  ctx.events.push({ type: "relic_grew", slot: ctx.slot, id, amount: total, unit })
 }
 
 const RARITY_COST: Record<Rarity, number> = {
@@ -125,8 +133,6 @@ const RARITY_COST: Record<Rarity, number> = {
 export const RELICS: readonly Relic[] = [
   {
     id: "green_thumb",
-    name: "Green Thumb",
-    text: "+8 chips per green tile",
     rarity: "common",
     cost: RARITY_COST.common,
     onTile: (ctx, tile) => {
@@ -135,8 +141,6 @@ export const RELICS: readonly Relic[] = [
   },
   {
     id: "scavenger",
-    name: "Scavenger",
-    text: "+$1 per yellow tile",
     rarity: "common",
     cost: RARITY_COST.common,
     onTile: (ctx, tile) => {
@@ -145,8 +149,6 @@ export const RELICS: readonly Relic[] = [
   },
   {
     id: "vowel_hoarder",
-    name: "Vowel Hoarder",
-    text: "+4 mult per vowel",
     rarity: "common",
     cost: RARITY_COST.common,
     onTile: (ctx, tile) => {
@@ -155,8 +157,6 @@ export const RELICS: readonly Relic[] = [
   },
   {
     id: "slow_burn",
-    name: "Slow Burn",
-    text: "+5 mult for each guess already made this round",
     rarity: "common",
     cost: RARITY_COST.common,
     // Pays you to stall, which is the exact opposite of what the solve bonus
@@ -167,8 +167,6 @@ export const RELICS: readonly Relic[] = [
   },
   {
     id: "consonant_cluster",
-    name: "Consonant Cluster",
-    text: "×1.5 mult if the word has 3+ consonants in a row",
     rarity: "common",
     cost: RARITY_COST.common,
     onGuess: (ctx) => {
@@ -177,8 +175,6 @@ export const RELICS: readonly Relic[] = [
   },
   {
     id: "cold_open",
-    name: "Cold Open",
-    text: "+30 chips on the first guess of a round",
     rarity: "common",
     cost: RARITY_COST.common,
     // The opening probe is the guess with the least information behind it and
@@ -189,8 +185,6 @@ export const RELICS: readonly Relic[] = [
   },
   {
     id: "bloodhound",
-    name: "Bloodhound",
-    text: "+6 chips per yellow tile",
     rarity: "common",
     cost: RARITY_COST.common,
     // Yellow is the color that actually teaches you something, so this is the
@@ -201,8 +195,6 @@ export const RELICS: readonly Relic[] = [
   },
   {
     id: "head_start",
-    name: "Head Start",
-    text: "+15 mult if the word begins with a vowel",
     rarity: "common",
     cost: RARITY_COST.common,
     /*
@@ -228,8 +220,6 @@ export const RELICS: readonly Relic[] = [
   },
   {
     id: "loaded_dice",
-    name: "Loaded Dice",
-    text: "+0 to +20 mult, rolled fresh every guess",
     rarity: "common",
     cost: RARITY_COST.common,
     /*
@@ -253,8 +243,6 @@ export const RELICS: readonly Relic[] = [
   },
   {
     id: "anagrammer",
-    name: "Anagrammer",
-    text: "×2 mult if no letter repeats",
     rarity: "uncommon",
     cost: RARITY_COST.uncommon,
     // Five distinct letters is exactly what a good probe looks like, and the
@@ -266,8 +254,6 @@ export const RELICS: readonly Relic[] = [
   },
   {
     id: "keystone",
-    name: "Keystone",
-    text: "×3 mult if the middle tile is green",
     rarity: "uncommon",
     cost: RARITY_COST.uncommon,
     /*
@@ -294,8 +280,6 @@ export const RELICS: readonly Relic[] = [
   },
   {
     id: "lexicographer",
-    name: "Lexicographer",
-    text: "+3 chips for each different letter in your earlier guesses this round",
     rarity: "uncommon",
     cost: RARITY_COST.uncommon,
     /*
@@ -328,8 +312,6 @@ export const RELICS: readonly Relic[] = [
   },
   {
     id: "sunk_cost",
-    name: "Sunk Cost",
-    text: "+10 mult per guess you would have left",
     rarity: "uncommon",
     cost: RARITY_COST.uncommon,
     // Slow Burn read backwards: this one is worth most on the guess where the
@@ -341,8 +323,6 @@ export const RELICS: readonly Relic[] = [
   },
   {
     id: "speedrunner",
-    name: "Speedrunner",
-    text: "×3 mult when you solve in 3 guesses or fewer",
     rarity: "uncommon",
     cost: RARITY_COST.uncommon,
     onGuess: (ctx) => {
@@ -351,8 +331,6 @@ export const RELICS: readonly Relic[] = [
   },
   {
     id: "qs_bargain",
-    name: "Q's Bargain",
-    text: "J, Q, X and Z score triple chips",
     rarity: "uncommon",
     cost: RARITY_COST.uncommon,
     onTile: (ctx, tile, _index, base) => {
@@ -361,8 +339,6 @@ export const RELICS: readonly Relic[] = [
   },
   {
     id: "greedy_grammarian",
-    name: "Greedy Grammarian",
-    text: "+15 chips per gray tile",
     rarity: "uncommon",
     cost: RARITY_COST.uncommon,
     // Gray tiles are worthless for deduction and contribute no mult, which
@@ -373,8 +349,6 @@ export const RELICS: readonly Relic[] = [
   },
   {
     id: "doppelganger",
-    name: "Doppelgänger",
-    text: "Repeated letters score their chips twice",
     rarity: "uncommon",
     cost: RARITY_COST.uncommon,
     onTile: (ctx, tile, _index, base) => {
@@ -384,8 +358,6 @@ export const RELICS: readonly Relic[] = [
   },
   {
     id: "hot_streak",
-    name: "Hot Streak",
-    text: "Permanently gains +30 chips each round you clear in 3 guesses or fewer",
     rarity: "uncommon",
     cost: RARITY_COST.uncommon,
     // The growth counterpart to Speedrunner, on the chip axis: both pull toward
@@ -398,12 +370,10 @@ export const RELICS: readonly Relic[] = [
     onRoundEnd: (ctx, round) => {
       if (round.solved && round.guesses.length <= 3) grow(ctx, "hot_streak", "chips", 30, "chips")
     },
-    detail: (instance) => `+${grown(instance, "chips")} chips`,
+    growth: (instance) => ({ amount: grown(instance, "chips"), unit: "chips" }),
   },
   {
     id: "hoarder",
-    name: "The Hoarder",
-    text: "Permanently gains +40 chips when you reach the shop with both card slots full",
     rarity: "uncommon",
     cost: RARITY_COST.uncommon,
     // Consumables exist to be spent, and this pays you not to spend them. That
@@ -418,12 +388,10 @@ export const RELICS: readonly Relic[] = [
         grow(ctx, "hoarder", "chips", 40, "chips")
       }
     },
-    detail: (instance) => `+${grown(instance, "chips")} chips`,
+    growth: (instance) => ({ amount: grown(instance, "chips"), unit: "chips" }),
   },
   {
     id: "masochist",
-    name: "Masochist",
-    text: "+8 mult per gray tile",
     rarity: "rare",
     cost: RARITY_COST.rare,
     onTile: (ctx, tile) => {
@@ -432,8 +400,6 @@ export const RELICS: readonly Relic[] = [
   },
   {
     id: "chorus",
-    name: "The Chorus",
-    text: "×3 mult if the word holds three or more vowels",
     rarity: "rare",
     cost: RARITY_COST.rare,
     /*
@@ -460,8 +426,6 @@ export const RELICS: readonly Relic[] = [
   },
   {
     id: "alphabetist",
-    name: "Alphabetist",
-    text: "×2 mult if your letters are in alphabetical order",
     rarity: "rare",
     cost: RARITY_COST.rare,
     onGuess: (ctx) => {
@@ -470,8 +434,6 @@ export const RELICS: readonly Relic[] = [
   },
   {
     id: "vault",
-    name: "The Vault",
-    text: "+25 chips for each guess already made this round",
     rarity: "rare",
     cost: RARITY_COST.rare,
     // Slow Burn's chip half, so a farming build can grow both halves of the
@@ -484,8 +446,6 @@ export const RELICS: readonly Relic[] = [
   },
   {
     id: "mint",
-    name: "The Mint",
-    text: "+3 mult per $5 you hold. You earn no interest.",
     rarity: "rare",
     cost: RARITY_COST.rare,
     // The money build's terminal: the thing that finally converts a pile of
@@ -503,8 +463,6 @@ export const RELICS: readonly Relic[] = [
   },
   {
     id: "scorched_earth",
-    name: "Scorched Earth",
-    text: "+12 mult for each letter broken out of the alphabet",
     rarity: "rare",
     cost: RARITY_COST.rare,
     // What makes Pyromaniac and Glass a plan rather than a tax. The alphabet
@@ -518,8 +476,6 @@ export const RELICS: readonly Relic[] = [
   },
   {
     id: "snowball",
-    name: "Snowball",
-    text: "Permanently gains +1 mult for each green tile you play",
     rarity: "rare",
     cost: RARITY_COST.rare,
     // Pays what it had, *then* counts this guess, so a tile never pays on the
@@ -554,12 +510,10 @@ export const RELICS: readonly Relic[] = [
       const greens = ctx.tiles.filter((tile) => tile.color === "green").length
       if (greens > 0) ctx.setData("mult", banked + greens)
     },
-    detail: (instance) => `+${grown(instance, "mult")} mult`,
+    growth: (instance) => ({ amount: grown(instance, "mult"), unit: "mult" }),
   },
   {
     id: "long_game",
-    name: "The Long Game",
-    text: "+1 to your solve multiplier",
     rarity: "legendary",
     cost: RARITY_COST.legendary,
     // Buys back a guess's worth of multiplier, so every point of farming is
@@ -569,8 +523,6 @@ export const RELICS: readonly Relic[] = [
   },
   {
     id: "pyromaniac",
-    name: "Pyromaniac",
-    text: "+40 mult. Breaks a random letter out of the alphabet each round",
     rarity: "legendary",
     cost: RARITY_COST.legendary,
     onGuess: (ctx) => ctx.addMult(40),

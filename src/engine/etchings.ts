@@ -18,8 +18,6 @@ import { ALPHABET, isVowel } from "../content/letters"
  */
 export type Etching = {
   id: string
-  name: string
-  text: string
   cost: number
   /** Added to every live letter in the group, on every purchase. */
   chips: number
@@ -31,8 +29,6 @@ const CONSONANTS = [...ALPHABET].filter((letter) => !isVowel(letter)).join("")
 export const ETCHINGS: readonly Etching[] = [
   {
     id: "etch_vowels",
-    name: "Etch Vowels",
-    text: "A E I O U are worth +2 chips",
     cost: 5,
     chips: 2,
     letters: "aeiou",
@@ -41,8 +37,6 @@ export const ETCHINGS: readonly Etching[] = [
     // The other half of AROSE and CRANE. Deduction wants to open with cheap
     // letters, and this is the only card that pays a player for doing so.
     id: "etch_staples",
-    name: "Etch Staples",
-    text: "L N S T R are worth +2 chips",
     cost: 5,
     chips: 2,
     letters: "lnstr",
@@ -51,8 +45,6 @@ export const ETCHINGS: readonly Etching[] = [
     // Nearly worthless in a word you are trying to solve, and enormous in one
     // you are typing purely to farm. A build card rather than a value card.
     id: "etch_heavy",
-    name: "Etch Heavy",
-    text: "J Q X Z are worth +3 chips",
     cost: 5,
     chips: 3,
     letters: "jqxz",
@@ -61,8 +53,6 @@ export const ETCHINGS: readonly Etching[] = [
     // Broad and boring on purpose: the floor the other three are measured
     // against, and the one that is never quite wrong.
     id: "etch_consonants",
-    name: "Etch Consonants",
-    text: "Every consonant is worth +1 chip",
     cost: 6,
     chips: 1,
     letters: CONSONANTS,

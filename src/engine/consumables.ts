@@ -1,7 +1,7 @@
 import { ALPHABET } from "../content/letters"
 import type { Rng } from "./rng"
 import { shuffled } from "./rng"
-import type { GameEvent, RunState } from "./state"
+import type { GameEvent, Refusal, RunState } from "./state"
 
 /**
  * One-shot cards. With no deck to manipulate, these act on the two things this
@@ -11,11 +11,9 @@ import type { GameEvent, RunState } from "./state"
  */
 export type Consumable = {
   id: string
-  name: string
-  text: string
   cost: number
-  /** Mutates the run. Returns a reason string when it cannot be used. */
-  apply: (state: RunState, rng: Rng, events: GameEvent[]) => string | null
+  /** Mutates the run. Returns why it could not be used, or null when it was. */
+  apply: (state: RunState, rng: Rng, events: GameEvent[]) => Refusal | null
 }
 
 const CONSUMABLE_COST = 3
@@ -23,8 +21,6 @@ const CONSUMABLE_COST = 3
 export const CONSUMABLES: readonly Consumable[] = [
   {
     id: "oracle",
-    name: "The Oracle",
-    text: "Reveal one letter of the answer, in place",
     cost: CONSUMABLE_COST,
     apply: (state, rng, events) => {
       const round = state.round
@@ -32,22 +28,23 @@ export const CONSUMABLES: readonly Consumable[] = [
         .map((value, index) => (value === null ? index : -1))
         .filter((index) => index >= 0)
       const position = shuffled(rng, hidden)[0]
-      if (position === undefined) return "the whole word is already revealed"
+      if (position === undefined) return { code: "word_already_revealed" }
       const letter = round.answer[position]
-      if (letter === undefined) return "nothing to reveal"
+      if (letter === undefined) return { code: "nothing_to_reveal" }
       round.revealed[position] = letter
+      // The position is one-based on the card and zero-based here; the +1 stays
+      // on this side because it is the same number in every language, and a
+      // catalog that had to remember to add one would eventually forget.
       events.push({
         type: "consumable",
         id: "oracle",
-        label: `${letter.toUpperCase()} is #${position + 1}`,
+        note: { card: "oracle", letter, position: position + 1 },
       })
       return null
     },
   },
   {
     id: "hermit",
-    name: "The Hermit",
-    text: "Rule a letter out of the answer without spending a guess",
     cost: CONSUMABLE_COST,
     apply: (state, rng, events) => {
       const round = state.round
@@ -59,37 +56,33 @@ export const CONSUMABLES: readonly Consumable[] = [
           !round.answer.includes(letter) && !known.has(letter) && !state.letters[letter]?.destroyed,
       )
       const letter = shuffled(rng, candidates)[0]
-      if (letter === undefined) return "nothing left to rule out"
+      if (letter === undefined) return { code: "nothing_to_rule_out" }
       round.eliminated.push(letter)
-      events.push({ type: "consumable", id: "hermit", label: `no ${letter.toUpperCase()}` })
+      events.push({ type: "consumable", id: "hermit", note: { card: "hermit", letter } })
       return null
     },
   },
   {
     id: "magician",
-    name: "The Magician",
-    text: "Your next guess promotes its first gray tile to yellow",
     cost: CONSUMABLE_COST,
     // Applied after the boss rewrites feedback, so this is a real counter to
     // The Silence rather than something it quietly erases.
     apply: (state, _rng, events) => {
-      if (state.round.promote) return "already prepared"
+      if (state.round.promote) return { code: "already_prepared" }
       state.round.promote = true
-      events.push({ type: "consumable", id: "magician", label: "next gray becomes yellow" })
+      events.push({ type: "consumable", id: "magician", note: { card: "magician" } })
       return null
     },
   },
   {
     id: "fool",
-    name: "The Fool",
-    text: "Score your previous guess a second time",
     cost: CONSUMABLE_COST,
     apply: (state, _rng, events) => {
       const round = state.round
       const last = round.guesses[round.guesses.length - 1]
-      if (!last) return "no guess to repeat"
+      if (!last) return { code: "no_guess_to_repeat" }
       round.score += last.score
-      events.push({ type: "consumable", id: "fool", label: `+${last.score}` })
+      events.push({ type: "consumable", id: "fool", note: { card: "fool", score: last.score } })
       return null
     },
   },

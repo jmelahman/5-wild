@@ -10,12 +10,15 @@
 import type {
   Action,
   GameEvent,
+  GuessNote,
   Phase,
+  Refusal,
   RewardBreakdown,
   RunState,
   WordSource,
 } from "../../src/engine"
 import { reduce, startRun } from "../../src/engine"
+import { en } from "../../src/ui/lang/en"
 import type { Scenario } from "./scenarios"
 import { placeMod } from "./scenarios"
 
@@ -51,6 +54,14 @@ export type GuessVector = {
    * it wrong would be wrong in a way no score here would catch. Omitted when
    * there is none, which is every guess under fourteen of the fifteen bosses.
    * The Silence is still the only one that says anything.
+   *
+   * The engine now hands over `{ code, count }` and the sentence is the English
+   * catalog's; this renders it back to the string the file has always held,
+   * because a vector that re-recorded here would be claiming the refactor moved
+   * something, and it did not. What a port has to reproduce is the count. It is
+   * pinned to `en` rather than read through the live catalog for the same reason
+   * `test/helpers/words.ts` is pinned to the English lists: the baseline must not
+   * move when a setting does.
    */
   note?: string
 }
@@ -158,9 +169,9 @@ function summarize(
  * the next `npm run golden`. Asserted as a property instead, which re-recording
  * cannot quietly agree with.
  */
-export type Refusal = { index: number; action: Action; reason: string }
+export type RefusedAction = { index: number; action: Action; refusal: Refusal }
 
-export type Replayed = { expected: Vector["expected"]; refused: Refusal[] }
+export type Replayed = { expected: Vector["expected"]; refused: RefusedAction[] }
 
 /**
  * Replays a recorded action list. This is what the test runs, and it never
@@ -185,7 +196,7 @@ export function replay(
   const guesses: GuessVector[] = []
   const gold: GoldVector[] = []
   const rewards: RewardBreakdown[] = []
-  const refused: Refusal[] = []
+  const refused: RefusedAction[] = []
 
   actions.forEach((action, index) => {
     // The round is read *before* the action, because clearing one swaps the
@@ -201,7 +212,7 @@ export function replay(
     state = result.state
     collectGold(result.events, gold)
     for (const event of result.events) {
-      if (event.type === "rejected") refused.push({ index, action, reason: event.reason })
+      if (event.type === "rejected") refused.push({ index, action, refusal: event.refusal })
     }
     if (!wasRewarding && state.phase === "reward" && state.reward) rewards.push(state.reward)
 
@@ -216,13 +227,23 @@ export function replay(
         mult: scored.mult,
         solveBonus: scored.solveBonus,
         score: scored.score,
-        ...(scored.note ? { note: scored.note } : {}),
+        ...(scored.note ? { note: noteText(scored.note) } : {}),
       })
     }
   })
 
   return { expected: summarize(state, guesses, gold, rewards), refused }
 }
+
+/**
+ * The `string` arm is a note out of a save written before the field was
+ * structured, which a replay can never produce — it always starts from
+ * `startRun`. It is narrowed rather than cast because the field's type carries
+ * it, and a cast here would be a claim about saves that this file is in no
+ * position to make.
+ */
+const noteText = (note: GuessNote | string): string =>
+  typeof note === "string" ? note : en.event.guessNote(note)
 
 function collectGold(events: readonly GameEvent[], into: GoldVector[]): void {
   for (const event of events) {

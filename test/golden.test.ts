@@ -79,7 +79,7 @@ describe("golden vectors", () => {
        */
       it("replays without a refused action", () => {
         const refused = rerun().refused
-        const named = refused.map((r) => `#${r.index} ${r.action.type}: ${r.reason}`)
+        const named = refused.map((r) => `#${r.index} ${r.action.type}: ${r.refusal.code}`)
         expect(named).toEqual([])
       })
     })

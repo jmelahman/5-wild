@@ -7,7 +7,7 @@ import { rangeChips } from "./ranges"
 import { RELIC_BY_ID } from "./relics"
 import type { Rng } from "./rng"
 import { derive } from "./rng"
-import type { GameEvent, RunState, Tile, TileScore } from "./state"
+import type { GameEvent, Payout, RunState, Tile, TileScore } from "./state"
 
 /**
  * The scoring pipeline.
@@ -199,12 +199,12 @@ export function scoreGuess(params: {
 
   /**
    * Whoever is currently firing gets to narrate what it did. Set around each
-   * hook call, so an effect only has to say `+4 mult` and the event it lands in,
-   * whether a relic card lighting up or the tile whose letter carried a
-   * modifier, is decided by the caller.
+   * hook call, so an effect only has to report `+4 mult` as the shape it is and
+   * the event it lands in, whether a relic card lighting up or the tile whose
+   * letter carried a modifier, is decided by the caller.
    */
-  let firing: ((label: string) => void) | null = null
-  const fire = (label: string) => firing?.(label)
+  let firing: ((paid: Payout) => void) | null = null
+  const fire = (paid: Payout) => firing?.(paid)
 
   /** The firing hook's own seeded stream, replaced around each hook call. */
   let roll: Rng = () => 0
@@ -244,11 +244,11 @@ export function scoreGuess(params: {
     baseChipsOf: (letter) => baseChips(state, letter),
     addChips(amount) {
       ctx.chips += amount
-      fire(`+${amount}`)
+      fire({ kind: "chips", amount })
     },
     addMult(amount) {
       ctx.mult += amount
-      fire(`+${amount} mult`)
+      fire({ kind: "mult", amount })
     },
     timesMult(factor) {
       // The Plateau. Swallowed here rather than at each caller so that every
@@ -259,15 +259,15 @@ export function scoreGuess(params: {
       // "×3 mult" while the total did not move would read as a bug, and the
       // player needs to see *which* of their cards the round is eating.
       if (blockTimesMult) {
-        fire("×1 blocked")
+        fire({ kind: "blocked" })
         return
       }
       ctx.mult *= factor
-      fire(`×${factor} mult`)
+      fire({ kind: "times", factor })
     },
     addGold(amount) {
       ctx.gold += amount
-      fire(`+$${amount}`)
+      fire({ kind: "gold", amount })
     },
     roll: () => roll(),
     getData(key) {
@@ -330,23 +330,23 @@ export function scoreGuess(params: {
       // property of the position it happened at rather than of the order things
       // were drawn in, which is what lets a run be replayed from its seed.
       roll = derive(state.seed, "mod", state.stage, state.roundIndex, guessIndex, index)
-      firing = (label) => {
+      firing = (paid) => {
         events.push({
           type: "mod",
           index,
           letter: tile.letter,
           id: modifier.id,
-          label,
+          paid,
           chips: ctx.chips,
           mult: ctx.mult,
         })
-        // The label rather than the numbers it moved, because the label is what
-        // the tile said out loud and the whole point of keeping this is that the
-        // row goes on saying it. A modifier that scored twice on one tile would
-        // leave only the last thing it said. None do, and the first one that
-        // does will want a sentence written for it rather than two labels
-        // concatenated by accident.
-        record.mod = label
+        // What it paid rather than the numbers it moved, because this is what the
+        // tile said out loud and the whole point of keeping it is that the row
+        // goes on saying it. A modifier that scored twice on one tile would leave
+        // only the last thing it said. None do, and the first one that does will
+        // want a sentence written for it rather than two payouts concatenated by
+        // accident.
+        record.mod = paid
       }
       modifier.onTile(ctx, tile)
       firing = null
@@ -362,15 +362,15 @@ export function scoreGuess(params: {
       // and changing it reshuffles every seed. See `derive` in `rng.ts`.
       roll = derive(state.seed, "joker", state.stage, state.roundIndex, guessIndex, slot, index)
       slotFiring = slot
-      firing = (label) => {
-        events.push({ type: "relic", slot, id: relic.id, label, chips: ctx.chips, mult: ctx.mult })
+      firing = (paid) => {
+        events.push({ type: "relic", slot, id: relic.id, paid, chips: ctx.chips, mult: ctx.mult })
         // Appended rather than assigned, which is where this parts company with
         // the modifier above. A letter carries one card; the tray carries five,
         // and a green Q pays Green Thumb and Q's Bargain both, and a row that kept
         // only the last of them would answer a narrower question than the one
         // being asked of it. Two firings from the same slot append twice for the
         // same reason: that is what the tile did.
-        record.relics = [...(record.relics ?? []), { id: relic.id, label }]
+        record.relics = [...(record.relics ?? []), { id: relic.id, label: paid }]
       }
       relic.onTile(ctx, tile, index, base)
       firing = null
@@ -393,7 +393,6 @@ export function scoreGuess(params: {
     events.push({
       type: "category",
       id: category.id,
-      name: category.name,
       level: bonus.level,
       chips: ctx.chips,
       mult: ctx.mult,
@@ -406,8 +405,8 @@ export function scoreGuess(params: {
     // collide even for the same slot and guess. Same frozen salt, same reason.
     roll = derive(state.seed, "joker", state.stage, state.roundIndex, guessIndex, slot)
     slotFiring = slot
-    firing = (label) =>
-      events.push({ type: "relic", slot, id: relic.id, label, chips: ctx.chips, mult: ctx.mult })
+    firing = (paid) =>
+      events.push({ type: "relic", slot, id: relic.id, paid, chips: ctx.chips, mult: ctx.mult })
     relic.onGuess(ctx)
     firing = null
     slotFiring = null

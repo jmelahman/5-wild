@@ -1,6 +1,7 @@
 import type { RunState } from "../engine"
 import { draftChips, solveBonusFor } from "../engine"
 import { formatNumber as num } from "./format"
+import { ui } from "./lang"
 
 /**
  * The first round, taught while it is being played.
@@ -83,8 +84,7 @@ const BEATS: readonly Beat[] = [
   {
     id: "chips",
     when: (state) => state.round.guesses.length === 0 && state.round.draft.length === 0,
-    say: () =>
-      "Every guess is scored. Type a word, and the line under the board counts what its letters are worth.",
+    say: () => ui().coach.chips,
     anchor: ".readout",
   },
   {
@@ -93,17 +93,14 @@ const BEATS: readonly Beat[] = [
       state.round.guesses.length === 0 && state.round.draft.length < state.round.answer.length,
     // The live figure rather than a worked example, because the player is
     // holding the word that produced it: AROSE says 5 here and JAZZY says 33,
-    // and the lesson is that they chose which. The three letters named are the
-    // ends and the middle of the table in `content/letters.ts`.
-    say: (state) =>
-      `${num(draftChips(state, state.round.draft))} chips so far. Rare letters pay more: A is 1, K is 5, Z is 10.`,
+    // and the lesson is that they chose which.
+    say: (state) => ui().coach.rare(num(draftChips(state, state.round.draft))),
     anchor: ".readout .chips",
   },
   {
     id: "mult",
     when: (state) => state.round.guesses.length === 0,
-    say: () =>
-      "The ? is mult, and only the answer knows it: green +3, yellow +1, gray nothing. Press ENTER to find out.",
+    say: () => ui().coach.mult,
     anchor: ".readout .mult",
   },
   {
@@ -114,8 +111,15 @@ const BEATS: readonly Beat[] = [
     when: (state) => state.round.guesses.length === 1,
     say: (state) => {
       const guess = state.round.guesses[0]
-      const sum = guess ? `${num(guess.chips)} × ${num(guess.mult)} = ${num(guess.score)}` : ""
-      return `${sum}, banked toward ${num(state.round.target)}. Every guess adds to the same pile.`
+      // `when` is "exactly one guess", so there is always a guess to quote; the
+      // guard is what an indexed read costs, not a state the card can be in.
+      if (!guess) return ""
+      return ui().coach.banked(
+        num(guess.chips),
+        num(guess.mult),
+        num(guess.score),
+        num(state.round.target),
+      )
     },
     anchor: ".hud-score",
   },
@@ -131,7 +135,7 @@ const BEATS: readonly Beat[] = [
       const left = state.round.maxGuesses - state.round.guesses.length - 1
       const now = solveBonusFor(state, left)
       const next = solveBonusFor(state, left - 1)
-      return `Solving multiplies the whole pile by ×${num(now)}, not just the guess that lands it, and ends the round. One more guess and it is ×${num(next)}.`
+      return ui().coach.solve(num(now), num(next))
     },
     anchor: ".solve-hint",
   },

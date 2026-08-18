@@ -1,4 +1,4 @@
-import type { BossTier, GuessRecord, Modifier, Range, Rarity, RunState, ShopItem } from "../engine"
+import type { GuessRecord, Modifier, Range, Rarity, RunState, ShopItem } from "../engine"
 import {
   ASCENSIONS,
   AUTHORED_ASCENSIONS,
@@ -10,7 +10,6 @@ import {
   CATEGORIES,
   CATEGORY_BY_ID,
   CHIPS_PER_LEVEL,
-  CONSUMABLE_BY_ID,
   CONSUMABLE_SLOTS,
   CONSUMABLES,
   categoryOf,
@@ -39,7 +38,6 @@ import {
   RELIC_BY_ID,
   RELIC_SLOTS,
   RELICS,
-  ROUND_NAMES,
   ROUND_PAYOUT,
   ROUNDS_PER_STAGE,
   rangeChips,
@@ -55,9 +53,29 @@ import {
 import type { CoachStep } from "./coach"
 import { h } from "./dom"
 import { money, formatNumber as num } from "./format"
+import type { Lang, Rule, RuleOf, Section, SectionOf } from "./lang"
+import {
+  ascensionCard,
+  bossCard,
+  categoryCard,
+  consumableCard,
+  etchingCard,
+  growthBadge,
+  guessNote,
+  keyRows,
+  LANG_NAMES,
+  LANGS,
+  modifierCard,
+  packCard,
+  payoutBadge,
+  relicCard,
+  roundName,
+  ui,
+} from "./lang"
 import type { MetaState } from "./meta"
 import {
   chosenAscension,
+  crackedIn,
   favoriteRelics,
   favoriteWord,
   isLocked,
@@ -102,6 +120,13 @@ export type Handlers = {
   cycleDecor: () => void
   /** Step the animations up a rung, wrapping back to the speed they are drawn at. */
   cycleSpeed: () => void
+  /**
+   * The language, chosen outright rather than cycled. Four of them is two taps
+   * too many for a wrapping button, and unlike the other two this is not a dial
+   * a player nudges to taste: they want the one they read, and every tap on the
+   * way to it is a screen they cannot.
+   */
+  setLanguage: (lang: Lang) => void
   openMenu: () => void
   openHelp: () => void
   /**
@@ -138,6 +163,18 @@ export type Chrome = {
   musicOff: boolean
   decor: Decor
   speed: Speed
+  /**
+   * Which language is chosen, which the views need for the picker alone: every
+   * *sentence* on the screen comes from the catalog in force, which is a module
+   * value rather than an argument. See `current` in `./lang`.
+   */
+  lang: Lang
+  /**
+   * Whether a run in progress is still being played in the words of the language
+   * the player has just switched away from. `App` owns this: it is the only
+   * thing that knows which list the run in hand was dealt from.
+   */
+  wordsDeferred: boolean
   coach: CoachStep | null
   /**
    * Whether the intro card on screen should ask about the tutorial before it
@@ -164,7 +201,13 @@ export type Chrome = {
  */
 export type Decor = "all" | "minimal" | "none"
 
-const KEY_ROWS = ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
+/*
+ * The keyboard rows used to be a constant here and are now `keyRows()` from
+ * `./lang`: they are QWERTY, AZERTY or QWERTZ depending on the language, which
+ * is a fact about the language exactly as its sentences are, so it comes from
+ * the same place they do. Read from there rather than off `chrome` because
+ * neither of the two functions that draw a keyboard takes one.
+ */
 
 /* -------------------------------------------------------------- shared bits */
 
@@ -176,7 +219,12 @@ const KEY_ROWS = ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
 function menuButton(on: Handlers): HTMLElement {
   return h(
     "button",
-    { class: "menu-button", type: "button", "aria-label": "Menu", onclick: () => on.openMenu() },
+    {
+      class: "menu-button",
+      type: "button",
+      "aria-label": ui().board.menu,
+      onclick: () => on.openMenu(),
+    },
     "☰",
   )
 }
@@ -220,7 +268,8 @@ function menuButton(on: Handlers): HTMLElement {
  * what the tap will do. That is what the tip says to everyone else.
  */
 function decorToggle(on: Handlers, chrome: Chrome): HTMLElement {
-  const face = DECOR_FACE[chrome.decor]
+  const face = ui().board.decor[chrome.decor]
+  const mark = DECOR_MARK[chrome.decor]
   return h(
     "button",
     {
@@ -237,41 +286,24 @@ function decorToggle(on: Handlers, chrome: Chrome): HTMLElement {
       onclick: () => on.cycleDecor(),
     },
     h("span", {}, "A"),
-    face.mark ? h("span", { class: face.mark.class }, face.mark.glyph) : null,
+    mark ? h("span", { class: mark.class }, mark.glyph) : null,
   )
 }
 
 /**
- * What the switch shows and says in each state.
- *
- * Kept beside `NEXT_DECOR` rather than inlined in the branches, because each tip
- * names the state the next tap lands on and the two would drift apart the first
- * time the order changed. Here a wrong order is visible as a wrong sentence.
+ * What the switch shows in each state. What it *says* is in the catalog, beside
+ * every other sentence in the game; the two halves are indexed by the same key,
+ * so a state added here without a face there is a compile error.
  *
  * The mark is described rather than built: a module-level `h()` would be one
  * node handed to every render, and since appending a node moves it, the table
  * would be quietly mutable shared state in a file whose whole contract is that a
  * view builds from scratch.
  */
-const DECOR_FACE: Record<
-  Decor,
-  { label: string; tip: string; mark: { class: string; glyph: string } | null }
-> = {
-  all: {
-    label: "Mark only what you have changed",
-    tip: "Every letter shows what it scores.\nTap to mark only what you have changed.",
-    mark: { class: "decor-toggle-value", glyph: "1" },
-  },
-  minimal: {
-    label: "Clear the board",
-    tip: "Only modifiers and raised letters are marked.\nTap to clear the board.",
-    mark: { class: "decor-toggle-mark", glyph: "•" },
-  },
-  none: {
-    label: "Show every letter's value",
-    tip: "Nothing on the board says what a letter is worth.\nTap to show it all again.",
-    mark: null,
-  },
+const DECOR_MARK: Record<Decor, { class: string; glyph: string } | null> = {
+  all: { class: "decor-toggle-value", glyph: "1" },
+  minimal: { class: "decor-toggle-mark", glyph: "•" },
+  none: null,
 }
 
 /**
@@ -291,31 +323,32 @@ export const NEXT_DECOR: Record<Decor, Decor> = {
 
 function hud(state: RunState, on: Handlers): HTMLElement {
   const round = state.round
+  const board = ui().board
   return h(
     "header",
     { class: "hud" },
     h(
       "div",
       { class: "hud-round" },
-      h("div", { class: "round-name" }, ROUND_NAMES[state.roundIndex] ?? ""),
-      // "Stage 9/8" is nonsense, and so is any denominator once the run is past
-      // the last authored one. A won run counts up instead of counting down.
+      h("div", { class: "round-name" }, roundName(state.roundIndex)),
       h(
         "div",
         { class: "stage" },
-        state.won ? `Stage ${state.stage} ∞` : `Stage ${state.stage}/${STAGES}`,
+        state.won ? board.stageEndless(state.stage) : board.stage(state.stage, STAGES),
         // The terms the whole run is being played under, in the space of two
         // characters. It shares its color with the boss banner because it is
         // the same kind of fact, something bending what a guess may be, and
         // the rules it stands for are named in full on every intro card.
-        state.ascension ? h("span", { class: "stage-asc" }, `A${state.ascension}`) : null,
+        state.ascension
+          ? h("span", { class: "stage-asc" }, board.ascensionTag(state.ascension))
+          : null,
       ),
     ),
     h(
       "div",
       { class: `hud-score ${round.score >= round.target ? "met" : ""}` },
       h("div", { class: "score" }, num(round.score)),
-      h("div", { class: "target" }, `of ${num(round.target)}`),
+      h("div", { class: "target" }, board.target(num(round.target))),
       // The same fact as the two numbers above it, in the form a glance can take
       // in. The scoring animation drives it frame by frame, so it fills as the
       // total climbs rather than jumping to the answer.
@@ -345,7 +378,9 @@ function relicRow(state: RunState): HTMLElement {
     // What a scaling relic has grown to. A card whose value moves and does not
     // say so is a card the player cannot plan around, so it goes on the face
     // rather than only in the tip.
-    const detail = relic.detail?.(instance)
+    const growth = relic.growth?.(instance)
+    const detail = growth ? growthBadge(growth) : null
+    const card = relicCard(instance.id)
     // A card to read, not a control to press. It answered a tap with its own
     // text in a toast, which is a message across the board for a thumb that only
     // brushed the tray on its way to the keyboard, and which said what the tip
@@ -365,15 +400,17 @@ function relicRow(state: RunState): HTMLElement {
         // element because the tray clips its own children. The panel that
         // shows this has to be built outside it, and so cannot inherit either.
         // The name is left out: it is already on the card the tip points at.
-        "data-tip": detail ? `${relic.text} (${detail})` : relic.text,
+        "data-tip": detail ? ui().board.relicTip(card.text, detail) : card.text,
         "data-rarity": relic.rarity,
         tabindex: 0,
         // The tip is drawn rather than spoken, so what it holds is said again
         // here for a reader that will never see the panel. The name goes back in,
         // because a screen reader has no card in view for it to be already on.
-        "aria-label": `${relic.name}: ${relic.text}${detail ? ` (${detail})` : ""}`,
+        "aria-label": detail
+          ? ui().board.relicLabelGrown(card.name, card.text, detail)
+          : ui().board.relicLabel(card.name, card.text),
       },
-      h("span", { class: "relic-name" }, relic.name),
+      h("span", { class: "relic-name" }, card.name),
       detail ? h("span", { class: "relic-detail" }, detail) : null,
     )
   })
@@ -383,7 +420,7 @@ function relicRow(state: RunState): HTMLElement {
 function consumableRow(state: RunState, on: Handlers): HTMLElement | null {
   if (state.consumables.length === 0) return null
   const cards = state.consumables.map((instance, index) => {
-    const card = CONSUMABLE_BY_ID.get(instance.id)
+    const card = consumableCard(instance.id)
     return h(
       "button",
       {
@@ -391,8 +428,8 @@ function consumableRow(state: RunState, on: Handlers): HTMLElement | null {
         type: "button",
         onclick: () => on.useConsumable(index),
       },
-      h("span", { class: "consumable-name" }, card?.name ?? instance.id),
-      h("span", { class: "consumable-text" }, card?.text ?? ""),
+      h("span", { class: "consumable-name" }, card.name),
+      h("span", { class: "consumable-text" }, card.text),
     )
   })
   return h("div", { class: "consumables" }, ...cards)
@@ -461,8 +498,11 @@ function grid(state: RunState, coach: CoachStep | null): HTMLElement {
       ? [
           h(
             "span",
-            { class: "row-note", "data-tip": getBoss(state.round.bossId)?.text },
-            played.note,
+            {
+              class: "row-note",
+              "data-tip": state.round.bossId ? bossCard(state.round.bossId).text : undefined,
+            },
+            guessNote(played.note),
           ),
         ]
       : []
@@ -544,11 +584,12 @@ function chipBreakdown(state: RunState, letter: string): string | null {
   const fromRange = rangeChips(state, letter)
   if (etch === 0 && fromRange === 0) return null
 
+  const tip = ui().tip
   const range = rangeOf(letter)
-  const parts = [`${LETTER_CHIPS[letter] ?? 0} base`]
-  if (etch > 0) parts.push(`+${etch} etched`)
+  const parts = [tip.base(LETTER_CHIPS[letter] ?? 0)]
+  if (etch > 0) parts.push(tip.etched(etch))
   if (fromRange > 0 && range) {
-    parts.push(`+${fromRange} from ${range.name} Lv ${rangeLevelOf(state, range.id)}`)
+    parts.push(tip.fromRange(fromRange, range.name, rangeLevelOf(state, range.id)))
   }
   return parts.join(" ")
 }
@@ -601,10 +642,8 @@ export function tileTip(state: RunState, guess: GuessRecord, index: number): str
   // except under the bosses is worst exactly where it is most wanted.
   if (!tile || !paid) return undefined
 
-  const upper = tile.letter.toUpperCase()
-  const lines = [
-    `${upper} · ${paid.base === 0 ? "no chips" : `+${paid.base} chip${paid.base === 1 ? "" : "s"}`}`,
-  ]
+  const tip = ui().tip
+  const lines = [tip.tileChips(tile.letter, paid.base)]
 
   const breakdown = chipBreakdown(state, tile.letter)
   if (breakdown) lines.push(breakdown)
@@ -615,7 +654,8 @@ export function tileTip(state: RunState, guess: GuessRecord, index: number): str
   // middle three, where it did nothing.
   const boss = getBoss(state.round.bossId)
   if (boss && paid.base !== baseChips(state, tile.letter)) {
-    lines.push(`${boss.name}: ${boss.text}`)
+    const card = bossCard(boss.id)
+    lines.push(tip.boss(card.name, card.text))
   }
 
   // The color that scored, which under The Fog and The Mirror is not the color
@@ -623,23 +663,23 @@ export function tileTip(state: RunState, guess: GuessRecord, index: number): str
   // squares with the line at the bottom: the mult share is measured off what the
   // row actually gained, and a panel saying "gray · no mult" over "1 of 12 mult"
   // would be caught contradicting itself by the same player it was protecting.
-  const mult = MULT_FOR_COLOR[tile.color]
-  lines.push(`${tile.color} · ${mult === 0 ? "no mult" : `+${mult} mult`}`)
+  lines.push(tip.color(tile.color, MULT_FOR_COLOR[tile.color]))
 
   // The letter's modifier as it is now, which is as it was: the shop refuses to
   // be left with a modifier still in hand, so a round begins with every letter
   // settled and nothing inside one can move a modifier from a letter to another.
   const mod = modifierOf(state, tile.letter)
   if (mod) {
+    const card = modifierCard(mod.id)
     lines.push(
       paid.mod
-        ? `${mod.name} · ${paid.mod}`
+        ? tip.mod(card.name, payoutBadge(paid.mod))
         : boss?.noModifiers
-          ? `${mod.name} · ${mod.text} · silenced this round`
+          ? tip.modSilenced(card.name, card.text)
           : // The third silence, and the only one the player cannot work out from
             // anywhere else: the card fired and had nothing to say. Lucky rolled
             // and lost, Anchor wanted a green, Echo wanted the letter twice.
-            `${mod.name} · ${mod.text} · nothing this time`,
+            tip.modQuiet(card.name, card.text),
     )
   }
 
@@ -654,8 +694,8 @@ export function tileTip(state: RunState, guess: GuessRecord, index: number): str
   // nothing this time" under all thirty tiles of a lost round is noise wearing
   // the costume of an explanation.
   for (const fired of paid.relics ?? []) {
-    const relic = RELIC_BY_ID.get(fired.id)
-    if (relic) lines.push(`${relic.name} · ${fired.label}`)
+    if (RELIC_BY_ID.has(fired.id))
+      lines.push(tip.relic(relicCard(fired.id).name, payoutBadge(fired.label)))
   }
 
   // What this letter put in, against what the row came to. The two totals are
@@ -669,13 +709,10 @@ export function tileTip(state: RunState, guess: GuessRecord, index: number): str
   // credited with 7 of 189 and look like the least valuable thing on the board,
   // when the mult it added is most of why the row scored at all. The game is
   // played on both numbers and the tip prices both.
-  const chips = `${num(paid.chips)} of ${num(guess.chips)} chips`
   lines.push(
-    // Mult starts the row at 1 and that 1 belongs to no letter, so a column that
-    // added none says so rather than claiming a share of it.
     paid.mult === 0
-      ? `${chips} · no mult`
-      : `${chips} · ${num(paid.mult)} of ${num(guess.mult)} mult`,
+      ? tip.share(num(paid.chips), num(guess.chips))
+      : tip.shareWithMult(num(paid.chips), num(guess.chips), num(paid.mult), num(guess.mult)),
   )
   return lines.join("\n")
 }
@@ -696,8 +733,8 @@ export function tileTip(state: RunState, guess: GuessRecord, index: number): str
  * entirely when there is nothing to break down.
  */
 function letterTip(state: RunState, letter: string): string {
-  const upper = letter.toUpperCase()
-  if (state.letters[letter]?.destroyed) return `${upper} · broken, no longer typeable`
+  const tip = ui().tip
+  if (state.letters[letter]?.destroyed) return tip.broken(letter)
 
   const boss = getBoss(state.round.bossId)
   // `draftChips` prices a one-letter draft, which is to say the first column.
@@ -707,7 +744,7 @@ function letterTip(state: RunState, letter: string): string {
   // the letter's own value in the headline and says the rest in its own words.
   const now = boss?.positional ? baseChips(state, letter) : draftChips(state, letter)
 
-  const lines = [`${upper} · ${now === 0 ? "no chips" : `${now} chip${now === 1 ? "" : "s"}`}`]
+  const lines = [tip.keyChips(letter, now)]
 
   const breakdown = chipBreakdown(state, letter)
   if (breakdown) lines.push(breakdown)
@@ -716,7 +753,8 @@ function letterTip(state: RunState, letter: string): string {
   // touching it would make every key look cursed. A positional one is always
   // named, since the headline above it deliberately stopped accounting for it.
   if (boss && (boss.positional || now !== baseChips(state, letter))) {
-    lines.push(`${boss.name}: ${boss.text}`)
+    const card = bossCard(boss.id)
+    lines.push(tip.boss(card.name, card.text))
   }
 
   const mod = modifierOf(state, letter)
@@ -724,10 +762,9 @@ function letterTip(state: RunState, letter: string): string {
   // reading. It just will not fire this round, and the tip is the one place
   // that can say which of those two things is true.
   if (mod) {
+    const card = modifierCard(mod.id)
     lines.push(
-      boss?.noModifiers
-        ? `${mod.name} · ${mod.text} · silenced this round`
-        : `${mod.name} · ${mod.text}`,
+      boss?.noModifiers ? tip.modSilenced(card.name, card.text) : tip.modIdle(card.name, card.text),
     )
   }
   return lines.join("\n")
@@ -794,15 +831,23 @@ function keyboard(state: RunState, on: Handlers): HTMLElement {
   return h(
     "div",
     { class: "keyboard" },
-    ...KEY_ROWS.map((row, index) =>
+    ...keyRows().map((row, index) =>
       h(
         "div",
         { class: "key-row" },
         index === 2 &&
-          h("button", { class: "key wide", type: "button", onclick: () => on.enter() }, "ENTER"),
+          h(
+            "button",
+            { class: "key wide", type: "button", onclick: () => on.enter() },
+            ui().board.enter,
+          ),
         ...[...row].map(key),
         index === 2 &&
-          h("button", { class: "key wide", type: "button", onclick: () => on.back() }, "DEL"),
+          h(
+            "button",
+            { class: "key wide", type: "button", onclick: () => on.back() },
+            ui().board.del,
+          ),
       ),
     ),
   )
@@ -841,14 +886,19 @@ function solveHint(state: RunState): HTMLElement {
     return h("div", { class: "solve-hint" })
   }
 
+  const board = ui().board
   const floor = Math.round(round.score * factor)
   const clears = floor >= round.target
   return h(
     "div",
     { class: `solve-hint ${clears ? "clears" : ""}` },
-    h("span", { class: "solve-factor" }, `solve ×${factor}`),
+    h("span", { class: "solve-factor" }, board.solveFactor(factor)),
     round.score > 0 &&
-      h("span", { class: "solve-floor" }, clears ? `→ ${num(floor)}, clears` : `→ ${num(floor)}`),
+      h(
+        "span",
+        { class: "solve-floor" },
+        clears ? board.solveFloorClears(num(floor)) : board.solveFloor(num(floor)),
+      ),
   )
 }
 
@@ -896,6 +946,7 @@ export function fillCategory(slot: Element, state: RunState, on: Handlers): void
   const word = wordInPlay(state)
   if (!word) return
 
+  const board = ui().board
   const category = categoryOf(word)
   const bonus = levelBonus(state, category)
   // A button rather than a div, because this line is the only place the shape
@@ -905,11 +956,11 @@ export function fillCategory(slot: Element, state: RunState, on: Handlers): void
     h(
       "button",
       { class: "category", type: "button", onclick: () => on.openShapes() },
-      h("span", { class: "category-name" }, category.name),
-      h("span", { class: "category-level" }, `Lv ${bonus.level}`),
+      h("span", { class: "category-name" }, categoryCard(category.id).name),
+      h("span", { class: "category-level" }, board.shapeLevel(bonus.level)),
       bonus.chips > 0 &&
-        h("span", { class: "category-bonus" }, `+${bonus.chips} +${bonus.mult} mult`),
-      h("span", { class: "category-more" }, "shapes ›"),
+        h("span", { class: "category-bonus" }, board.shapeBonus(bonus.chips, bonus.mult)),
+      h("span", { class: "category-more" }, board.shapesMore),
     ),
   )
 }
@@ -960,7 +1011,7 @@ export function fillReadout(el: Element, state: RunState): void {
           "span",
           {
             class: "mult pending",
-            "data-tip": "Color is the multiplier. Guessing is how you find it out.",
+            "data-tip": ui().board.multUnknown,
           },
           "?",
         )
@@ -974,7 +1025,13 @@ export function roundView(state: RunState, on: Handlers, chrome: Chrome): HTMLEl
     "div",
     { class: "screen round-screen" },
     hud(state, on),
-    boss && h("div", { class: "boss" }, h("strong", {}, boss.name), h("span", {}, ` ${boss.text}`)),
+    boss &&
+      h(
+        "div",
+        { class: "boss" },
+        h("strong", {}, bossCard(boss.id).name),
+        h("span", {}, ` ${bossCard(boss.id).text}`),
+      ),
     relicRow(state),
     consumableRow(state, on),
     grid(state, chrome.coach),
@@ -999,8 +1056,9 @@ export function roundView(state: RunState, on: Handlers, chrome: Chrome): HTMLEl
  * what they are walking into before the keyboard demands anything of them.
  */
 export function introView(state: RunState, on: Handlers, chrome: Chrome): HTMLElement {
+  const copy = ui().intro
   const boss = getBoss(state.round.bossId)
-  const name = ROUND_NAMES[state.roundIndex] ?? "Round"
+  const name = roundName(state.roundIndex)
 
   // Three rounds, three tokens. The shape carries the warning before the name is
   // read, which matters most for the one that changes the rules.
@@ -1026,15 +1084,15 @@ export function introView(state: RunState, on: Handlers, chrome: Chrome): HTMLEl
     h(
       "div",
       { class: "intro-stage" },
-      state.won ? `Stage ${state.stage} · endless` : `Stage ${state.stage} of ${STAGES}`,
+      state.won ? copy.stageEndless(state.stage) : copy.stage(state.stage, STAGES),
     ),
     h(
       "div",
       { class: `intro-card ${boss ? "boss-card" : ""}` },
       h("div", { class: `round-token ${token}` }),
-      h("div", { class: "intro-name" }, boss ? boss.name : name),
-      boss && h("div", { class: "intro-rule" }, boss.text),
-      h("div", { class: "intro-label" }, "Score at least"),
+      h("div", { class: "intro-name" }, boss ? bossCard(boss.id).name : name),
+      boss && h("div", { class: "intro-rule" }, bossCard(boss.id).text),
+      h("div", { class: "intro-label" }, copy.scoreAtLeast),
       h("div", { class: "intro-target" }, num(state.round.target)),
       h(
         "div",
@@ -1042,34 +1100,26 @@ export function introView(state: RunState, on: Handlers, chrome: Chrome): HTMLEl
         // The payout the run will actually be handed, not the one the table
         // lists: ascension 7 takes a dollar off it, and a card that promises $3
         // before a round and pays $2 after it is the worst kind of wrong.
-        `${state.round.maxGuesses} guesses · reward ${money(
-          Math.max(0, (ROUND_PAYOUT[state.roundIndex] ?? 0) - difficultyOf(state).payoutCut),
-        )}`,
+        copy.meta(
+          state.round.maxGuesses,
+          money(Math.max(0, (ROUND_PAYOUT[state.roundIndex] ?? 0) - difficultyOf(state).payoutCut)),
+        ),
       ),
       standing(state),
     ),
-    // Said before the buttons rather than written into them, because the choice
-    // is only meaningful to someone who knows what they are turning down, and
-    // "tips" alone does not say that the board is about to explain itself.
-    asking &&
-      h(
-        "p",
-        { class: "intro-ask" },
-        "First run. The board can talk you through the scoring as you play.",
-      ),
+    asking && h("p", { class: "intro-ask" }, copy.coachAsk),
     h(
       "button",
       { class: "primary", type: "button", onclick: () => on.play() },
-      asking ? "Play with tips" : "Play",
+      asking ? copy.coachYes : copy.play,
     ),
-    // Second, quieter, and phrased as the whole tutorial rather than as this
-    // card: it is the last time the question is asked, so it must not read as
-    // "not now".
+    // Second and quieter. Why it is phrased as the whole tutorial rather than as
+    // this card is written down beside the string.
     asking &&
       h(
         "button",
         { class: "secondary", type: "button", onclick: () => on.skipCoach() },
-        "Skip the tips",
+        copy.coachNo,
       ),
     muteButton(on, chrome),
   )
@@ -1092,13 +1142,13 @@ function standing(state: RunState): HTMLElement | null {
   return h(
     "div",
     { class: "intro-asc" },
-    h("strong", {}, `Ascension ${state.ascension}`),
-    ` · ${rules.map((rule) => rule.name).join(" · ")}`,
+    h("strong", {}, ui().common.ascension(state.ascension ?? 0)),
+    ` · ${rules.map((rule) => ascensionCard(rule).name).join(" · ")}`,
     // The endless half of the ladder, said as the number it is. `rulesFor`
     // deliberately does not return those rungs, and this is why: a run at
     // ascension 30 would otherwise put twenty copies of "Steeper" on this card,
     // when the one thing the player needs off it is how much the targets moved.
-    targets > 1 ? ` · targets ×${targets.toFixed(2)}` : null,
+    targets > 1 ? ` · ${ui().intro.targets(targets.toFixed(2))}` : null,
   )
 }
 
@@ -1115,13 +1165,14 @@ function muteButton(on: Handlers, chrome: Chrome): HTMLElement {
         on.mute()
       },
     },
-    chrome.muted ? "Sound off" : "Sound on",
+    chrome.muted ? ui().common.soundOff : ui().common.soundOn,
   )
 }
 
 /* -------------------------------------------------------------- the reward */
 
 export function rewardView(state: RunState, on: Handlers): HTMLElement {
+  const copy = ui().reward
   const reward = state.reward
   const line = (label: string, amount: number) =>
     h("div", { class: "reward-line" }, h("span", {}, label), h("span", {}, money(amount)))
@@ -1129,24 +1180,28 @@ export function rewardView(state: RunState, on: Handlers): HTMLElement {
   return h(
     "div",
     { class: "screen center" },
-    h("h1", { class: "banner win" }, "Round cleared"),
+    h("h1", { class: "banner win" }, copy.cleared),
     h(
       "div",
       { class: "panel" },
-      h("div", { class: "answer-note" }, `The word was ${state.round.answer.toUpperCase()}`),
-      h("div", { class: "score-note" }, `${num(state.round.score)} of ${num(state.round.target)}`),
-      reward && line(ROUND_NAMES[state.roundIndex] ?? "Round", reward.base),
-      reward && reward.unusedGuesses > 0 && line("Unused guesses", reward.unusedGuesses),
-      reward && reward.interest > 0 && line("Interest", reward.interest),
+      h("div", { class: "answer-note" }, copy.answerWas(state.round.answer)),
+      h(
+        "div",
+        { class: "score-note" },
+        copy.score(num(state.round.score), num(state.round.target)),
+      ),
+      reward && line(roundName(state.roundIndex), reward.base),
+      reward && reward.unusedGuesses > 0 && line(copy.unusedGuesses, reward.unusedGuesses),
+      reward && reward.interest > 0 && line(copy.interest, reward.interest),
       reward &&
         h(
           "div",
           { class: "reward-line total" },
-          h("span", {}, "Total"),
+          h("span", {}, copy.total),
           h("span", {}, money(reward.total)),
         ),
     ),
-    h("button", { class: "primary", type: "button", onclick: () => on.collect() }, "Collect"),
+    h("button", { class: "primary", type: "button", onclick: () => on.collect() }, copy.collect),
   )
 }
 
@@ -1163,7 +1218,7 @@ export function rewardView(state: RunState, on: Handlers): HTMLElement {
  * is the shorter of the two and the one being read under a price.
  */
 const rangeText = (range: Range): string =>
-  `${[...range.letters].join(" ").toUpperCase()} are worth +${CHIPS_PER_LEVEL} chips per level`
+  ui().shop.rangeText([...range.letters].join(" ").toUpperCase(), CHIPS_PER_LEVEL)
 
 /**
  * What a card says about itself. Split out from the card because a pack lays out
@@ -1234,6 +1289,7 @@ export function describeItem(
   blocked: boolean
   swap: string
 } {
+  const copy = ui().shop
   let title = ""
   let text = ""
   let swap = ""
@@ -1241,8 +1297,9 @@ export function describeItem(
   let tag = ""
   /**
    * Written as one line each. The tip panel is `white-space: pre-line`, so a
-   * wrapped template literal would arrive with the source's own line breaks in
-   * it.
+   * catalog entry wrapped across source lines would arrive with the source's own
+   * breaks in it; `en.ts` concatenates rather than using a template literal for
+   * exactly that reason.
    */
   let tip = ""
   /** The tag is a warning rather than a label: this one has nowhere to go. */
@@ -1250,78 +1307,71 @@ export function describeItem(
 
   if (item.kind === "pack") {
     const pack = PACK_BY_ID.get(item.id)
-    title = pack?.name ?? "Pack"
-    text = pack?.text ?? ""
+    title = packCard(item.id).name
+    text = packCard(item.id).text
     // Packs read as the rare thing on the shelf because they are the dearest and
     // the only one that asks a question back.
     rarity = "rare"
-    tag = "Pack"
-    tip = `It deals its cards face up, and you keep ${(pack?.picks ?? 1) > 1 ? pack?.picks : "one"} of them free.`
+    tag = copy.tagPack
+    tip = copy.tipPack(pack?.picks ?? 1)
   } else if (item.kind === "relic") {
     const relic = RELIC_BY_ID.get(item.id)
-    title = relic?.name ?? item.id
-    text = relic?.text ?? ""
+    title = relicCard(item.id).name
+    text = relicCard(item.id).text
     rarity = relic?.rarity ?? "common"
     // Never blocked, whatever the tray holds. The refusal still happens. The
     // engine turns the purchase away with "no relic slots free" and the toast
     // says it. It just happens at the till rather than on the card.
-    tag = "Relic"
-    // What separates it from everything else on the shelf, in one clause: it is
-    // never used up and never used at all. The slot count is a number the tray
-    // under it is already showing, so it stays out of here.
-    tip = "You keep it for the whole run, and it works on its own every round."
+    tag = copy.tagRelic
+    tip = copy.tipRelic
   } else if (item.kind === "consumable") {
-    const card = CONSUMABLE_BY_ID.get(item.id)
-    title = card?.name ?? item.id
-    text = card?.text ?? ""
+    title = consumableCard(item.id).name
+    text = consumableCard(item.id).text
     blocked = state.consumables.length >= CONSUMABLE_SLOTS
-    // "Card" was what this line called itself, and a shelf where every item is
-    // drawn as a card had no way to hear that as a kind. The word that says the
-    // mechanic is the one the code has used all along: it is consumed.
-    tag = blocked ? "Consumable · slots full" : "Consumable"
-    tip = "You use it once, whenever you like, and then it is gone."
+    tag = blocked ? copy.tagConsumableFull : copy.tagConsumable
+    tip = copy.tipConsumable
   } else if (item.kind === "mod") {
     const mod = MODIFIER_BY_ID.get(item.id)
+    const card = modifierCard(item.id)
     rarity = mod?.rarity ?? "common"
     // One sentence for both versions of this card. The difference between them,
     // which is who picks the letter, is already the difference between the two
     // titles, and the tip is about the kind rather than about the card.
-    tip = "It sticks to one letter for the rest of the run."
+    tip = copy.tipMod
     if (item.letter === undefined) {
       // The shop's version: a card with no letter on it yet. Named for what it
       // is being bought as, a choice, because the price is the price of the
-      // choice, and the letter it ends up on is the next screen. The qualifier
-      // sits after the name rather than reading as a verb ("Gold a letter"),
-      // and it is what tells this card apart from the pack's aimed one at a
-      // glance: "Gold E" is a letter, "Gold · any letter" is a decision.
-      title = `${mod?.name ?? item.id} · any letter`
-      text = `Choose any letter. It ${mod?.text ?? ""}`
-      if (mod?.letters) text += `, from ${[...mod.letters].join(" ").toUpperCase()}`
-      tag = "Letter"
+      // choice, and the letter it ends up on is the next screen.
+      title = copy.modAnyTitle(card.name)
+      // Two whole sentences rather than one with a clause appended, because the
+      // letters are a restriction on the choice and a language that puts them
+      // before the verb has nowhere to append to.
+      text = mod?.letters
+        ? copy.modAnyTextOnly(card.text, [...mod.letters].join(" ").toUpperCase())
+        : copy.modAnyText(card.text)
+      tag = copy.tagLetter
     } else {
       const letter = item.letter.toUpperCase()
-      title = `${mod?.name ?? item.id} ${letter}`
-      text = `${letter} ${mod?.text ?? ""}`
+      title = copy.modTitle(card.name, letter)
+      text = copy.modText(letter, card.text)
       // A letter holds one modifier, so this is sometimes a trade rather than an
       // addition, and that has to be legible before the gold is gone.
       const current = state.letters[item.letter]?.mod
       const held = current ? MODIFIER_BY_ID.get(current) : undefined
-      if (held && held.id !== item.id) {
-        // Named with its pip, which is the mark the player has been reading off
-        // the key all run. "Replaces Steel" asks them to remember what Steel
-        // was; "Replaces Steel ×2" says what is coming off the letter.
-        swap = `Replaces ${held.name} ${held.pip}`
-      }
+      if (held && held.id !== item.id) swap = copy.swap(modifierCard(held.id).name, held.pip)
       // The pack's aimed version. Still a letter card, and the tag says so for
       // the same reason it does in the shop: the name reads "Gold E", which is
       // the letter, not the kind of thing being handed over.
-      tag = "Letter"
+      tag = copy.tagLetter
     }
   } else if (item.kind === "range") {
     const range = RANGE_BY_ID.get(item.id)
-    // Named the same way a category level is: the level it buys, not the one
-    // you hold, because the gold buys the step.
-    title = range ? `${range.name} → Lv ${rangeLevelOf(state, item.id) + 1}` : "Range"
+    // The one name that stayed in the engine: A–E is the letters it holds, said
+    // in the punctuation every language uses for a span, and `ranges.test.ts`
+    // asserts it as a fact about the partition rather than as copy.
+    title = range
+      ? copy.rangeTitle(range.name, rangeLevelOf(state, item.id) + 1)
+      : copy.fallbackRange
     // Spelled out rather than named again. "A–E letters" is the title over
     // again in the body's ink, and it asks a player mid-shop to expand a dash
     // into five letters and check their own vocabulary against it, which is
@@ -1337,28 +1387,23 @@ export function describeItem(
     // than as a fact about this run; deadness is a mark on the key, which is
     // where the player has been reading it since the letter broke.
     text = range ? rangeText(range) : ""
-    tag = "Alphabet"
-    tip = "It levels a slice of the alphabet, so every letter in it is worth more."
+    tag = copy.tagRange
+    tip = copy.tipRange
   } else if (item.kind === "level") {
     const category = CATEGORY_BY_ID.get(item.id)
-    // Named as the level it buys rather than as the level you hold, because the
-    // gold buys the step and the step is what the price is for.
-    title = category ? `${category.name} → Lv ${levelOf(state, item.id) + 1}` : "Level"
-    text = category
-      ? `${category.name} words score +${category.chips} chips and +${category.mult} mult per level`
-      : ""
-    // "Shape" rather than "Category", because that is the word the board, the
-    // shop's own levels line and the panel behind it all use for this.
-    tag = "Word shape"
-    tip = "It levels one shape of word, so every guess of that shape pays more."
+    const card = categoryCard(item.id)
+    title = category ? copy.levelTitle(card.name, levelOf(state, item.id) + 1) : copy.fallbackLevel
+    text = category ? copy.levelText(card.name, category.chips, category.mult) : ""
+    tag = copy.tagShape
+    tip = copy.tipShape
   } else {
     // Falls back to something readable rather than to `undefined`, so a save
     // written before etchings were sold by the group degrades quietly.
     const etching = ETCHING_BY_ID.get(item.id)
-    title = etching?.name ?? "Etching"
-    text = etching?.text ?? ""
-    tag = "Etching"
-    tip = "It adds chips to a group of letters for good, and buying it again stacks."
+    title = etching ? etchingCard(etching).name : copy.fallbackEtching
+    text = etching ? etchingCard(etching).text : ""
+    tag = copy.tagEtching
+    tip = copy.tipEtching
   }
 
   return { title, text, rarity, tag, tip, blocked, swap }
@@ -1493,9 +1538,9 @@ function shopItemHead(
  * for. Walking away has to be a button you meant to press.
  */
 export function packView(state: RunState, on: Handlers): HTMLElement | null {
+  const copy = ui().pack
   const open = state.pack
   if (!open) return null
-  const pack = PACK_BY_ID.get(open.id)
   const left = open.options.filter(Boolean).length
 
   return h(
@@ -1504,17 +1549,18 @@ export function packView(state: RunState, on: Handlers): HTMLElement | null {
     h(
       "div",
       { class: "sheet pack-sheet", ...SHEET_ATTRS },
-      h("h2", { class: "sheet-title" }, pack?.name ?? "Pack"),
+      h("h2", { class: "sheet-title" }, packCard(open.id).name),
       h(
         "p",
         { class: "pack-hint" },
-        open.picks > 1 ? `Choose ${open.picks} of ${left}` : `Choose one of ${left}`,
+        open.picks > 1 ? copy.choosePicks(open.picks, left) : copy.choose(left),
       ),
       h(
         "div",
         { class: "pack-options" },
         ...open.options.map((item, index) => {
-          if (!item) return h("div", { class: "shop-item sold", style: `--deal:${index}` }, "taken")
+          if (!item)
+            return h("div", { class: "shop-item sold", style: `--deal:${index}` }, copy.taken)
           const { title, text, rarity, swap } = describeItem(item, state)
           return h(
             "button",
@@ -1567,7 +1613,7 @@ export function packView(state: RunState, on: Handlers): HTMLElement | null {
         h(
           "button",
           { class: "secondary", type: "button", onclick: () => on.skipPack() },
-          open.picks > 1 ? "Take no more" : "Skip",
+          open.picks > 1 ? copy.skipSome : copy.skip,
         ),
       ),
     ),
@@ -1614,9 +1660,11 @@ export function placeView(
   on: Handlers,
   arming: string | null,
 ): HTMLElement | null {
+  const copy = ui().place
   const held = state.placing
   const modifier = held ? MODIFIER_BY_ID.get(held) : undefined
   if (!modifier) return null
+  const card = modifierCard(modifier.id)
   const allowed = new Set(placeableLetters(state, modifier))
   // What the armed letter stands to lose, worked out here rather than taken on
   // the caller's word. The field naming the letter outlives renders that the
@@ -1668,14 +1716,12 @@ export function placeView(
   // restriction used to be written *instead of* the replacement rule.
   const notes: string[] = []
   if (modifier.letters) {
-    notes.push(`${modifier.name} only goes on ${[...modifier.letters].join(" ").toUpperCase()}.`)
+    notes.push(copy.onlyOn(card.name, [...modifier.letters].join(" ").toUpperCase()))
   }
   // Said only when there is a key on screen it is about. On a run that has
   // bought one modifier, which is every run, once, it is a rule about a
   // situation that has not arisen, and the sheet is better off short.
-  if ([...allowed].some((letter) => state.letters[letter]?.mod)) {
-    notes.push("A letter holds one modifier. Tapping one that already has a pip asks first.")
-  }
+  if ([...allowed].some((letter) => state.letters[letter]?.mod)) notes.push(copy.oneEach)
 
   return h(
     "div",
@@ -1683,15 +1729,15 @@ export function placeView(
     h(
       "div",
       { class: "sheet pack-sheet", ...SHEET_ATTRS },
-      h("h2", { class: "sheet-title" }, modifier.name),
-      h("p", { class: "pack-hint" }, `Choose a letter. It ${modifier.text}.`),
+      h("h2", { class: "sheet-title" }, card.name),
+      h("p", { class: "pack-hint" }, copy.choose(card.text)),
       h(
         "div",
         // The incoming modifier's color, hung on the container so the armed key
         // can ring itself in it while every other key keeps its own. See the
         // `--incoming` note in the stylesheet for why it survives the override.
         { class: "keyboard place-keys", "data-mod": modifier.id },
-        ...KEY_ROWS.map((row) => h("div", { class: "key-row" }, ...[...row].map(key))),
+        ...keyRows().map((row) => h("div", { class: "key-row" }, ...[...row].map(key))),
       ),
       armed && losing
         ? h(
@@ -1699,35 +1745,33 @@ export function placeView(
             // The outgoing modifier's color, on the block rather than on the
             // word inside it, so the edge and the name are lit by one decision.
             { class: "place-swap", "data-mod": losing.id },
+            // Two sentences with a bolded name between them, and the space and
+            // the full stop live here rather than in either of them. The name is
+            // the last word of the first sentence in English and is not in any
+            // of the other three, so a catalog entry that swallowed the marks
+            // would be a sentence a translator cannot reorder.
             h(
               "p",
               { class: "place-swap-line" },
-              `${armed.toUpperCase()} is carrying `,
-              h("strong", {}, `${losing.name} ${losing.pip}`),
-              // "Gone for the rest of the run" rather than "replaced", because
-              // replaced is what the player is trying to do and says nothing
-              // about the cost. A modifier is bought once and paid off over
-              // every guess after it, so what is being spent here is the rest of
-              // the run's worth of a card that has already been paid for.
-              `. Putting ${modifier.name} here loses it for the rest of the run.`,
+              `${copy.carrying(armed)} `,
+              h("strong", {}, `${modifierCard(losing.id).name} ${losing.pip}`),
+              `. ${copy.loses(card.name)}`,
             ),
             h(
               "div",
               { class: "shop-actions" },
               // Same order and the same shape as the quit sheet: the destructive
               // answer on the left in the danger ink, the one that changes
-              // nothing on the right wearing the weight. The two buttons name
-              // the two outcomes rather than saying yes and no, so the sentence
-              // above does not have to be re-read to work out which is which.
+              // nothing on the right wearing the weight.
               h(
                 "button",
                 { class: "danger", type: "button", onclick: () => on.placeMod(armed) },
-                `Replace ${losing.name}`,
+                copy.replace(modifierCard(losing.id).name),
               ),
               h(
                 "button",
                 { class: "primary", type: "button", onclick: () => on.cancelPlace() },
-                `Keep ${losing.name}`,
+                copy.keep(modifierCard(losing.id).name),
               ),
             ),
           )
@@ -1748,25 +1792,27 @@ export function placeView(
  * is exactly the visit where you have not heard of the system.
  */
 function shopShapes(state: RunState, on: Handlers): HTMLElement {
+  const copy = ui().shop
   const leveled = CATEGORIES.filter((category) => levelOf(state, category.id) > 1)
   return h(
     "button",
     { class: "shapes-line", type: "button", onclick: () => on.openShapes() },
-    h("span", { class: "shapes-line-label" }, "Word shapes"),
+    h("span", { class: "shapes-line-label" }, copy.shapesLabel),
     h(
       "span",
       { class: "shapes-line-body" },
       leveled.length > 0
         ? leveled
-            .map((category) => `${category.name} Lv ${levelOf(state, category.id)}`)
+            .map((c) => copy.shapesLevel(categoryCard(c.id).name, levelOf(state, c.id)))
             .join(" · ")
-        : "all at level 1",
+        : copy.shapesNone,
     ),
     h("span", { class: "shapes-line-more" }, "›"),
   )
 }
 
 export function shopView(state: RunState, on: Handlers): HTMLElement {
+  const copy = ui().shop
   const shop = state.shop
   const reroll = shop ? rerollCost(shop) : 0
 
@@ -1783,13 +1829,13 @@ export function shopView(state: RunState, on: Handlers): HTMLElement {
       "button",
       {
         class: `relic rarity-${relic?.rarity ?? "common"}`,
-        "data-tip": relic?.text ?? instance.id,
+        "data-tip": relicCard(instance.id).text,
         "data-rarity": relic?.rarity ?? "common",
         type: "button",
         onclick: () => on.sell(slot),
       },
-      h("span", { class: "relic-name" }, relic?.name ?? instance.id),
-      h("span", { class: "sell" }, `sell ${money(sellValue(relic?.cost ?? 4))}`),
+      h("span", { class: "relic-name" }, relicCard(instance.id).name),
+      h("span", { class: "sell" }, copy.sell(money(sellValue(relic?.cost ?? 4)))),
     )
   })
 
@@ -1799,7 +1845,7 @@ export function shopView(state: RunState, on: Handlers): HTMLElement {
     h(
       "header",
       { class: "hud" },
-      h("div", { class: "hud-round" }, h("div", { class: "round-name" }, "Shop")),
+      h("div", { class: "hud-round" }, h("div", { class: "round-name" }, copy.title)),
       h("div", { class: "hud-gold" }, money(state.gold)),
       menuButton(on),
     ),
@@ -1809,7 +1855,7 @@ export function shopView(state: RunState, on: Handlers): HTMLElement {
       ...(shop?.items ?? []).map((item, index) =>
         item
           ? shopItemCard(item, index, state, on)
-          : h("div", { class: "shop-item sold", style: `--deal:${index}` }, "sold"),
+          : h("div", { class: "shop-item sold", style: `--deal:${index}` }, copy.sold),
       ),
     ),
     shopShapes(state, on),
@@ -1824,12 +1870,12 @@ export function shopView(state: RunState, on: Handlers): HTMLElement {
           disabled: state.gold < reroll,
           onclick: () => on.reroll(),
         },
-        `Reroll ${money(reroll)}`,
+        copy.reroll(money(reroll)),
       ),
       h(
         "button",
         { class: "primary", type: "button", onclick: () => on.nextRound() },
-        "Next round",
+        copy.nextRound,
       ),
     ),
     h(
@@ -1838,12 +1884,12 @@ export function shopView(state: RunState, on: Handlers): HTMLElement {
       h(
         "div",
         { class: "owned-label" },
-        // The instruction only when there is something to obey it with: an empty
-        // tray under "tap a relic to sell" reads as a control that is broken
-        // rather than as one that has nothing to act on yet.
-        `Relics ${state.relics.length}/${difficultyOf(state).relicSlots} · Consumables ${state.consumables.length}/${CONSUMABLE_SLOTS}${
-          state.relics.length > 0 ? " · tap a relic to sell" : ""
-        }`,
+        (state.relics.length > 0 ? copy.ownedSellable : copy.owned)(
+          state.relics.length,
+          difficultyOf(state).relicSlots,
+          state.consumables.length,
+          CONSUMABLE_SLOTS,
+        ),
       ),
       h("div", { class: "relics" }, ...owned),
     ),
@@ -1869,50 +1915,37 @@ export function shopView(state: RunState, on: Handlers): HTMLElement {
  * start something new or find out where this one breaks.
  */
 export function endView(state: RunState, on: Handlers): HTMLElement {
+  const copy = ui().end
   const offering = state.phase === "victory"
   const lost = state.phase === "game_over"
   return h(
     "div",
     { class: "screen center" },
-    h(
-      "h1",
-      { class: `banner ${offering ? "win" : "lose"}` },
-      offering ? "Run complete" : "Run over",
-    ),
+    h("h1", { class: `banner ${offering ? "win" : "lose"}` }, offering ? copy.won : copy.lost),
     h(
       "div",
       { class: "panel" },
-      lost &&
-        h("div", { class: "answer-note" }, `The word was ${state.round.answer.toUpperCase()}`),
+      lost && h("div", { class: "answer-note" }, ui().reward.answerWas(state.round.answer)),
       lost &&
         h(
           "div",
           { class: "score-note" },
-          `${num(state.round.score)} of ${num(state.round.target)}, short by ${num(state.round.target - state.round.score)}`,
+          copy.short(
+            num(state.round.score),
+            num(state.round.target),
+            num(state.round.target - state.round.score),
+          ),
         ),
-      lost &&
-        state.won &&
-        h("div", { class: "score-note won-note" }, `Beat stage ${STAGES} and kept going`),
-      h(
-        "div",
-        { class: "score-note" },
-        `Reached stage ${state.stage}, ${ROUND_NAMES[state.roundIndex]}`,
-      ),
+      lost && state.won && h("div", { class: "score-note won-note" }, copy.wonAndWent(STAGES)),
+      h("div", { class: "score-note" }, copy.reached(state.stage, roundName(state.roundIndex))),
       cleared(state, offering),
-      offering &&
-        h(
-          "p",
-          { class: "endless-note" },
-          `Stage ${STAGES} is where the game stops, not where the run has to. The win is
-           yours either way. Playing on only asks how far this build really goes, and
-           the targets keep growing at the same rate the whole way.`,
-        ),
+      offering && h("p", { class: "endless-note" }, copy.endlessNote(STAGES)),
     ),
     offering &&
       h(
         "button",
         { class: "primary", type: "button", onclick: () => on.continueRun() },
-        "Endless mode",
+        copy.endless,
       ),
     // Banking the win ends the run for good, so it goes where a finished run
     // goes: the title screen, with the save cleared behind it.
@@ -1923,7 +1956,7 @@ export function endView(state: RunState, on: Handlers): HTMLElement {
         type: "button",
         onclick: () => (offering ? on.quit() : on.newRun()),
       },
-      offering ? "Main menu" : "New run",
+      offering ? copy.mainMenu : copy.newRun,
     ),
   )
 }
@@ -1943,16 +1976,19 @@ export function endView(state: RunState, on: Handlers): HTMLElement {
  * going to see it.
  */
 function cleared(state: RunState, won: boolean): HTMLElement | null {
+  const copy = ui().end
   const level = state.ascension ?? 0
-  if (!won) return level > 0 ? h("div", { class: "score-note" }, `Ascension ${level}`) : null
+  if (!won) {
+    return level > 0 ? h("div", { class: "score-note" }, ui().common.ascension(level)) : null
+  }
   return h(
     "div",
     { class: "score-note asc-note" },
     level === 0
-      ? "Ascension 1 is earned, and the run can be made harder"
+      ? copy.firstEarned
       : level < MAX_ASCENSION
-        ? `Ascension ${level} cleared, and ${level + 1} is earned`
-        : `Ascension ${level} cleared. There is nothing above it.`,
+        ? copy.earned(level, level + 1)
+        : copy.topOfLadder(level),
   )
 }
 
@@ -1964,22 +2000,98 @@ function cleared(state: RunState, won: boolean): HTMLElement | null {
  * charging a tap for it every launch is exactly the friction a phone game
  * cannot afford.
  */
+/**
+ * The language, as four buttons rather than one that cycles.
+ *
+ * Every other setting on this sheet is a wrapping button, and this one is not,
+ * for a reason the others do not have: a player who cannot read the interface
+ * cannot read the button that changes it either. A cycle would ask them to tap
+ * through up to three languages they do not want, reading nothing, to reach the
+ * one they do. Four labelled buttons ask them to recognize one word, in their
+ * own script, and the endonyms in `LANG_NAMES` are that word.
+ *
+ * The chosen one is marked with `aria-pressed` rather than only with a class,
+ * because "which of these four am I on" is the whole content of this control and
+ * a screen reader that cannot answer it has been given four identical buttons.
+ *
+ * The line underneath is the honest part. Changing this repaints every sentence
+ * on screen immediately and does not touch the run: a run is dealt from one word
+ * list and keeps it, so the answer stays in the language it was drawn from. That
+ * is worth saying while it is true and worth not saying otherwise, which is what
+ * `wordsDeferred` decides. See `setLanguage` in `app.ts`.
+ */
+function languagePicker(on: Handlers, chrome: Chrome): HTMLElement {
+  const copy = ui().pause
+  return h(
+    "div",
+    { class: "lang-picker" },
+    h("p", { class: "lang-label" }, copy.language),
+    h(
+      "div",
+      { class: "lang-row" },
+      ...LANGS.map((lang) =>
+        h(
+          "button",
+          {
+            class: `secondary lang-option${lang === chrome.lang ? " chosen" : ""}`,
+            type: "button",
+            "aria-pressed": lang === chrome.lang ? "true" : "false",
+            // The button is in the language it names, not in the one on screen,
+            // so it gets its own tag rather than inheriting the document's.
+            lang,
+            onclick: () => on.setLanguage(lang),
+          },
+          LANG_NAMES[lang],
+        ),
+      ),
+    ),
+    chrome.wordsDeferred ? h("p", { class: "lang-note" }, copy.wordsNextRun) : null,
+  )
+}
+
+/**
+ * The card that stands in for a screen while its word list is still arriving.
+ *
+ * Reachable on exactly one path: a language switched and then a run started
+ * before the fetch that the switch kicked off has landed. See `withWords`. It is
+ * a sentence and not a spinner because on the connection where this is visible
+ * at all it is visible for long enough to read.
+ */
+export function loadingView(): HTMLElement {
+  return h(
+    "div",
+    { class: "screen center" },
+    h("p", { class: "loading-note" }, ui().common.loading),
+  )
+}
+
 export function titleView(on: Handlers, chrome: Chrome, meta: MetaState): HTMLElement {
+  const copy = ui().title
+  const common = ui().common
   return h(
     "div",
     { class: "screen center title" },
-    h("h1", { class: "title-name" }, "5 WILD"),
-    h("p", { class: "title-tag" }, "A word-guessing roguelike"),
+    h("h1", { class: "title-name" }, copy.name),
+    h("p", { class: "title-tag" }, copy.tagline),
     record(meta, on),
     ladder(on, meta),
-    h("button", { class: "primary", type: "button", onclick: () => on.newRun() }, "Play"),
+    h("button", { class: "primary", type: "button", onclick: () => on.newRun() }, common.play),
     h(
       "button",
       { class: "secondary", type: "button", onclick: () => on.openHelp() },
-      "How to play",
+      common.howToPlay,
     ),
-    h("button", { class: "secondary", type: "button", onclick: () => on.openCodex() }, "Codex"),
+    h(
+      "button",
+      { class: "secondary", type: "button", onclick: () => on.openCodex() },
+      common.codex,
+    ),
     muteButton(on, chrome),
+    // Here as well as on the pause sheet, and this is the copy that matters more
+    // of the two: the title screen is the first screen anybody sees, and a
+    // player who has landed on the wrong language needs the way out of it before
+    // they have started a run, not from a menu inside one.
+    languagePicker(on, chrome),
     h("p", { class: "title-build" }, buildStamp()),
   )
 }
@@ -1997,11 +2109,12 @@ export function titleView(on: Handlers, chrome: Chrome, meta: MetaState): HTMLEl
  * pretending to be a statistic, and it is ambiguous about who beat whom.
  */
 function record(meta: MetaState, on: Handlers): HTMLElement | null {
+  const copy = ui().title
   if (meta.runs === 0) return null
   const parts = [
-    `${meta.runs} run${meta.runs === 1 ? "" : "s"}`,
-    ...(meta.wins > 0 ? [`${meta.wins} win${meta.wins === 1 ? "" : "s"}`] : []),
-    `best stage ${meta.bestStage}`,
+    copy.runs(meta.runs),
+    ...(meta.wins > 0 ? [copy.wins(meta.wins)] : []),
+    copy.bestStage(meta.bestStage),
   ]
   // A button rather than a line with a button beside it: the summary *is* the
   // link to the long version, so there is nothing extra on the title screen and
@@ -2024,12 +2137,19 @@ function record(meta: MetaState, on: Handlers): HTMLElement | null {
  * because the word lists are fetched and this module is built from content. It
  * arrives as zero before they land, and the denominator is dropped rather than
  * shown as "of 0".
+ *
+ * `words` is the language those answers are in, which is the run's and not
+ * necessarily the interface's — a Spanish menu can be sitting over an English
+ * run. It is the right one of the two anyway: the cracked count is read as a
+ * fraction of `pool`, and `pool` is a fact about the list that is loaded.
  */
-export function statsView(meta: MetaState, pool: number, on: Handlers): HTMLElement {
+export function statsView(meta: MetaState, pool: number, words: string, on: Handlers): HTMLElement {
+  const copy = ui().stats
   const played = roundsPlayed(meta)
   const best = favoriteWord(meta)
   const solved = wordsFound(meta)
   const mean = meanSolve(meta)
+  const cracked = crackedIn(meta, words)
 
   /** The tallest row in the chart. Never zero, so an empty chart cannot divide by it. */
   const peak = Math.max(1, meta.missed, ...meta.solves)
@@ -2062,7 +2182,7 @@ export function statsView(meta: MetaState, pool: number, on: Handlers): HTMLElem
           style: `--fill:${((count / peak) * 100).toFixed(1)}%`,
         }),
       ),
-      h("span", { class: "breakdown-share" }, `${Math.round(share * 100)}%`),
+      h("span", { class: "breakdown-share" }, ui().common.percent(Math.round(share * 100))),
       h("span", { class: "breakdown-count" }, num(count)),
     )
   }
@@ -2071,48 +2191,49 @@ export function statsView(meta: MetaState, pool: number, on: Handlers): HTMLElem
 
   return overlay(
     on,
-    h("h2", { class: "sheet-title" }, "Record"),
+    h("h2", { class: "sheet-title" }, copy.title),
     h(
       "div",
       { class: "figures" },
-      figure("runs", num(meta.runs)),
-      figure(meta.wins === 1 ? "win" : "wins", num(meta.wins)),
-      figure("best stage", num(meta.bestStage)),
-      figure("guesses", num(meta.guesses)),
+      figure(copy.runs, num(meta.runs)),
+      figure(copy.wins(meta.wins), num(meta.wins)),
+      figure(copy.bestStage, num(meta.bestStage)),
+      figure(copy.guesses, num(meta.guesses)),
       // Three across and two down rather than four across, which is what buys the
       // second row: the top one is the run record and the bottom one is the word
       // record, and a player who wants to know whether they are getting better at
       // the game reads the bottom row. An em dash rather than a zero before any
       // round has ended. 0% solved is a claim, and this player has not made it.
-      figure("solved", played > 0 ? `${Math.round((solved / played) * 100)}%` : "—"),
-      figure("avg guess", mean === null ? "—" : mean.toFixed(1)),
+      figure(
+        copy.solved,
+        played > 0 ? ui().common.percent(Math.round((solved / played) * 100)) : ui().common.none,
+      ),
+      figure(copy.meanSolve, mean === null ? ui().common.none : mean.toFixed(1)),
     ),
     h(
       "p",
       { class: "stat-line" },
-      h("strong", {}, `${num(meta.cracked.length)} word${meta.cracked.length === 1 ? "" : "s"}`),
-      // The one collection the game has, so it is worth a denominator: "273 of
-      // 2,300" is a thing to finish, and "273 words cracked" is only a number.
-      pool > 0 ? ` cracked, of ${num(pool)}` : " cracked",
+      h("strong", {}, copy.cracked(cracked)),
+      ` ${pool > 0 ? copy.crackedOf(cracked, num(pool)) : copy.crackedBare(cracked)}`,
     ),
     best
       ? h(
           "p",
           { class: "stat-line" },
-          "Most played: ",
+          `${copy.mostPlayed} `,
           h("strong", {}, best.word.toUpperCase()),
-          ` · ${num(best.count)} time${best.count === 1 ? "" : "s"}`,
+          ` · ${copy.times(best.count)}`,
         )
       : null,
     played > 0
       ? h(
           "div",
           { class: "breakdown" },
-          h("h3", { class: "stat-head" }, "How the answers go"),
+          h("h3", { class: "stat-head" }, copy.breakdown),
           ...meta.solves.flatMap((count, at) =>
-            count > 0 ? [bar(`Solved in ${at}`, count, "won")] : [],
+            count > 0 ? [bar(copy.solvedIn(at), count, "won")] : [],
           ),
-          meta.missed > 0 ? bar("Never found", meta.missed, "lost") : null,
+          meta.missed > 0 ? bar(copy.neverFound, meta.missed, "lost") : null,
           // The percentage that used to sit here is a figure now, so the foot is
           // free to say the thing a distribution structurally cannot: not how
           // often the word comes, but how long it kept coming. It is the only
@@ -2125,18 +2246,22 @@ export function statsView(meta: MetaState, pool: number, on: Handlers): HTMLElem
       ? h(
           "div",
           { class: "breakdown" },
-          h("h3", { class: "stat-head" }, "Favorite relics"),
+          h("h3", { class: "stat-head" }, copy.favoriteRelics),
           ...relics.map((entry) =>
             h(
               "p",
               { class: "stat-line" },
-              h("strong", {}, RELIC_BY_ID.get(entry.id)?.name ?? entry.id),
-              ` · taken ${num(entry.count)}×`,
+              h("strong", {}, relicCard(entry.id).name),
+              ` · ${copy.taken(entry.count)}`,
             ),
           ),
         )
       : null,
-    h("button", { class: "primary", type: "button", onclick: () => on.closeOverlay() }, "Close"),
+    h(
+      "button",
+      { class: "primary", type: "button", onclick: () => on.closeOverlay() },
+      ui().common.close,
+    ),
   )
 }
 
@@ -2149,16 +2274,15 @@ export function statsView(meta: MetaState, pool: number, on: Handlers): HTMLElem
  * best, which is the only reading that earns the field its place in the record.
  */
 export function streakLine(meta: MetaState): string {
-  if (meta.bestStreak === 0) return "No answer found yet."
+  const copy = ui().stats
+  if (meta.bestStreak === 0) return copy.noStreak
   // Level with the record and still climbing, so there is no gap to report and
   // reporting one anyway, "14 in a row, 14 now", reads as a bug rather than as
   // the best thing that has happened to this player.
-  if (meta.streak === meta.bestStreak) {
-    return `${num(meta.streak)} solved in a row, the longest yet, and still going.`
-  }
+  if (meta.streak === meta.bestStreak) return copy.streakBest(num(meta.streak))
   return meta.streak > 0
-    ? `Longest streak: ${num(meta.bestStreak)} in a row, ${num(meta.streak)} now.`
-    : `Longest streak: ${num(meta.bestStreak)} in a row.`
+    ? copy.streakWithNow(num(meta.bestStreak), num(meta.streak))
+    : copy.streak(num(meta.bestStreak))
 }
 
 /**
@@ -2197,6 +2321,7 @@ export function streakLine(meta: MetaState): string {
  * round, and written out in full in the codex.
  */
 function ladder(on: Handlers, meta: MetaState): HTMLElement {
+  const copy = ui().ladder
   const top = unlocked(meta)
   const level = chosenAscension(meta)
   const rule = ascensionAt(level)
@@ -2205,7 +2330,7 @@ function ladder(on: Handlers, meta: MetaState): HTMLElement {
   // Only ever offered for the first rung. Past that the lock on the `+` says the
   // same thing in a glyph, and the player who has read it once does not need the
   // sentence again at every rung of a ladder twelve rungs long.
-  const carrot = ahead && level === 0 ? "Beat this to unlock ascension 1" : null
+  const carrot = ahead && level === 0 ? copy.carrot : null
 
   const step = (label: string, to: number, live: boolean) =>
     h(
@@ -2214,7 +2339,7 @@ function ladder(on: Handlers, meta: MetaState): HTMLElement {
         class: "ladder-step",
         type: "button",
         disabled: !live,
-        "aria-label": label === "−" ? "Lower the ascension" : "Raise the ascension",
+        "aria-label": label === "−" ? copy.lower : copy.raise,
         onclick: () => on.setAscension(to),
       },
       label,
@@ -2235,14 +2360,14 @@ function ladder(on: Handlers, meta: MetaState): HTMLElement {
           { class: "ladder-name" },
           // The lock rides the name rather than sitting in the note alone, so
           // the state is legible from the one line the eye lands on first.
-          locked && h("span", { class: "ladder-lock", "aria-label": "Locked" }, "🔒"),
-          `Ascension ${level}`,
+          locked && h("span", { class: "ladder-lock", "aria-label": copy.locked }, "🔒"),
+          ui().common.ascension(level),
         ),
         // The second line of the dial is "what this rung is", and at zero there
         // is no rule to be, so the slot stays empty. Zero's carrot used to sit
         // here instead, which put the one line the box is trying to say in a
         // different place than every other rung says it.
-        rule && h("span", { class: "ladder-rule" }, rule.name),
+        rule && h("span", { class: "ladder-rule" }, ascensionCard(rule).name),
       ),
       ahead
         ? h(
@@ -2250,7 +2375,7 @@ function ladder(on: Handlers, meta: MetaState): HTMLElement {
             {
               class: "ladder-step shut",
               type: "button",
-              "aria-label": `Skip to ascension ${level + 1}`,
+              "aria-label": copy.skipTo(level + 1),
               onclick: () => on.askAscend(level + 1),
             },
             "🔒",
@@ -2260,11 +2385,7 @@ function ladder(on: Handlers, meta: MetaState): HTMLElement {
     h(
       "p",
       { class: "ladder-text" },
-      rule
-        ? // Every level plays the rules below it as well, and saying so once here
-          // is what stops the stepper reading as a menu of separate modes.
-          `${rule.text}${level > 1 ? " Every rule below it, too." : ""}`
-        : "The game as it is written, with nothing extra asked of you.",
+      rule ? `${ascensionCard(rule).text}${level > 1 ? ` ${copy.andBelow}` : ""}` : copy.noRule,
     ),
     // One line under the description, and only ever the forward-looking one:
     // what beating this rung would open. Under the description rather than in the
@@ -2322,10 +2443,11 @@ function ladder(on: Handlers, meta: MetaState): HTMLElement {
  * once per rung on the way to ascension 40.
  */
 export function ascendView(level: number, on: Handlers): HTMLElement {
+  const copy = ui().ladder
   const rule = ascensionAt(level)
   return overlay(
     on,
-    h("h2", { class: "sheet-title" }, `Skip to ascension ${level}?`),
+    h("h2", { class: "sheet-title" }, copy.askTitle(level)),
     h(
       "div",
       { class: "sheet-body" },
@@ -2333,12 +2455,12 @@ export function ascendView(level: number, on: Handlers): HTMLElement {
         ? h(
             "p",
             { class: "sheet-lead" },
-            h("strong", {}, `${rule.name}: `),
-            rule.text,
-            level > 1 ? " Plus every rule below it." : "",
+            h("strong", {}, `${copy.ruleLabel(ascensionCard(rule).name)} `),
+            ascensionCard(rule).text,
+            level > 1 ? ` ${copy.askAndBelow}` : "",
           )
         : null,
-      h("p", {}, "Winning at the level below is the intended way up."),
+      h("p", {}, copy.intended),
     ),
     h(
       "div",
@@ -2346,9 +2468,13 @@ export function ascendView(level: number, on: Handlers): HTMLElement {
       h(
         "button",
         { class: "danger", type: "button", onclick: () => on.ascend() },
-        `Skip to ${level} anyway`,
+        copy.skipAnyway(level),
       ),
-      h("button", { class: "primary", type: "button", onclick: () => on.closeOverlay() }, "Back"),
+      h(
+        "button",
+        { class: "primary", type: "button", onclick: () => on.closeOverlay() },
+        ui().common.back,
+      ),
     ),
   )
 }
@@ -2404,108 +2530,58 @@ function overlay(on: Handlers, ...body: (HTMLElement | string | false | null)[])
   )
 }
 
-const rule = (term: string, text: string) =>
-  h("div", { class: "rule" }, h("strong", {}, term), h("span", {}, text))
+/**
+ * One titled paragraph: the term in bold, then the sentence.
+ *
+ * The space between the two is emitted here rather than carried at the head of
+ * every catalog entry, which is where it used to live. A leading space is
+ * invisible in the source, and asking four translators to re-type one correctly
+ * fourteen times is a diff nobody can review.
+ */
+const rule = ({ term, text }: Rule) =>
+  h("div", { class: "rule" }, h("strong", {}, term), h("span", {}, ` ${text}`))
+
+/** The same, for the paragraphs that quote a number the content files own. */
+const ruleOf = <A extends unknown[]>({ term, text }: RuleOf<A>, ...args: A) =>
+  rule({ term, text: text(...args) })
 
 export function helpView(on: Handlers): HTMLElement {
+  const copy = ui().help
   return overlay(
     on,
-    h("h2", { class: "sheet-title" }, "How to play"),
+    h("h2", { class: "sheet-title" }, copy.title),
     h(
       "div",
       { class: "sheet-body" },
-      h(
-        "p",
-        {},
-        "Guess the word, the way you already know how: green is the right letter in " +
-          "the right place, yellow is the right letter somewhere else.",
+      h("p", {}, copy.lead),
+      h("p", { class: "sheet-lead" }, copy.scored),
+      rule(copy.chipsMult),
+      rule(copy.letters),
+      rule(copy.colors),
+      rule(copy.solving),
+      h("p", { class: "sheet-lead" }, copy.farming),
+      rule(copy.solveLine),
+      h("h3", { class: "sheet-heading" }, copy.runHeading),
+      ruleOf(copy.target, STAGES, ROUNDS_PER_STAGE),
+      ruleOf(copy.endless, STAGES),
+      rule(copy.bosses),
+      ruleOf(copy.ascensions, AUTHORED_ASCENSIONS),
+      // Every figure arrives already spelled as money, so the sentence never has
+      // to know where the `$` goes in the language it is being read in.
+      ruleOf(
+        copy.money,
+        ROUND_PAYOUT.map(money).join(" / "),
+        money(GOLD_PER_UNUSED_GUESS),
+        money(INTEREST_PER),
+        money(INTEREST_CAP),
       ),
-      h("p", { class: "sheet-lead" }, "The difference is that every guess is scored."),
-      rule("Chips × Mult", " Each guess is worth its chips multiplied by its mult."),
-      rule(
-        "Letters pay chips",
-        ` Rare letters pay more. The shop sells two ways to raise them: etchings, which
-         add to a kind of letter, and levels on a slice of the alphabet. Every letter
-         sits in exactly one slice, and the two stack.`,
-      ),
-      rule(
-        "Colors pay mult",
-        ` Green is worth +3 mult, yellow +1, gray nothing. A guess full of gray is
-         worth almost nothing, so a throwaway probe costs you real score.`,
-      ),
-      rule(
-        "Solving multiplies the round",
-        ` Land the word and your whole banked pile for the round, not just the guess
-         that solved it, is multiplied by 1 + the guesses you had left. Then the
-         round ends immediately, target met or not.`,
-      ),
-      h(
-        "p",
-        { class: "sheet-lead" },
-        "That is the game: every guess you spend farming grows the pile, and " +
-          "shrinks the multiplier waiting for it.",
-      ),
-      rule(
-        "So watch the solve line",
-        ` Under the board it shows the multiplier a solve would earn right now, and
-         what the pile is already worth at it. When it turns green, solving wins
-         the round.`,
-      ),
-      h("h3", { class: "sheet-heading" }, "The run"),
-      rule(
-        "Beat the target",
-        ` ${STAGES} stages of ${ROUNDS_PER_STAGE} rounds. Fall short of a round's target
-         and the run is over. That is the only way to lose.`,
-      ),
-      rule(
-        "Then keep going, if you dare",
-        ` Clearing stage ${STAGES} wins the run, and you can bank it there or play on into
-         stages nobody balanced. The targets keep growing at the same rate, and dying out
-         there does not take the win back.`,
-      ),
-      rule("Bosses", " Every third round bends a rule. Read it before you play."),
-      rule(
-        "Ascensions",
-        ` The difficulty dial on the title screen, and the number worth comparing. The
-         first ${AUTHORED_ASCENSIONS} levels each add one standing rule: to what you may
-         guess, what a round pays, how high the targets are, how many relics you may keep,
-         how many guesses you get. Above that the ladder does not end: every further level raises
-         every target again. Winning at one earns the next, and climbing a rung at a time
-         is the intended way up, not a lock.`,
-      ),
-      rule(
-        "Money",
-        ` Rounds pay $${ROUND_PAYOUT.join(" / $")}, plus $${GOLD_PER_UNUSED_GUESS} per
-         unused guess, plus $1 interest per $${INTEREST_PER} you are holding, up to
-         $${INTEREST_CAP}. Sitting on cash is a strategy.`,
-      ),
-      rule(
-        "Relics",
-        ` Up to ${RELIC_SLOTS}, and they fire left to right, so the order you buy them
-         in matters. Tap one to read it.`,
-      ),
-      rule(
-        "Packs",
-        ` One slot sells a choice rather than a card. A pack lays three out and you
-         keep one, free. The rest of the shop waits until you have picked or
-         walked away, and walking away keeps nothing.`,
-      ),
-      rule(
-        "Letter mods",
-        ` The shop sells modifiers and you choose which letter each one sticks to for
-         the rest of the run. Every time you play that letter, it does this. A
-         ×mult letter multiplies what the word has scored up to where it sits, so it
-         is worth more late in a word than early. Packs deal them cheaper, with the
-         letter already chosen for you.`,
-      ),
+      ruleOf(copy.relics, RELIC_SLOTS),
+      rule(copy.packs),
+      rule(copy.mods),
       // The list of what each one does lives in the codex rather than here. Two
       // screens restating the same table is how the two of them drift apart, and
       // this one is meant to be read once.
-      h(
-        "p",
-        { class: "sheet-lead" },
-        "The codex has every relic, boss, word shape and modifier in the game, listed in full.",
-      ),
+      h("p", { class: "sheet-lead" }, copy.codexNote),
     ),
     h(
       "div",
@@ -2513,10 +2589,10 @@ export function helpView(on: Handlers): HTMLElement {
       h(
         "button",
         { class: "secondary", type: "button", onclick: () => on.openCodex() },
-        "Open the codex",
+        copy.openCodex,
       ),
     ),
-    h("button", { class: "primary", type: "button", onclick: () => on.closeOverlay() }, "Got it"),
+    h("button", { class: "primary", type: "button", onclick: () => on.closeOverlay() }, copy.gotIt),
   )
 }
 
@@ -2546,7 +2622,7 @@ function entry(name: string, text: string, note?: string): HTMLElement {
  * is seven rows and a count, and the count is worth reading on its own: it is
  * the size of the game, stated.
  */
-function section(title: string, count: number, blurb: string, ...rows: HTMLElement[]): HTMLElement {
+function section({ title, blurb }: Section, count: number, ...rows: HTMLElement[]): HTMLElement {
   return h(
     "details",
     { class: "codex-section" },
@@ -2561,13 +2637,15 @@ function section(title: string, count: number, blurb: string, ...rows: HTMLEleme
   )
 }
 
-const RARITIES: readonly Rarity[] = ["common", "uncommon", "rare", "legendary"]
+/** The same, for the two sections whose blurb quotes a slot count. */
+const sectionOf = <A extends unknown[]>(
+  { title, blurb }: SectionOf<A>,
+  count: number,
+  args: A,
+  ...rows: HTMLElement[]
+) => section({ title, blurb: blurb(...args) }, count, ...rows)
 
-const TIER_NAMES: Record<BossTier, string> = {
-  early: "Early",
-  mid: "Mid",
-  late: "Late",
-}
+const RARITIES: readonly Rarity[] = ["common", "uncommon", "rare", "legendary"]
 
 /**
  * The catalog. Every section maps over the table it describes rather than
@@ -2599,28 +2677,24 @@ const TIER_NAMES: Record<BossTier, string> = {
  * be told it: it is the order of the rows.
  */
 export function shapesView(state: RunState, on: Handlers, word: string): HTMLElement {
+  const copy = ui().shapes
   const scoring = word ? categoryOf(word) : null
 
   return overlay(
     on,
-    h("h2", { class: "sheet-title" }, "Word shapes"),
+    h("h2", { class: "sheet-title" }, copy.title),
     h(
       "p",
       { class: "sheet-lead" },
-      scoring ? `${word.toUpperCase()} scores as ${scoring.name}` : "Every guess has a shape.",
+      scoring ? copy.scoresAs(word, categoryCard(scoring.id).name) : copy.anyWord,
     ),
-    h(
-      "p",
-      { class: "shapes-note" },
-      "A guess scores as the rarest shape it matches, which is the first of these it " +
-        "matches. Leveling a shape raises every future guess of that shape. Level 1 " +
-        "pays nothing, so a level is what makes a shape worth aiming at.",
-    ),
+    h("p", { class: "shapes-note" }, copy.note),
     h(
       "div",
       { class: "shapes" },
       ...CATEGORIES.map((category) => {
         const bonus = levelBonus(state, category)
+        const card = categoryCard(category.id)
         const scores = scoring?.id === category.id
         const matched = !scores && word !== "" && category.matches(word)
         return h(
@@ -2629,40 +2703,44 @@ export function shapesView(state: RunState, on: Handlers, word: string): HTMLEle
           h(
             "div",
             { class: "shape-head" },
-            h("strong", {}, category.name),
-            scores ? h("span", { class: "shape-tag" }, "scoring") : null,
-            matched ? h("span", { class: "shape-tag also" }, "also matches") : null,
-            h("span", { class: "shape-level" }, `Lv ${bonus.level}`),
+            h("strong", {}, card.name),
+            scores ? h("span", { class: "shape-tag" }, copy.scoring) : null,
+            matched ? h("span", { class: "shape-tag also" }, copy.alsoMatches) : null,
+            h("span", { class: "shape-level" }, ui().board.shapeLevel(bonus.level)),
           ),
-          h("span", { class: "shape-text" }, category.text),
+          h("span", { class: "shape-text" }, card.text),
           h(
             "span",
             { class: "shape-pay" },
             bonus.chips > 0
-              ? `now +${bonus.chips} chips, +${bonus.mult} mult`
-              : `+${category.chips} chips, +${category.mult} mult per level`,
+              ? copy.payNow(bonus.chips, bonus.mult)
+              : copy.payPerLevel(category.chips, category.mult),
           ),
         )
       }),
     ),
-    h("button", { class: "primary", type: "button", onclick: () => on.closeOverlay() }, "Close"),
+    h(
+      "button",
+      { class: "primary", type: "button", onclick: () => on.closeOverlay() },
+      ui().common.close,
+    ),
   )
 }
 
 export function codexView(on: Handlers): HTMLElement {
+  const copy = ui().codex
   return overlay(
     on,
-    h("h2", { class: "sheet-title" }, "Codex"),
+    h("h2", { class: "sheet-title" }, copy.title),
     h(
       "div",
       { class: "sheet-body" },
-      h("p", { class: "sheet-lead" }, "Everything in the game, whether you have met it or not."),
+      h("p", { class: "sheet-lead" }, copy.lead),
 
-      section(
-        "Relics",
+      sectionOf(
+        copy.relics,
         RELICS.length,
-        `Up to ${RELIC_SLOTS} at once, firing left to right, so the order you buy them
-         in is part of the build.`,
+        [RELIC_SLOTS],
         // The rarity class goes on the wrapper rather than the header, so the
         // band's color reaches the cards under it the same way it reaches a
         // relic in the tray.
@@ -2673,18 +2751,19 @@ export function codexView(on: Handlers): HTMLElement {
             h(
               "div",
               { class: `codex-band rarity-${rarity}` },
-              h("div", { class: "codex-group" }, rarity),
-              ...relics.map((relic) => entry(relic.name, relic.text, money(relic.cost))),
+              h("div", { class: "codex-group" }, copy.rarity[rarity]),
+              ...relics.map((relic) => {
+                const card = relicCard(relic.id)
+                return entry(card.name, card.text, money(relic.cost))
+              }),
             ),
           ]
         }),
       ),
 
       section(
-        "Bosses",
+        copy.bosses,
         BOSSES.length,
-        `Every third round. Each band is drawn without replacement, so a run never
-         meets the same boss twice.`,
         ...BOSS_TIERS.map((tier) =>
           h(
             "div",
@@ -2692,105 +2771,103 @@ export function codexView(on: Handlers): HTMLElement {
             h(
               "div",
               { class: "codex-group" },
-              `${TIER_NAMES[tier]} · stages ${TIER_STAGES[tier].first}–${TIER_STAGES[tier].last}`,
+              copy.tierBand(copy.tier[tier], TIER_STAGES[tier].first, TIER_STAGES[tier].last),
             ),
-            ...bossesIn(tier).map((boss) => entry(boss.name, boss.text)),
+            ...bossesIn(tier).map((boss) => entry(bossCard(boss.id).name, bossCard(boss.id).text)),
           ),
         ),
       ),
 
       section(
-        "Ascensions",
+        copy.ascensions,
         ASCENSIONS.length,
-        `The run's own difficulty, chosen before it starts and fixed for the whole of it.
-         A run at a level plays every rule up to it, and winning at one unlocks the next.
-         These are the written ones; past the last of them each level simply raises every
-         target by another 8%, and there is no last level.`,
-        ...ASCENSIONS.map((rule) => entry(rule.name, rule.text, `Ascension ${rule.level}`)),
+        ...ASCENSIONS.map((rule) => {
+          const card = ascensionCard(rule)
+          return entry(card.name, card.text, ui().common.ascension(rule.level))
+        }),
       ),
 
       section(
-        "Word shapes",
+        copy.shapes,
         CATEGORIES.length,
-        `Every guess scores as exactly one shape: the rarest one it matches, which is
-         the first in this list. Leveling a shape raises every future guess of it.`,
-        ...CATEGORIES.map((category) =>
-          entry(category.name, category.text, `+${category.chips} / +${category.mult} per level`),
-        ),
+        ...CATEGORIES.map((category) => {
+          const card = categoryCard(category.id)
+          return entry(card.name, card.text, copy.shapePer(category.chips, category.mult))
+        }),
       ),
 
       section(
-        "Letter modifiers",
+        copy.mods,
         MODIFIERS.length,
-        `Stuck to a single letter for the rest of the run. One at a time per letter,
-         and the keyboard wears the mark. A ×mult letter multiplies what the word has
-         scored up to where it sits, so it is worth more late in a word than early.
-         The shop price buys the card and lets you pick the letter; a pack deals it
-         for the price beside it, letter already chosen.`,
-        ...MODIFIERS.map((mod) =>
-          entry(
-            `${mod.name} ${mod.pip}`,
-            `The letter ${mod.text}.${
-              mod.letters ? ` Only on ${[...mod.letters].join(" ").toUpperCase()}.` : ""
-            }`,
+        ...MODIFIERS.map((mod) => {
+          const card = modifierCard(mod.id)
+          return entry(
+            copy.modName(card.name, mod.pip),
+            mod.letters
+              ? copy.modTextOnly(card.text, [...mod.letters].join(" ").toUpperCase())
+              : copy.modText(card.text),
             `${money(mod.choiceCost)} / ${money(mod.cost)}`,
-          ),
-        ),
+          )
+        }),
       ),
 
       section(
-        "Letter upgrades",
+        copy.upgrades,
         ETCHINGS.length + RANGES.length,
-        `Two lines that both add chips to letters, and stack: etchings raise a kind of
-         letter, ranges raise a slice of the alphabet. Every letter sits in exactly one
-         slice.`,
-        ...ETCHINGS.map((etching) => entry(etching.name, etching.text, money(etching.cost))),
+        ...ETCHINGS.map((etching) => {
+          const card = etchingCard(etching)
+          return entry(card.name, card.text, money(etching.cost))
+        }),
         ...RANGES.map((range) => entry(range.name, rangeText(range))),
       ),
 
-      section(
-        // One word for this line everywhere it is named, on the shelf's ticket,
-        // the shop's tray count and this heading, because a player who bought
-        // a Consumable and then reads a codex full of Cards has to work out
-        // that they are the same line before they can look anything up.
-        "Consumables",
+      sectionOf(
+        copy.consumables,
         CONSUMABLES.length,
-        `Used once, whenever you like. You can hold ${CONSUMABLE_SLOTS}.`,
-        ...CONSUMABLES.map((card) => entry(card.name, card.text, money(card.cost))),
+        [CONSUMABLE_SLOTS],
+        ...CONSUMABLES.map((consumable) => {
+          const card = consumableCard(consumable.id)
+          return entry(card.name, card.text, money(consumable.cost))
+        }),
       ),
 
       section(
-        "Packs",
+        copy.packs,
         PACKS.length,
-        `Sold in a slot of their own. A pack lays its cards out and you keep one, free.
-         The shop waits until you have chosen or walked away.`,
         // "Choose one of three" already says how many you keep, so the count is
         // only worth printing on a pack that keeps more than one, which none
         // do yet, and which is exactly why it is derived rather than assumed.
-        ...PACKS.map((pack) =>
-          entry(
-            pack.name,
-            pack.picks > 1 ? `${pack.text}, and keep ${pack.picks}.` : `${pack.text}.`,
+        ...PACKS.map((pack) => {
+          const card = packCard(pack.id)
+          return entry(
+            card.name,
+            pack.picks > 1 ? copy.packTextPicks(card.text, pack.picks) : copy.packText(card.text),
             money(pack.cost),
-          ),
-        ),
+          )
+        }),
       ),
     ),
-    h("button", { class: "primary", type: "button", onclick: () => on.closeOverlay() }, "Close"),
+    h(
+      "button",
+      { class: "primary", type: "button", onclick: () => on.closeOverlay() },
+      ui().common.close,
+    ),
   )
 }
 
 export function menuView(on: Handlers, chrome: Chrome): HTMLElement {
+  const copy = ui().pause
+  const common = ui().common
   return overlay(
     on,
-    h("h2", { class: "sheet-title" }, "Paused"),
+    h("h2", { class: "sheet-title" }, copy.title),
     h(
       "div",
       { class: "sheet-actions" },
       h(
         "button",
         { class: "secondary", type: "button", onclick: () => on.mute() },
-        chrome.muted ? "Sound off" : "Sound on",
+        chrome.muted ? common.soundOff : common.soundOn,
       ),
       // Music gets its own switch rather than riding on the sound one: it plays
       // continuously, so it is the thing a player is most likely to want gone
@@ -2806,7 +2883,7 @@ export function menuView(on: Handlers, chrome: Chrome): HTMLElement {
           disabled: chrome.muted,
           onclick: () => on.toggleMusic(),
         },
-        chrome.muted || chrome.musicOff ? "Music off" : "Music on",
+        chrome.muted || chrome.musicOff ? copy.musicOff : copy.musicOn,
       ),
       // How fast the game plays what it has to say, and unlike the letter values
       // below it, this one belongs on the sheet. The argument that moved the
@@ -2823,8 +2900,9 @@ export function menuView(on: Handlers, chrome: Chrome): HTMLElement {
       h(
         "button",
         { class: "secondary", type: "button", onclick: () => on.cycleSpeed() },
-        `Animation speed ×${chrome.speed}`,
+        copy.speed(chrome.speed),
       ),
+      languagePicker(on, chrome),
       // Letter values are not here. The board is dense by design, with a value on
       // every key and a pip on every modifier, and that density is the scoring
       // game asking to be played; some of the time the player is doing the other
@@ -2840,12 +2918,20 @@ export function menuView(on: Handlers, chrome: Chrome): HTMLElement {
       h(
         "button",
         { class: "secondary", type: "button", onclick: () => on.openHelp() },
-        "How to play",
+        common.howToPlay,
       ),
-      h("button", { class: "secondary", type: "button", onclick: () => on.openCodex() }, "Codex"),
-      h("button", { class: "danger", type: "button", onclick: () => on.askQuit() }, "Quit run"),
+      h(
+        "button",
+        { class: "secondary", type: "button", onclick: () => on.openCodex() },
+        common.codex,
+      ),
+      h("button", { class: "danger", type: "button", onclick: () => on.askQuit() }, copy.quit),
     ),
-    h("button", { class: "primary", type: "button", onclick: () => on.closeOverlay() }, "Resume"),
+    h(
+      "button",
+      { class: "primary", type: "button", onclick: () => on.closeOverlay() },
+      copy.resume,
+    ),
   )
 }
 
@@ -2855,29 +2941,28 @@ export function menuView(on: Handlers, chrome: Chrome): HTMLElement {
  * what is lost rather than as a yes/no.
  */
 export function quitView(state: RunState, on: Handlers): HTMLElement {
+  const copy = ui().quit
+  const round = roundName(state.roundIndex)
   return overlay(
     on,
-    h("h2", { class: "sheet-title" }, "Quit this run?"),
+    h("h2", { class: "sheet-title" }, copy.title),
     h(
       "div",
       { class: "sheet-body" },
+      // Two whole sentences in the catalog rather than one with "of N" spliced
+      // in, because a run past the last stage has no denominator and the clause
+      // a language wants that number in is not always the one English puts it in.
       h(
         "p",
         {},
-        `You are on stage ${state.stage}${state.won ? "" : ` of ${STAGES}`}, ${
-          ROUND_NAMES[state.roundIndex] ?? "a round"
-        }. Quitting deletes it. There is no way back to this run.`,
+        state.won ? copy.bodyEndless(state.stage, round) : copy.body(state.stage, STAGES, round),
       ),
     ),
     h(
       "div",
       { class: "sheet-actions" },
-      h("button", { class: "danger", type: "button", onclick: () => on.quit() }, "Quit run"),
-      h(
-        "button",
-        { class: "primary", type: "button", onclick: () => on.openMenu() },
-        "Keep playing",
-      ),
+      h("button", { class: "danger", type: "button", onclick: () => on.quit() }, copy.confirm),
+      h("button", { class: "primary", type: "button", onclick: () => on.openMenu() }, copy.cancel),
     ),
   )
 }

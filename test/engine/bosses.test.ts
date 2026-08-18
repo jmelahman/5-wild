@@ -57,11 +57,19 @@ describe("boss rounds", () => {
    * player and a gray that means two different things at once.
    */
   it("The Silence counts what it hid", () => {
+    // The count and not the sentence: the boss stopped authoring prose when the
+    // catalog took it over, and what is asserted here is the rule's output.
     // DAIRY against BRAID: four of its letters are in the word, misplaced.
-    expect(apply(underBoss("silence"), type("dairy")).round.guesses[0]?.note).toBe("4 misplaced")
+    expect(apply(underBoss("silence"), type("dairy")).round.guesses[0]?.note).toEqual({
+      code: "misplaced",
+      count: 4,
+    })
     // GHOST shares nothing with BRAID, and being told so is worth more than any
     // of the five grays that carry the same claim ambiguously.
-    expect(apply(underBoss("silence"), type("ghost")).round.guesses[0]?.note).toBe("none misplaced")
+    expect(apply(underBoss("silence"), type("ghost")).round.guesses[0]?.note).toEqual({
+      code: "misplaced",
+      count: 0,
+    })
   })
 
   it("counts misplaced letters only, never the ones it left green", () => {
@@ -69,7 +77,7 @@ describe("boss rounds", () => {
     // so the count must not quietly include the two the board already shows.
     const guess = apply(underBoss("silence"), type("crane")).round.guesses[0]
     expect(guess?.tiles.filter((tile) => tile.shown === "green")).toHaveLength(2)
-    expect(guess?.note).toBe("none misplaced")
+    expect(guess?.note).toEqual({ code: "misplaced", count: 0 })
   })
 
   it("leaves no note on a guess no boss had anything to say about", () => {
@@ -96,7 +104,9 @@ describe("boss rounds", () => {
       { type: "submit" },
       words,
     )
-    expect(events).toEqual([{ type: "rejected", reason: "must keep R in position 2" }])
+    expect(events).toEqual([
+      { type: "rejected", refusal: { code: "must_keep", letter: "r", position: 2 } },
+    ])
   })
 
   it("The Miser pays nothing for a letter you have already spent", () => {
@@ -120,7 +130,7 @@ describe("boss rounds", () => {
       [..."ghost"].map((letter): Action => ({ type: "type_letter", letter })),
     )
     expect(reduce(typed, { type: "submit" }, words).events).toEqual([
-      { type: "rejected", reason: "needs at least two vowels" },
+      { type: "rejected", refusal: { code: "needs_two_vowels" } },
     ])
     // GUILD has U and I, so it passes.
     expect(apply(state, type("guild")).round.guesses).toHaveLength(1)
@@ -145,7 +155,7 @@ describe("boss rounds", () => {
     const state = underBoss("purist")
     const typed = apply(state, type("jazzy").slice(0, -1))
     expect(reduce(typed, { type: "submit" }, words).events).toEqual([
-      { type: "rejected", reason: "no repeated letters" },
+      { type: "rejected", refusal: { code: "no_repeated_letters" } },
     ])
     expect(apply(state, type("braid")).round.guesses).toHaveLength(1)
   })

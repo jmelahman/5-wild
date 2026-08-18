@@ -34,7 +34,9 @@ import type {
   Action,
   GameEvent,
   LetterState,
+  PickedItem,
   Reduced,
+  Refusal,
   RoundIndex,
   RoundState,
   RunState,
@@ -264,21 +266,21 @@ function resolveRound(state: RunState, events: GameEvent[]): void {
  * *does* is the same whether it was paid for in the stock or chosen out of a
  * pack, and only the caller knows which of those happened.
  */
-function applyItem(state: RunState, item: ShopItem): string | null {
+function applyItem(state: RunState, item: ShopItem): Refusal | null {
   switch (item.kind) {
     case "relic": {
-      if (state.relics.length >= difficultyOf(state).relicSlots) return "no relic slots free"
+      if (state.relics.length >= difficultyOf(state).relicSlots) return { code: "no_relic_slots" }
       state.relics.push({ id: item.id })
       return null
     }
     case "consumable": {
-      if (state.consumables.length >= CONSUMABLE_SLOTS) return "no card slots free"
+      if (state.consumables.length >= CONSUMABLE_SLOTS) return { code: "no_card_slots" }
       state.consumables.push({ id: item.id })
       return null
     }
     case "etch": {
       const etching = ETCHING_BY_ID.get(item.id)
-      if (!etching) return "unknown etching"
+      if (!etching) return { code: "unknown_etching" }
       // Broken letters are skipped rather than etched: they cannot be typed
       // again, so the chips would be unspendable and the keyboard would wear a
       // "+2" pip on a dead key.
@@ -290,7 +292,7 @@ function applyItem(state: RunState, item: ShopItem): string | null {
     }
     case "level": {
       const category = CATEGORY_BY_ID.get(item.id)
-      if (!category) return "unknown category"
+      if (!category) return { code: "unknown_category" }
       // Written on first purchase rather than initialized at run start, so a run
       // that never levels anything keeps `levels` out of its save.
       state.levels = { ...state.levels, [category.id]: levelOf(state, category.id) + 1 }
@@ -298,7 +300,7 @@ function applyItem(state: RunState, item: ShopItem): string | null {
     }
     case "range": {
       const range = RANGE_BY_ID.get(item.id)
-      if (!range) return "unknown range"
+      if (!range) return { code: "unknown_range" }
       // Stored on the run rather than pushed out into `letters`, unlike an
       // etching: a range level has to keep applying to a letter that is broken
       // and later restored, and writing it per letter would lose that. It
@@ -311,9 +313,9 @@ function applyItem(state: RunState, item: ShopItem): string | null {
       // instead, and packs only ever deal pairings. Refused rather than
       // asserted, because a save from a build where that stops being true would
       // otherwise put a modifier on the letter `undefined`.
-      if (item.letter === undefined) return "that one needs a letter first"
+      if (item.letter === undefined) return { code: "mod_needs_letter" }
       const entry = state.letters[item.letter]
-      if (!entry) return "unknown letter"
+      if (!entry) return { code: "unknown_letter" }
       // A letter holds one modifier, so this replaces rather than stacks, and the
       // card says so before the gold is spent.
       entry.mod = item.id
@@ -323,31 +325,25 @@ function applyItem(state: RunState, item: ShopItem): string | null {
       // Packs open rather than apply, which the caller has to handle because it
       // needs a stream to roll the contents from. Reaching here means one was
       // nested inside another, which nothing produces.
-      return "a pack cannot come out of a pack"
+      return { code: "nested_pack" }
   }
 }
 
-/** What the event log calls an item, for the one line that announces a pick. */
-function itemLabel(item: ShopItem): string {
-  switch (item.kind) {
-    case "relic":
-      return RELIC_BY_ID.get(item.id)?.name ?? item.id
-    case "consumable":
-      return CONSUMABLE_BY_ID.get(item.id)?.name ?? item.id
-    case "etch":
-      return ETCHING_BY_ID.get(item.id)?.name ?? item.id
-    case "level":
-      return CATEGORY_BY_ID.get(item.id)?.name ?? item.id
-    case "range":
-      return RANGE_BY_ID.get(item.id)?.name ?? item.id
-    case "mod": {
-      const name = MODIFIER_BY_ID.get(item.id)?.name ?? item.id
-      return item.letter ? `${name} ${item.letter.toUpperCase()}` : name
-    }
-    case "pack":
-      return PACK_BY_ID.get(item.id)?.name ?? item.id
-  }
-}
+/**
+ * Enough of a shop item to name it on screen, for the one line that announces
+ * a pick.
+ *
+ * This was a `switch` over seven tables that read `.name` off each and pasted
+ * the letter onto the modifier case. All of that was the catalog's job wearing
+ * the engine's clothes: the tables no longer carry names, and the letter needs
+ * a space on one side in English and a preposition in French. What is left is
+ * the two coordinates the lookup actually needs, which is what the `switch` was
+ * really computing.
+ */
+const picked = (item: ShopItem): PickedItem =>
+  item.kind === "mod" && item.letter
+    ? { kind: item.kind, id: item.id, letter: item.letter }
+    : { kind: item.kind, id: item.id }
 
 const PLACEHOLDER_ROUND: RoundState = {
   answer: "",
@@ -399,7 +395,7 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
   const next = clone(state)
 
   /** Refusals leave the original state untouched; the UI just flashes a reason. */
-  const reject = (reason: string): Reduced => ({ state, events: [{ type: "rejected", reason }] })
+  const reject = (refusal: Refusal): Reduced => ({ state, events: [{ type: "rejected", refusal }] })
 
   switch (action.type) {
     case "start_run":
@@ -407,29 +403,30 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
 
     case "type_letter": {
       const round = next.round
-      if (next.phase !== "round" || round.done) return reject("not your turn")
+      if (next.phase !== "round" || round.done) return reject({ code: "not_your_turn" })
       const letter = action.letter.toLowerCase()
-      if (letter.length !== 1 || !ALPHABET.includes(letter)) return reject("not a letter")
-      if (next.letters[letter]?.destroyed) return reject(`${letter.toUpperCase()} is broken`)
-      if (round.draft.length >= round.answer.length) return reject("no room")
+      if (letter.length !== 1 || !ALPHABET.includes(letter)) return reject({ code: "not_a_letter" })
+      if (next.letters[letter]?.destroyed) return reject({ code: "letter_broken", letter })
+      if (round.draft.length >= round.answer.length) return reject({ code: "no_room" })
       round.draft += letter
       return { state: next, events }
     }
 
     case "backspace": {
       const round = next.round
-      if (next.phase !== "round" || round.done) return reject("not your turn")
+      if (next.phase !== "round" || round.done) return reject({ code: "not_your_turn" })
       round.draft = round.draft.slice(0, -1)
       return { state: next, events }
     }
 
     case "submit": {
       const round = next.round
-      if (next.phase !== "round" || round.done) return reject("not your turn")
+      if (next.phase !== "round" || round.done) return reject({ code: "not_your_turn" })
 
       const word = round.draft
-      if (word.length !== round.answer.length) return reject(`${round.answer.length} letters`)
-      if (!words.allowed.has(word)) return reject("not in word list")
+      if (word.length !== round.answer.length)
+        return reject({ code: "wrong_length", length: round.answer.length })
+      if (!words.allowed.has(word)) return reject({ code: "not_in_word_list" })
 
       // Every rule in force, boss and ascension alike, in one stable order.
       const refusal = validateGuess(word, next)
@@ -514,9 +511,9 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
         // Growth earned while scoring gets the same announcement as growth
         // earned at a round's end. Only slots that actually wrote turn up here,
         // so this never fires for a card that merely read its own counter, and
-        // the label is whatever the card wears, so floater and relic agree.
-        const label = RELIC_BY_ID.get(instance.id)?.detail?.(instance)
-        if (label) events.push({ type: "relic_grew", slot, id: instance.id, label })
+        // the figure is the one the card wears, so floater and relic agree.
+        const growth = RELIC_BY_ID.get(instance.id)?.growth?.(instance)
+        if (growth) events.push({ type: "relic_grew", slot, id: instance.id, ...growth })
       }
 
       if (result.gold > 0) {
@@ -544,11 +541,11 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
     }
 
     case "use_consumable": {
-      if (next.phase !== "round") return reject("only during a round")
+      if (next.phase !== "round") return reject({ code: "only_during_round" })
       const instance = next.consumables[action.index]
-      if (!instance) return reject("no such card")
+      if (!instance) return reject({ code: "no_such_card" })
       const card = CONSUMABLE_BY_ID.get(instance.id)
-      if (!card) return reject("unknown card")
+      if (!card) return reject({ code: "unknown_card" })
 
       const rng = derive(
         next.seed,
@@ -566,7 +563,7 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
     }
 
     case "collect": {
-      if (next.phase !== "reward" || !next.reward) return reject("nothing to collect")
+      if (next.phase !== "reward" || !next.reward) return reject({ code: "nothing_to_collect" })
       next.gold += next.reward.total
       events.push({ type: "gold", delta: next.reward.total, reason: "round cleared" })
 
@@ -585,7 +582,7 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
     }
 
     case "continue_run": {
-      if (next.phase !== "victory") return reject("the run is not won")
+      if (next.phase !== "victory") return reject({ code: "run_not_won" })
       // Picks up exactly where `collect` stopped. The win was offered *instead*
       // of the shop, so continuing is that shop, rolled now rather than then,
       // which is why a player who banks the win never fires a shop hook for a
@@ -595,12 +592,12 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
     }
 
     case "buy": {
-      if (next.phase !== "shop" || !next.shop) return reject("not in the shop")
-      if (next.pack) return reject("finish the open pack first")
-      if (next.placing) return reject("place the modifier first")
+      if (next.phase !== "shop" || !next.shop) return reject({ code: "not_in_shop" })
+      if (next.pack) return reject({ code: "finish_pack_first" })
+      if (next.placing) return reject({ code: "place_mod_first" })
       const item = next.shop.items[action.index]
-      if (!item) return reject("already bought")
-      if (next.gold < item.cost) return reject("not enough gold")
+      if (!item) return reject({ code: "already_bought" })
+      if (next.gold < item.cost) return reject({ code: "not_enough_gold" })
 
       // A pack is the one item that is not applied when it is bought. It opens,
       // and the gold buys the choice rather than any particular card in it,
@@ -609,20 +606,15 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
       // different pack has to get different cards in it too.
       if (item.kind === "pack") {
         const pack = PACK_BY_ID.get(item.id)
-        if (!pack) return reject("unknown pack")
+        if (!pack) return reject({ code: "unknown_pack" })
         const options = packContents(
           next,
           pack,
           derive(next.seed, "pack", next.stage, next.roundIndex, next.shop.rerolls, action.index),
         )
-        if (options.length === 0) return reject("nothing left to put in that pack")
+        if (options.length === 0) return reject({ code: "pack_empty" })
         next.pack = { id: pack.id, options, picks: Math.min(pack.picks, options.length) }
-        events.push({
-          type: "pack_opened",
-          id: pack.id,
-          name: pack.name,
-          options: options.length,
-        })
+        events.push({ type: "pack_opened", id: pack.id, options: options.length })
       } else if (item.kind === "mod" && item.letter === undefined) {
         // The other item that is paid for before it is decided. Held rather than
         // applied, on the same terms as a pack: the gold buys the card, and where
@@ -630,9 +622,9 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
         // modifier with nowhere left to sit would otherwise take the money and
         // leave the player holding a card they cannot put down.
         const modifier = MODIFIER_BY_ID.get(item.id)
-        if (!modifier) return reject("unknown modifier")
+        if (!modifier) return reject({ code: "unknown_modifier" })
         if (placeableLetters(next, modifier).length === 0) {
-          return reject("no letter left for that")
+          return reject({ code: "no_letter_for_mod" })
         }
         next.placing = modifier.id
       } else {
@@ -648,9 +640,9 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
 
     case "place_mod": {
       const held = next.placing
-      if (!held) return reject("nothing to place")
+      if (!held) return reject({ code: "nothing_to_place" })
       const modifier = MODIFIER_BY_ID.get(held)
-      if (!modifier) return reject("unknown modifier")
+      if (!modifier) return reject({ code: "unknown_modifier" })
       const letter = action.letter.toLowerCase()
       // The same question the shop asked before it stocked the card and before
       // it took the gold, asked once more against the alphabet as it is now.
@@ -658,28 +650,28 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
       // modifier is in hand, but the picker is the only one of the three whose
       // input comes from outside.
       if (!placeableLetters(next, modifier).includes(letter)) {
-        return reject(`${modifier.name} cannot go on ${letter.toUpperCase()}`)
+        // The one refusal that names a card, and it names it by id: the player
+        // is holding exactly one modifier and has just tapped a letter, so the
+        // sentence is worth nothing without saying which of the two is the
+        // problem. Echo is why this exists at all — it is the only modifier
+        // with a letter list.
+        return reject({ code: "mod_not_allowed", id: modifier.id, letter })
       }
       const entry = next.letters[letter]
-      if (!entry) return reject("unknown letter")
+      if (!entry) return reject({ code: "unknown_letter" })
       // Replaces whatever was there, exactly as buying a pairing does. The
       // picker says which letters are already carrying something, so a trade is
       // a trade the player could see coming.
       entry.mod = modifier.id
       next.placing = null
-      events.push({
-        type: "mod_placed",
-        id: modifier.id,
-        letter,
-        label: `${modifier.name} ${letter.toUpperCase()}`,
-      })
+      events.push({ type: "mod_placed", id: modifier.id, letter })
       return { state: next, events }
     }
 
     case "pick_pack": {
-      if (!next.pack) return reject("no pack is open")
+      if (!next.pack) return reject({ code: "no_pack_open" })
       const item = next.pack.options[action.index]
-      if (!item) return reject("already taken")
+      if (!item) return reject({ code: "already_taken" })
       // Nothing is charged; the pack was. A pick can still be refused, though,
       // by whatever the item itself needs: a relic with no slot free is the
       // ordinary case, and the pack stays open so the choice can go elsewhere.
@@ -688,24 +680,24 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
 
       next.pack.options[action.index] = null
       next.pack.picks -= 1
-      events.push({ type: "pack_picked", id: next.pack.id, label: itemLabel(item) })
+      events.push({ type: "pack_picked", id: next.pack.id, taken: picked(item) })
       if (next.pack.picks <= 0) next.pack = null
       return { state: next, events }
     }
 
     case "skip_pack": {
-      if (!next.pack) return reject("no pack is open")
-      events.push({ type: "pack_picked", id: next.pack.id, label: null })
+      if (!next.pack) return reject({ code: "no_pack_open" })
+      events.push({ type: "pack_picked", id: next.pack.id, taken: null })
       next.pack = null
       return { state: next, events }
     }
 
     case "sell_relic": {
-      if (next.phase !== "shop") return reject("you can only sell in the shop")
-      if (next.pack) return reject("finish the open pack first")
-      if (next.placing) return reject("place the modifier first")
+      if (next.phase !== "shop") return reject({ code: "sell_only_in_shop" })
+      if (next.pack) return reject({ code: "finish_pack_first" })
+      if (next.placing) return reject({ code: "place_mod_first" })
       const instance = next.relics[action.index]
-      if (!instance) return reject("no such relic")
+      if (!instance) return reject({ code: "no_such_relic" })
       const value = sellValue(RELIC_BY_ID.get(instance.id)?.cost ?? 4)
       next.relics.splice(action.index, 1)
       next.gold += value
@@ -714,11 +706,11 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
     }
 
     case "reroll": {
-      if (next.phase !== "shop" || !next.shop) return reject("not in the shop")
-      if (next.pack) return reject("finish the open pack first")
-      if (next.placing) return reject("place the modifier first")
+      if (next.phase !== "shop" || !next.shop) return reject({ code: "not_in_shop" })
+      if (next.pack) return reject({ code: "finish_pack_first" })
+      if (next.placing) return reject({ code: "place_mod_first" })
       const cost = rerollCost(next.shop)
-      if (next.gold < cost) return reject("not enough gold")
+      if (next.gold < cost) return reject({ code: "not_enough_gold" })
       next.gold -= cost
 
       const rerolls = next.shop.rerolls + 1
@@ -732,9 +724,9 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
     }
 
     case "next_round": {
-      if (next.phase !== "shop") return reject("not in the shop")
-      if (next.pack) return reject("finish the open pack first")
-      if (next.placing) return reject("place the modifier first")
+      if (next.phase !== "shop") return reject({ code: "not_in_shop" })
+      if (next.pack) return reject({ code: "finish_pack_first" })
+      if (next.placing) return reject({ code: "place_mod_first" })
       if (next.roundIndex === 2) {
         next.stage += 1
         next.roundIndex = 0

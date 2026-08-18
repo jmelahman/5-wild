@@ -16,7 +16,26 @@
  */
 
 /** Long enough that the ladder outlasts any run; past it, exponent notation. */
-const UNITS = ["K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp"]
+const DEFAULT_UNITS: readonly string[] = ["K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp"]
+
+/**
+ * The ladder in force, which is a per-language thing: French writes a milliard
+ * where English writes a billion, and abbreviates it `Md`.
+ *
+ * A module-level value that `lang` pushes into, rather than a catalog this file
+ * reads, because the edge between the two modules already runs the other way —
+ * every catalog imports `formatNumber` and `pluralizer` from here to build its
+ * own sentences, so a read back would be a cycle. Same shape as the catalog in
+ * force itself; see `current` in `./lang`.
+ *
+ * It starts English so that anything importing this module without a language
+ * having been chosen — a test, a tool — gets numbers rather than `undefined`.
+ */
+let UNITS = DEFAULT_UNITS
+
+export const setUnits = (units: readonly string[]): void => {
+  UNITS = units
+}
 
 const PLAIN_BELOW = 10_000
 
@@ -50,3 +69,42 @@ export function formatNumber(value: number): string {
 
 /** Gold. Small all run, but an endless run is long and interest compounds. */
 export const money = (amount: number): string => `$${formatNumber(amount)}`
+
+/**
+ * The forms a sentence takes for a count, keyed by the categories CLDR names.
+ *
+ * Whole phrases rather than suffixes. English can be pluralized by hanging an
+ * `s` on the end and German cannot: one Wort is two Wörter, and a translator
+ * handed a suffix has nowhere to put the stem change. It costs a repeated
+ * `${count}` in the common case and buys every case that is not English.
+ *
+ * `other` is the only form required, and everything else falls back to it, so a
+ * catalog never has to enumerate a category its sentences do not distinguish.
+ * Both Spanish and French quietly select `many` for exact millions, which none
+ * of these sentences spell differently, and which would otherwise be six dead
+ * keys per string in two files.
+ */
+export type PluralForms = Partial<Record<Intl.LDMLPluralRule, string>> & { other: string }
+
+export type Plural = (count: number, forms: PluralForms) => string
+
+/**
+ * Agreement with a number, which is the language's question rather than the
+ * code's, so it is asked of `Intl` rather than of a `=== 1`.
+ *
+ * Bound to a locale instead of taking one, because the caller that knows the
+ * language is the catalog file: `en.ts` names its locale once at the top and
+ * every sentence in it then reads `plural(count, …)`. Reading the language in
+ * force out of `./lang` instead would have this module importing the module that
+ * imports it, and would also be wrong — a catalog's forms belong to the language
+ * it is written in, not to the one on screen.
+ *
+ * English lands where the hand-rolled ternaries this replaced did, `one` at 1
+ * and `other` everywhere else including 0. French is why it is worth asking: it
+ * puts 0 in the singular, which no amount of care with a ternary would have
+ * caught, because nobody writing English has any reason to look for it.
+ */
+export const pluralizer = (locale: string): Plural => {
+  const rules = new Intl.PluralRules(locale)
+  return (count, forms) => forms[rules.select(count)] ?? forms.other
+}

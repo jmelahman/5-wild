@@ -153,7 +153,7 @@ describe("guess scoring", () => {
       state = reduce(state, { type: "type_letter", letter }, words).state
     }
     const { state: after, events } = reduce(state, { type: "submit" }, words)
-    expect(events).toEqual([{ type: "rejected", reason: "not in word list" }])
+    expect(events).toEqual([{ type: "rejected", refusal: { code: "not_in_word_list" } }])
     expect(after.round.guesses).toHaveLength(0)
     expect(after.round.draft).toBe("zzzzz")
   })
@@ -247,13 +247,13 @@ describe("guess scoring", () => {
       expect(miser.round.guesses[1]?.paid?.[0]?.base).toBe(0)
     })
 
-    it("quotes the modifier in the words it used, and only where it fired", () => {
+    it("records what the modifier paid, and only where it fired", () => {
       const steel = play(withMod(start, "c", "steel"), "crane")
       expect(steel.round.guesses[0]?.paid?.[0]).toEqual({
         base: 3,
         chips: 3,
         mult: 1,
-        mod: "×2 mult",
+        mod: { kind: "times", factor: 2 },
       })
       expect(steel.round.guesses[0]?.paid?.[1]).toEqual({ base: 1, chips: 1, mult: 3 })
     })
@@ -283,7 +283,7 @@ describe("guess scoring", () => {
         base: 1,
         chips: 9,
         mult: 3,
-        relics: [{ id: "green_thumb", label: "+8" }],
+        relics: [{ id: "green_thumb", label: { kind: "chips", amount: 8 } }],
       })
       expect(state.round.guesses[0]?.paid?.[0]).toEqual({ base: 10, chips: 10, mult: 0 })
     })
@@ -304,8 +304,8 @@ describe("guess scoring", () => {
         chips: 40,
         mult: 0,
         relics: [
-          { id: "qs_bargain", label: "+20" },
-          { id: "doppelganger", label: "+10" },
+          { id: "qs_bargain", label: { kind: "chips", amount: 20 } },
+          { id: "doppelganger", label: { kind: "chips", amount: 10 } },
         ],
       })
     })

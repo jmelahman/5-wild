@@ -73,14 +73,13 @@ describe("the pack slot", () => {
       relics: RELICS.slice(0, RELIC_SLOTS).map(({ id }) => ({ id })),
     }
     const { state: after, events } = act(state, { type: "buy", index: 0 })
-    expect(events).toContainEqual({ type: "rejected", reason: "nothing left to put in that pack" })
+    expect(events).toContainEqual({ type: "rejected", refusal: { code: "pack_empty" } })
     expect(after.gold).toBe(state.gold)
     expect(after.pack).toBeFalsy()
   })
 
-  it("gives every pack a distinct id, name and price", () => {
+  it("gives every pack a distinct id and a price", () => {
     expect(new Set(PACKS.map((pack) => pack.id)).size).toBe(PACKS.length)
-    expect(new Set(PACKS.map((pack) => pack.name)).size).toBe(PACKS.length)
     for (const pack of PACKS) {
       expect(pack.cost).toBeGreaterThan(0)
       expect(pack.picks).toBeGreaterThan(0)
@@ -164,7 +163,7 @@ describe("choosing from a pack", () => {
       index: 0,
     })
     // The pack has already closed by then, so the second tap finds nothing open.
-    expect(events).toContainEqual({ type: "rejected", reason: "no pack is open" })
+    expect(events).toContainEqual({ type: "rejected", refusal: { code: "no_pack_open" } })
   })
 
   it("keeps the pack open when a card cannot be taken", () => {
@@ -177,7 +176,7 @@ describe("choosing from a pack", () => {
       relics: RELICS.slice(0, 5).map((relic) => ({ id: relic.id })),
     }
     const { state, events } = act(full, { type: "pick_pack", index: 0 })
-    expect(events).toContainEqual({ type: "rejected", reason: "no relic slots free" })
+    expect(events).toContainEqual({ type: "rejected", refusal: { code: "no_relic_slots" } })
     expect(state.pack?.options[0]).not.toBeNull()
   })
 
@@ -185,7 +184,7 @@ describe("choosing from a pack", () => {
     const state = opened(1, "alphabet")
     const { state: after, events } = act(state, { type: "skip_pack" })
     expect(after.pack).toBeNull()
-    expect(events).toContainEqual({ type: "pack_picked", id: "alphabet", label: null })
+    expect(events).toContainEqual({ type: "pack_picked", id: "alphabet", taken: null })
     expect(after.letters).toEqual(state.letters)
   })
 })
@@ -200,7 +199,7 @@ describe("a pack holds the shop", () => {
     }
     expect(act(state, { type: "buy", index: 0 }).events).toContainEqual({
       type: "rejected",
-      reason: "finish the open pack first",
+      refusal: { code: "finish_pack_first" },
     })
   })
 
@@ -213,7 +212,7 @@ describe("a pack holds the shop", () => {
     ] satisfies Action[]) {
       expect(act(state, action).events).toContainEqual({
         type: "rejected",
-        reason: "finish the open pack first",
+        refusal: { code: "finish_pack_first" },
       })
     }
   })
@@ -222,7 +221,7 @@ describe("a pack holds the shop", () => {
     const after = apply(held(), [{ type: "skip_pack" }])
     expect(act(after, { type: "reroll" }).events).not.toContainEqual({
       type: "rejected",
-      reason: "finish the open pack first",
+      refusal: { code: "finish_pack_first" },
     })
   })
 })

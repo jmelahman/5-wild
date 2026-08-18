@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import type { Action, RunState, WordSource } from "../../src/engine"
+import type { Action, Refusal, RunState, WordSource } from "../../src/engine"
 import {
   ASCENSIONS,
   AUTHORED_ASCENSIONS,
@@ -41,24 +41,25 @@ const at = (ascension: number): RunState => startRun(1, words, ascension).state
  * Types a word, submits it, and reports why it was refused, through the
  * reducer rather than by calling the rule, so what is under test is the rule as
  * the player meets it.
+ *
+ * The refusal comes back as the engine wrote it, code and operands, rather than
+ * as the sentence the catalog would make of it. That is the sharper assertion of
+ * the two: "must use A" pinned the letter only by accident of how English spells
+ * it, and this pins it outright.
  */
-function why(state: RunState, word: string): string | undefined {
+function why(state: RunState, word: string): Refusal | undefined {
   const typed = [...word].reduce(
     (current, letter) => reduce(current, { type: "type_letter", letter }, words).state,
     state,
   )
   const { events } = reduce(typed, { type: "submit" }, words)
-  return events.find((event) => event.type === "rejected")?.reason
+  return events.find((event) => event.type === "rejected")?.refusal
 }
 
 describe("the ladder", () => {
   it("is ten written steps, each arriving at its own level", () => {
     expect(ASCENSIONS.map((rule) => rule.level)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
     expect(AUTHORED_ASCENSIONS).toBe(10)
-    for (const rule of ASCENSIONS) {
-      expect(rule.name.length, rule.name).toBeGreaterThan(0)
-      expect(rule.text.length, rule.name).toBeGreaterThan(0)
-    }
   })
 
   it("plays every rule up to the level, and none above it", () => {
@@ -100,13 +101,15 @@ describe("the ladder", () => {
     expect(thirtieth.targets).toBeGreaterThan(difficultyAt(10).targets)
   })
 
-  it("names a rung above the written ones, so the dial always has something to say", () => {
-    expect(ascensionAt(10)?.name).toBe("Finish It")
+  it("has a rung above the written ones, so the dial always has something to say", () => {
+    // The written rungs carry no numbers of their own; the synthesized one
+    // carries both of them, which is what tells the two apart here now that
+    // neither carries a name. `endless` is the flag and the operands at once.
+    expect(ascensionAt(10)?.endless).toBeUndefined()
     const synthesized = ascensionAt(14)
-    expect(synthesized?.name).toBe("Steeper")
     // The running total, because "another 8%" stops being useful by the third
-    // time the dial says it.
-    expect(synthesized?.text).toContain(`×${difficultyAt(14).targets.toFixed(2)}`)
+    // time the dial says it, and the step, which is the same at every rung.
+    expect(synthesized?.endless).toEqual({ percent: 8, total: difficultyAt(14).targets })
     expect(ascensionAt(0)).toBeUndefined()
     expect(ascensionAt(MAX_ASCENSION + 1)).toBeUndefined()
   })
@@ -124,7 +127,7 @@ describe("the rules themselves", () => {
   it("1: makes you keep the letters you have found", () => {
     // AROSE against BRAID: R and A come back yellow.
     const played = apply(at(1), type("arose"))
-    expect(why(played, "guild")).toBe("must use A")
+    expect(why(played, "guild")).toEqual({ code: "must_use", letter: "a" })
     expect(why(played, "dairy")).toBeUndefined()
     // Off the ladder, the same board takes the same throwaway word.
     expect(why(apply(at(0), type("arose")), "guild")).toBeUndefined()
@@ -132,7 +135,7 @@ describe("the rules themselves", () => {
 
   it("2: refuses a word already used this round", () => {
     const played = apply(at(2), type("crane"))
-    expect(why(played, "crane")).toBe("already guessed this round")
+    expect(why(played, "crane")).toEqual({ code: "already_guessed_round" })
     expect(why(played, "ghost")).toBeUndefined()
   })
 
@@ -150,7 +153,7 @@ describe("the rules themselves", () => {
     const played = apply(at(4), type("acrid"))
     // AROSE carries both yellows and neither green, so level 1 is satisfied and
     // this is the rule left to break.
-    expect(why(played, "arose")).toBe("must use I")
+    expect(why(played, "arose")).toEqual({ code: "must_use", letter: "i" })
     // DAIRY has every placed letter in it and neither of them where it was
     // placed, which is exactly what this level allows and the next will not.
     expect(why(played, "dairy")).toBeUndefined()
@@ -158,7 +161,7 @@ describe("the rules themselves", () => {
 
   it("5: makes them stay where you put them, exactly as The Tyrant does", () => {
     const played = apply(at(5), type("acrid"))
-    expect(why(played, "dairy")).toBe("must keep I in position 4")
+    expect(why(played, "dairy")).toEqual({ code: "must_keep", letter: "i", position: 4 })
     expect(why(played, "braid")).toBeUndefined()
   })
 
@@ -221,7 +224,7 @@ describe("the rules themselves", () => {
     // Carried across a round, which is the whole difference from rule 2: the
     // round's own guesses are gone, the run's memory is not.
     const nextRound: RunState = { ...played, round: { ...at(9).round } }
-    expect(why(nextRound, "crane")).toBe("already used this run")
+    expect(why(nextRound, "crane")).toEqual({ code: "already_used_run" })
   })
 
   it("10: is not a guess rule but a verdict on the round", () => {
@@ -268,11 +271,11 @@ describe("the order of refusals", () => {
     // just found. The player has to hear the same thing every time, and the
     // rule that holds every round of the run is the one to hear about.
     const played = apply(underGlutton(1), type("arose"))
-    expect(why(played, "ghost")).toBe("must use A")
+    expect(why(played, "ghost")).toEqual({ code: "must_use", letter: "a" })
   })
 
   it("still answers with the round's rule when that is the only one broken", () => {
-    expect(why(underGlutton(1), "ghost")).toBe("needs at least two vowels")
+    expect(why(underGlutton(1), "ghost")).toEqual({ code: "needs_two_vowels" })
   })
 
   it("reads what happened rather than what was shown", () => {

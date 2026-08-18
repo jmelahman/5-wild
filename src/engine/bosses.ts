@@ -2,7 +2,7 @@ import { isVowel, LETTER_CHIPS } from "../content/letters"
 import { STAGES } from "../content/rounds"
 import { derive, shuffled } from "./rng"
 import { keepGreens } from "./rules"
-import type { RoundState, RunState, Tile } from "./state"
+import type { GuessNote, Refusal, RoundState, RunState, Tile } from "./state"
 
 /**
  * Boss rounds. Each one attacks a specific pole of the deduction/greed tension
@@ -40,8 +40,6 @@ export const TIER_STAGES: Record<BossTier, { first: number; last: number }> = {
 
 export type Boss = {
   id: string
-  name: string
-  text: string
   /** Which third of the run this one is allowed to show up in. */
   tier: BossTier
   /** Overrides the usual six. */
@@ -56,10 +54,17 @@ export type Boss = {
    *
    * Takes the tiles read-only for the same reason: a hook that both reported
    * the truth and edited it would make the order of the two hooks load-bearing.
+   *
+   * A count rather than the line the player reads. It is *recorded on the
+   * guess*, so it is in every save and in every golden vector, and the two are
+   * handled differently: the save reads an older string back as itself, and the
+   * vectors are compared against the catalog's rendering of the count, which is
+   * the same sentence they were recorded with. See `GuessRecord.note` and
+   * `replay` in the vectors harness.
    */
-  note?: (tiles: readonly Tile[]) => string | null
-  /** A rejection reason, or null to allow the guess. */
-  validate?: (word: string, round: RoundState) => string | null
+  note?: (tiles: readonly Tile[]) => GuessNote | null
+  /** Why a guess is refused, or null to allow it. */
+  validate?: (word: string, round: RoundState) => Refusal | null
   /** Bends a tile's base chip value. `index` is the column it was played in. */
   tileChips?: (base: number, tile: Tile, round: RoundState, index: number) => number
   /**
@@ -89,8 +94,6 @@ export const BOSSES: readonly Boss[] = [
   {
     id: "silence",
     tier: "mid",
-    name: "The Silence",
-    text: "Misplaced letters score as absent, and read as absent. You are told only how many.",
     /**
      * This used to say nothing at all, and it was the worst-behaved card in the
      * game, a mid-tier boss doing something harsher than anything in the late
@@ -115,12 +118,14 @@ export const BOSSES: readonly Boss[] = [
      * harder deduction instead of a broken one. The scoring stays as it was, and
      * that is what keeps this from collapsing into The Fog with a badge.
      */
-    note: (tiles) => {
-      const misplaced = tiles.filter((tile) => tile.color === "yellow").length
-      // Zero is the loudest reading this ever gives, since every letter not
-      // already green is absent, so it gets said in words rather than shown as a 0.
-      return misplaced === 0 ? "none misplaced" : `${misplaced} misplaced`
-    },
+    // Zero is the loudest reading this ever gives, since every letter not already
+    // green is absent. Which is why the count goes out as a count: English says
+    // that one in words rather than showing a 0, and whether another language
+    // does is not this file's to decide.
+    note: (tiles) => ({
+      code: "misplaced",
+      count: tiles.filter((tile) => tile.color === "yellow").length,
+    }),
     transform: (tiles) => {
       for (const tile of tiles) {
         if (tile.color === "yellow") {
@@ -133,8 +138,6 @@ export const BOSSES: readonly Boss[] = [
   {
     id: "fog",
     tier: "early",
-    name: "The Fog",
-    text: "Yellow and gray look identical. They still score differently.",
     // Only `shown` changes: the mult is real, the player just cannot see where
     // it came from. Punishes deduction without touching the math.
     transform: (tiles) => {
@@ -146,8 +149,6 @@ export const BOSSES: readonly Boss[] = [
   {
     id: "tyrant",
     tier: "mid",
-    name: "The Tyrant",
-    text: "Every guess must reuse the green letters you have found.",
     // The same sentence ascension 5 imposes, and literally the same function, so
     // the two can never come to mean slightly different things.
     validate: keepGreens,
@@ -155,8 +156,6 @@ export const BOSSES: readonly Boss[] = [
   {
     id: "miser",
     tier: "late",
-    name: "The Miser",
-    text: "Letters you have already used score no chips.",
     // The sharpest of the set: it forbids the repeat-letter probing that good
     // deduction leans on, so a scoring build has to carry the round.
     tileChips: (base, tile, round) => {
@@ -167,25 +166,19 @@ export const BOSSES: readonly Boss[] = [
   {
     id: "clock",
     tier: "mid",
-    name: "The Clock",
-    text: "Four guesses only.",
     maxGuesses: 4,
   },
   {
     id: "glutton",
     tier: "early",
-    name: "The Glutton",
-    text: "Every guess must contain at least two vowels.",
     validate: (word) => {
       const vowels = [...word].filter(isVowel).length
-      return vowels >= 2 ? null : "needs at least two vowels"
+      return vowels >= 2 ? null : { code: "needs_two_vowels" }
     },
   },
   {
     id: "auditor",
     tier: "late",
-    name: "The Auditor",
-    text: "Your solve multiplier is capped at ×2.",
     // Every other round can be won by banking a modest pile and cashing it in
     // at ×5 or ×6. This one takes the cash-out away and asks whether the build
     // can actually reach the target on its own, which is the question the solve
@@ -195,19 +188,16 @@ export const BOSSES: readonly Boss[] = [
   {
     id: "purist",
     tier: "early",
-    name: "The Purist",
-    text: "No letter may appear twice in a guess.",
     // Aimed at the fat scoring words. JAZZY, FUZZY and MUMMY are all chips and no
     // information, and all built on a doubled letter. Deduction barely notices;
     // a chip build loses its best line. The answer pool is filtered by this
     // same rule, so the word is always reachable.
-    validate: (word) => (new Set(word).size === word.length ? null : "no repeated letters"),
+    validate: (word) =>
+      new Set(word).size === word.length ? null : { code: "no_repeated_letters" },
   },
   {
     id: "drought",
     tier: "early",
-    name: "The Drought",
-    text: "Vowels score no chips.",
     // The Glutton's opposite number, and deliberately in the same band: one
     // demands vowels, the other refuses to pay for them. A build tuned for
     // either is soft to the other, which is what a band of four is for.
@@ -216,8 +206,6 @@ export const BOSSES: readonly Boss[] = [
   {
     id: "mirror",
     tier: "mid",
-    name: "The Mirror",
-    text: "Your feedback is shown back to front. It still scores as it fell.",
     // The Fog's trick at a longer range: `shown` is reversed and `color` is not,
     // so every point of mult is real and every position you read off the board
     // is a lie. Costs a scoring build nothing and a deducing build everything.
@@ -232,8 +220,6 @@ export const BOSSES: readonly Boss[] = [
   {
     id: "famine",
     tier: "late",
-    name: "The Famine",
-    text: "Three guesses only.",
     // The Clock, late and meant it. Three guesses is barely a deduction at all,
     // so this is the round that asks whether the build can simply out-score the
     // target, and it hands you a ×4 solve multiplier if you can do it at once.
@@ -242,8 +228,6 @@ export const BOSSES: readonly Boss[] = [
   {
     id: "rust",
     tier: "late",
-    name: "The Rust",
-    text: "Letter upgrades score nothing. Letters are worth only what they started as.",
     // Aimed squarely at the permanent upgrade line: a run that bought four
     // etchings meets a round where none of them exist. It reads `LETTER_CHIPS`
     // rather than subtracting them, so it stays correct if the upgrade rules
@@ -255,8 +239,6 @@ export const BOSSES: readonly Boss[] = [
   {
     id: "margin",
     tier: "early",
-    name: "The Margin",
-    text: "The first and last letters score no chips.",
     // The first boss that cares *where* a letter was played, which is a pole
     // nothing else in the set attacks. Every other chip boss asks what the
     // letter is or whether it has been spent. The columns are the expensive
@@ -276,8 +258,6 @@ export const BOSSES: readonly Boss[] = [
   {
     id: "vandal",
     tier: "mid",
-    name: "The Vandal",
-    text: "Letter modifiers do nothing.",
     // The etching line has The Rust; the modifier line had nothing, which left
     // the layer the run spends most of its shop money on unattackable. This is
     // the counterpart, and mid rather than late on purpose: by stage 4 a run has
@@ -294,8 +274,6 @@ export const BOSSES: readonly Boss[] = [
   {
     id: "plateau",
     tier: "late",
-    name: "The Plateau",
-    text: "Multiplying effects do nothing. Mult may only be added.",
     // The late band is where builds are finished, and a finished build wins by
     // multiplying, whether by Anagrammer, Speedrunner, The Chorus, a leveled category or a
     // ×mult etching. Nothing in the game attacked that side, so the answer to
