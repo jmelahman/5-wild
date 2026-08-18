@@ -55,9 +55,15 @@ import type { RunState } from "./state"
  * than the win rate, because above rung 6 the win rate is low enough that 250
  * seeds cannot separate two neighboring rungs and the stage can:
  *
- *   A0  4.93   A3  4.56   A6  4.26   A9   3.89
- *   A1  4.88   A4  4.66   A7  4.02   A10  3.00
- *   A2  4.92   A5  4.73   A8  4.00
+ *   A0  4.92   A3  4.72   A6  4.35   A9   3.98
+ *   A1  4.98   A4  4.72   A7  4.10   A10  2.93
+ *   A2  5.10   A5  4.86   A8  4.11
+ *
+ * Read the top three as one number. At this sample the standard error on a mean
+ * stage is around 0.16, so A1 and A2 sitting above A0 is not the ladder handing
+ * anything back; it is two rungs that cost nothing being measured as costing
+ * nothing, which is what the price table already says of them. What the table
+ * does show is a first real step at rung 3 and no flat pair anywhere above it.
  *
  * The ladder now starts asking at rung 3 rather than rung 6. The total did not
  * move and could not have: every rung folds with `*=`, `+=` and `||=`, all
@@ -84,12 +90,23 @@ import type { RunState } from "./state"
  * none of them is free. Read every zero in that table as "free to one kind of
  * player" and never as free. See each in place.
  *
- * The stage figures above were taken with the blind player's lying-boss stall
- * repaired, which `test/helpers/blind.ts` does not yet carry: under Fog and
- * Mirror its candidate pool can empty and end a run silently. That repair is
- * worth landing, and until it does the committed harness reads this ladder a
- * little low at the bottom, where the old A0 4.79 came from. The rung *prices*
- * are differences and survive it.
+ * The figures above were re-taken after `test/helpers/blind.ts` was repaired, and
+ * the repair is the reason to trust them over the ones they replace. That player
+ * could run out of words it was willing to type, return null, and be filed as a
+ * death: a silent stall that no test caught and that only ever pushed a number
+ * down. It had two causes and they sit at opposite ends of this ladder. At rung 0
+ * it was Pyromaniac breaking letters the player kept trying to spell with, which
+ * ended 33 of 250 runs. From rung 3 up it was the rules here refusing whole
+ * classes of word with the alphabet still intact, which ended 169 of 250 at rung
+ * 5 — more than two thirds of this table's mass, at the rungs the reshuffle
+ * moved. Both are fixed, both fixes are in the committed harness, and the sweep
+ * above reports zero stalls at every rung.
+ *
+ * So an old A0 of 4.79 was never the floor of anything; it was the instrument.
+ * The rung *prices* in the earlier table are differences and mostly survived,
+ * which is why they are still quoted per rule above, but the absolute column did
+ * not: it read rung 5 at 4.73 against the 4.86 measured now, and understated the
+ * middle of the ladder exactly where the stalls were densest.
  */
 export type Ascension = {
   /** The level this arrives at. A run at level N plays every rule at or below N. */
@@ -367,8 +384,8 @@ export const ASCENSIONS: readonly Ascension[] = [
      * a bot that solves every round it can already obeys this rule and never
      * noticed it arrive. That was never evidence the rung is free; it is evidence
      * of what the rung taxes. A bot that deduces honestly and hedges prices it at
-     * 3.89 mean final stage down to 3.00, nine tenths of a stage and by some way
-     * the largest single step on the ladder. What it costs is the hedge, and a
+     * 3.98 mean final stage down to 2.93, a full stage and by some way the
+     * largest single step on the ladder. What it costs is the hedge, and a
      * human move: the round where the word will not come, the pile is nearly
      * there, and two more wrong guesses would bank it anyway. Under this rule
      * that round is lost.

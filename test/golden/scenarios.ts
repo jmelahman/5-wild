@@ -831,6 +831,48 @@ export const SCENARIOS: readonly Scenario[] = [
     ascension: AUTHORED_ASCENSIONS + 4,
     next: climb,
   },
+  /*
+   * Halfway up, and the vector that should have existed before the rungs were
+   * ever reordered.
+   *
+   * The two above it stand at `AUTHORED_ASCENSIONS` and four past it, where
+   * every written rule is in force. `difficultyAt` folds the rungs with `*=`,
+   * `+=`, `-=` and `||=`, all of them commutative, so the fold at the top of the
+   * ladder is the same number whatever order the rungs are written in. When the
+   * ladder was reshuffled into the order it now has, both vectors re-recorded
+   * byte for byte and the whole suite went green over a change that moved five
+   * rules. That is not the vectors being wrong; it is nine rungs having nothing
+   * standing on them.
+   *
+   * Five, because the middle is where the most is *absent*, and absence is the
+   * half neither vector above can assert. At this rung the run holds five relics
+   * rather than four, because Crowded is a rung above; it is paid full round
+   * money, because Lean Years is two above; and it opens all 23 of its rounds on
+   * ABACK, because `decoys` indexes from the guess number rather than the round
+   * number and No Echoes, which would refuse the repeat from the second round on,
+   * is four rungs above. Move any one of those three down onto rung 5 and this
+   * vector moves every score after the round it lands in. It also carries
+   * Steeper's target multiplier across the entire written stage ladder, which is
+   * the rule that arrived here in the reshuffle.
+   *
+   * Seed 38 for its length and its breadth: it dies on the last round of stage 8
+   * without ever reaching the win, so it plays the whole authored target curve
+   * at a bent multiplier and still leaves `victory` and `continue_run` to
+   * `victor`, which is the only vector that should own them. 58 guesses, 23
+   * rounds banked, a full tray of five relics, five etchings and a Hot Streak
+   * banking 600 chips. Nothing above stage 8 and nothing tuned: at this rung a
+   * run of about five stages is typical, and this one is chosen for what it
+   * covers rather than for how far it got.
+   */
+  {
+    name: "midway",
+    covers:
+      "the middle of the ladder: the rules in force at rung five and, just as much, the four " +
+      "above it that are not",
+    seed: 38,
+    ascension: 5,
+    next: climb,
+  },
 ]
 
 /**
