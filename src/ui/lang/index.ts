@@ -198,20 +198,26 @@ export const LANG_NAMES: Record<Lang, string> = {
 /**
  * A flag per language, which is a lie everyone reads correctly.
  *
- * A flag is a country and a language is not: English is not the United Kingdom's
+ * A flag is a country and a language is not: English is not the United States'
  * and Spanish is spoken by more people outside Spain than in it, so this is the
  * localization mistake every guide names. It is here anyway, and narrowly: the
  * endonym beside it carries the meaning, and the flag is what makes one button
  * in a stack of four findable at a glance by someone who is scanning rather than
  * reading. Drop the endonym and the objection becomes real.
  *
+ * English flies the American flag rather than the British one, which does not
+ * answer that objection so much as pick a side of it. Both are wrong in the same
+ * way, so the tiebreak is which country's spelling `en.ts` actually writes, and
+ * that was settled deliberately a phase ago: color, serialize, catalog. A 🇬🇧
+ * over an American catalog is the one version of this that is wrong twice.
+ *
  * They also do not render everywhere. Windows has no flag glyphs in its emoji
- * font at all and draws the two regional-indicator letters instead — "GB", "ES"
+ * font at all and draws the two regional-indicator letters instead — "US", "ES"
  * — which is a legible degradation precisely because the word is doing the work.
  * Android, which is what the APK runs on, has Noto Color Emoji and draws them.
  */
 export const LANG_FLAGS: Record<Lang, string> = {
-  en: "🇬🇧",
+  en: "🇺🇸",
   es: "🇪🇸",
   fr: "🇫🇷",
   de: "🇩🇪",
