@@ -40,6 +40,7 @@ agita
 agota
 agoto
 agria
+agrio
 aguda
 agudo
 aguja
@@ -718,7 +719,6 @@ flujo
 fluya
 fluye
 fobia
-folla
 fonda
 fondo
 force
@@ -933,7 +933,6 @@ jerez
 jerga
 jodan
 joden
-joder
 jodio
 jorge
 joven
@@ -973,6 +972,7 @@ largo
 larva
 laser
 latex
+latia
 latin
 latir
 laton
@@ -1273,7 +1273,6 @@ optar
 opuso
 orden
 oreja
-orgia
 orino
 oruga
 osado
@@ -1412,9 +1411,9 @@ polar
 polen
 polio
 polis
-polla
 pollo
 polvo
+pompa
 poned
 ponen
 poner
@@ -1425,7 +1424,6 @@ ponla
 ponle
 ponlo
 ponte
-porno
 porra
 porro
 porta
@@ -1435,6 +1433,7 @@ posar
 posea
 posee
 poseo
+posta
 poste
 potro
 prado
@@ -1964,6 +1963,7 @@ vital
 viuda
 viudo
 vivan
+vivaz
 viven
 vivia
 vivio
@@ -1976,6 +1976,7 @@ volar
 volco
 volvi
 volvo
+voraz
 votan
 votar
 voten
@@ -1994,7 +1995,6 @@ yogur
 zanja
 zarpa
 zombi
-zorra
 zorro
 zumba
 zurdo

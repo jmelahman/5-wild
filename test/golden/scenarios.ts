@@ -331,10 +331,29 @@ export const SCENARIOS: readonly Scenario[] = [
       return null
     },
   },
+  /*
+   * Seed 125 rather than 9, and the criterion is written down here because this
+   * scenario had none and quietly lost a card for it.
+   *
+   * The three below this one each name a modifier and go looking for it. This is
+   * the one that covers the rest, and what "the rest" means in practice is the
+   * three that any run will actually be offered: Chip, Mult and Gold, the two
+   * commons and the payout. Seed 9 landed Chip and Gold; the answer-list scrub
+   * moved its shelf and it landed Glass and Gold, and Chip — the commonest card
+   * in the game — stopped firing in any vector in the file. Nothing went red,
+   * because no test asks which modifiers a vector happens to hold.
+   *
+   * So: all three, and then the shortest run that has them. 8 of the first 1,200
+   * seeds hold Chip, Mult and Gold together, which is rare enough that depth
+   * cannot also be asked for — the eight run from stage 5 to stage 8. 125 is the
+   * shallowest and shortest of them at 26 guesses, two more than seed 9 spent,
+   * with all three landed on a, e and t, the letters a probe is most likely to
+   * put under them.
+   */
   {
     name: "letter-smith",
     covers: "letter modifiers bought, and then landed on tiles often enough to score",
-    seed: 9,
+    seed: 125,
     next: (state, words) => {
       if (state.phase === "round") {
         // One probe chosen for the modifiers it would fire, then the answer. A
@@ -390,26 +409,28 @@ export const SCENARIOS: readonly Scenario[] = [
    * tiles that carry the card above tiles that fire it, which for a color-gated
    * card are different sets.
    *
-   * Over the first 1,200 seeds, 367 end holding at least one, 260 fire one off a
-   * guess that did not solve, and 87 do both with two or more on the board. Seed
-   * 801 is the best of the 87 by a distance: five Anchors placed, fifteen greens
-   * fired outside a solve across 27 guesses, and it lives to stage 6.0. Five
-   * copies is what makes it useful rather than merely green. The card is a flat
-   * +125 per firing tile, so a run carrying five of them is where an error in
-   * that number is loudest instead of roundable.
+   * Five copies is what makes this useful rather than merely green. The card is
+   * a flat +125 per firing tile, so a run carrying five of them is where an
+   * error in that number is loudest instead of roundable. Five is also rare:
+   * over the first 1,200 seeds only three place that many, and seed 249 is the
+   * deepest of the three, holding all five across 34 guesses and living to
+   * stage 6.
    *
-   * The seed was 32, on the same numbers to within a guess, until the word-list
-   * audit removed 52 answers and added 52 others. That reshuffles which words
-   * this bot is dealt, and a bot filtered on "would this guess fire an Anchor"
-   * is a bot whose whole run hangs on the words available to it: 32 now places
-   * one Anchor, fires it once, and is dead at stage 2.1 after six guesses. This
-   * is the failure the scenario was written to catch, arriving by the other door
-   * the file warns about. Nothing went red then either.
+   * That is the third seed this scenario has had, and the two it replaced went
+   * the same way, which is the point worth carrying forward rather than the
+   * numbers. It was 32, then 801, and each time a word-list change reshuffled
+   * which words this bot is dealt — a bot filtered on "would this guess fire an
+   * Anchor" is a bot whose whole run hangs on the words available to it. 801
+   * survived the audit that took 32 and did not survive the scrub that took the
+   * obscenities out of the answer lists: it now places two Anchors instead of
+   * five and dies in stage 3. Neither time did anything go red. The vector
+   * re-recorded cleanly and went on asserting a shorter run, which is exactly
+   * the failure this scenario exists to catch, arriving by the other door.
    */
   {
     name: "anchor-smith",
     covers: "Anchor stacked across letters, fired on greens no solve handed it",
-    seed: 801,
+    seed: 249,
     next: (state, words) => {
       if (state.phase === "round") {
         // The probe is chosen to land the card green rather than merely to carry
@@ -464,18 +485,24 @@ export const SCENARIOS: readonly Scenario[] = [
    * and lost it reads here as a run that never had it. The measurement that
    * matters is what the letters carried while the guesses were being scored.
    *
-   * Seed 586 is one of the seventeen, and is picked over the other sixteen for
-   * holding four rare cards at once (Glass on a, e and t, Steel on o) so the
-   * vector records the two of them scoring side by side rather than in different
-   * runs. It replaced 490, and 490 replaced 397, and both replacements are the
-   * same story told by a different upstream change: 397 was chosen against the
-   * eleven-entry modifier table and degraded to a single Steel and a stage-two
-   * death when the shelf was reweighted; 490 was chosen against the old answer
-   * list and degraded to three Steel and no Glass at all when the word-list
-   * audit swapped 52 answers out. A seed picked for what it happens to draw is
-   * not wrong afterwards, just weaker, and the vector goes on passing while
-   * covering less than its comment claims. Assume the next edit to a shelf or a
-   * list breaks this one too, and re-measure rather than re-record.
+   * Seed 462 holds three rare cards at once, Steel on a and t against Glass on
+   * e, so the vector records the two of them scoring side by side rather than in
+   * different runs. Over the first 1,200 seeds 27 end holding both, and it is
+   * the deepest of those at stage 3 across 14 guesses.
+   *
+   * It replaced 586, and 586 replaced 490, and 490 replaced 397, and all three
+   * replacements are the same story told by a different upstream change: 397 was
+   * chosen against the eleven-entry modifier table and degraded to a single Steel
+   * and a stage-two death when the shelf was reweighted; 490 was chosen against
+   * the old answer list and degraded to three Steel and no Glass when the
+   * word-list audit swapped 52 answers out; 586 went the same way when the scrub
+   * took the obscenities out, down to one Glass and no Steel — which is to say
+   * down to no pair, the one thing this scenario exists to record. The paragraph
+   * above ended by saying to assume the next edit to a shelf or a list breaks
+   * this one too. It did, on the very next one. A seed picked for what it happens
+   * to draw is not wrong afterwards, just weaker, and the vector goes on passing
+   * while covering less than its comment claims. Re-measure rather than
+   * re-record.
    *
    * These numbers have moved twice, and they moved for two different reasons.
    * At the eleven-entry table it was 7% a visit and 386 of 600, and the
@@ -493,7 +520,7 @@ export const SCENARIOS: readonly Scenario[] = [
   {
     name: "rare-smith",
     covers: "the rare modifier pair, hunted down with rerolls and played through",
-    seed: 586,
+    seed: 462,
     next: (state, words) => {
       if (state.phase === "round") {
         // Solve on sight until there is a card to fire, then spend one guess a
@@ -759,16 +786,15 @@ export const SCENARIOS: readonly Scenario[] = [
    * than asserted. Winning is genuinely rare, and the spread is not a curve but
    * two piles: over the first 3,000 seeds, 2,356 die in stage one against 50
    * that reach stage nine. No bot wins on an arbitrary seed, so a seed had to be
-   * chosen. What 2111 was chosen *for*:
+   * chosen. What 1983 was chosen *for*:
    *
-   *   - It supplies all three bosses the other fifteen vectors miss between
-   *     them, which two of the 3,000 do. Measured, not assumed: the check is
-   *     the union of every `boss` this file records against `BOSSES`.
-   *   - It goes the deepest of any of them, dying on stage 11's boss round,
-   *     and meets eleven of the fifteen in that one run.
-   *   - It is not tuned to this bot. Six other scenarios' bots run on it reach
-   *     stage 6.0 to 8.2, every one of them further than they got on the seed
-   *     this replaced. The run is winnable; the climber is not being carried.
+   *   - It supplies both bosses the other sixteen vectors miss between them,
+   *     The Miser and The Rust. Measured, not assumed: the check is the union
+   *     of every `boss` this file records against `BOSSES`.
+   *   - It goes as deep as anything in 3,000 seeds, dying on stage 11's boss
+   *     round, which four of the 3,000 reach.
+   *   - It is not tuned to this bot. Five other scenarios' bots run on it reach
+   *     stage 7 or 8. The run is winnable; the climber is not being carried.
    *
    * That second point is why one run can close the boss gap at all, and the
    * reason is structural rather than lucky. The late band is drawn without
@@ -777,29 +803,44 @@ export const SCENARIOS: readonly Scenario[] = [
    * survived past stage 7. No shallow vector could have reached them, and no
    * number of shallow vectors would have helped.
    *
-   * The seed was 5517, chosen the same way against the old answer list. The
-   * word-list audit that dropped SENOR and GONNA and added TEETH and EMOJI
-   * changed which word every seed deals, and 5517 went from a 75-guess win to
-   * dying in stage one, taking The Miser, The Rust and The Plateau out of the
-   * file with it. Nothing went red: the vector re-recorded cleanly and went on
-   * asserting six guesses' worth of stage one. That is the standing hazard of a
-   * seed picked for what it draws, and the check that catches it is coverage,
-   * not a test. Re-run it after anything that moves the deal.
+   * The seed was 5517, then 2111, and each was chosen the same way against the
+   * answer list of its day. The audit that dropped SENOR and GONNA and added
+   * TEETH and EMOJI changed which word every seed deals, and 5517 went from a
+   * 75-guess win to dying in stage one, taking The Miser, The Rust and The
+   * Plateau out of the file with it. The scrub that took the obscenities out of
+   * the answer lists did the same thing to 2111, from a stage-11 win to six
+   * guesses and out, and took The Miser and The Rust with it a second time.
+   * Neither time did anything go red: the vector re-recorded cleanly and went on
+   * asserting stage one. That is the standing hazard of a seed picked for what it
+   * draws, and the check that catches it is coverage, not a test. Re-run it after
+   * anything that moves the deal — twice now, that warning has been the thing
+   * that found the damage.
    */
   {
     name: "victor",
     covers:
       "the run won and then played past, the computed targets beyond stage 8, and the whole " +
       "late boss band nothing else survives to meet",
-    seed: 2111,
+    seed: 1983,
     next: climb,
   },
+  /*
+   * Seed 161 rather than 13, for the reason the two vectors above were reseeded:
+   * the answer-list scrub took 13 from four relics and stage 5 down to one relic
+   * and stage 1, which is a rung of the ladder covered by nothing. Of the first
+   * 1,200 seeds 679 end holding four relics, so this is a common enough shape to
+   * pick on its merits rather than a lucky one; 161 is the shortest run among
+   * those that also reach stage 6, at 35 guesses against the old seed's 49. Depth
+   * was available — seed 247 climbs to stage 12 — and declined on purpose. This
+   * scenario pins the ladder's rules, not how far a bot can be carried up it, and
+   * a vector twice the length would say the same thing twice.
+   */
   {
     name: "ascendant",
     covers:
       "the whole written ascension ladder: guesses filtered by the run's rules, targets and " +
       "payouts bent by them, every round solved",
-    seed: 13,
+    seed: 161,
     ascension: AUTHORED_ASCENSIONS,
     next: climb,
   },
@@ -816,18 +857,24 @@ export const SCENARIOS: readonly Scenario[] = [
    * a vector of a bot rather than of the rules. Across 40 seeds it clears 0 to 14
    * rounds, mean 2.75, so a run of about four is this scenario at its typical.
    *
-   * Seed 20 rather than 21, and the reason is worth stating because reseeding a
-   * vector is normally the wrong repair. Replacing rung 9 handed this level back
-   * its sixth guess, which changed nothing about what the scenario covers and
-   * everything about where its decoy walk lands. Seed 21 diverged onto a line
-   * that dies on the first round, taking the run from four rewards and three
-   * relics to one and one. Nothing was pinned any better for it. The seed moved
-   * to hold the coverage the scenario was written to have, not to hold a number.
+   * Seed 241, and it is the third, which is the point of this paragraph:
+   * reseeding a vector is normally the wrong repair, and this scenario has now
+   * needed it twice for the same reason both times. 21 became 20 when replacing
+   * rung 9 handed this level back its sixth guess — nothing about what the
+   * scenario covers, everything about where its decoy walk lands — and 21 had
+   * diverged onto a line that dies on the first round, four rewards and three
+   * relics down to one and one. The answer-list scrub did precisely that to 20:
+   * one reward, one relic, stage 1. So the criterion is written down rather than
+   * left to the next reader to reconstruct. Wanted is a run that reaches a
+   * *shop*, which is what the rewards and the relics are evidence of, and does
+   * not run so long that the vector is mostly the climber's line: 3 to 6 rewards.
+   * 241 gives six rewards and four relics in 25 guesses. The seed moves to hold
+   * the coverage the scenario was written to have, not to hold a number.
    */
   {
     name: "endless",
     covers: "a rung above the written ladder: targets compounded by the endless step",
-    seed: 20,
+    seed: 241,
     ascension: AUTHORED_ASCENSIONS + 4,
     next: climb,
   },

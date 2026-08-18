@@ -29,6 +29,7 @@ album
 algen
 alias
 alibi
+allee
 allem
 allen
 aller
@@ -211,6 +212,7 @@ brite
 brote
 bruch
 bruhe
+brumm
 brust
 buben
 buche
@@ -235,6 +237,7 @@ check
 chile
 china
 chlor
+chrom
 circa
 clown
 comic
@@ -293,7 +296,6 @@ diebe
 diene
 dient
 diese
-dildo
 dinge
 dirne
 disco
@@ -444,8 +446,6 @@ ferse
 feste
 fette
 feuer
-ficke
-fickt
 fidel
 fiele
 fiese
@@ -701,7 +701,6 @@ hitze
 hobby
 hocke
 hockt
-hoden
 hoffe
 hofft
 hohem
@@ -821,6 +820,7 @@ katze
 kauen
 kaufe
 kauft
+kaust
 kegel
 kehle
 kehre
@@ -1162,6 +1162,7 @@ mumie
 mumps
 munde
 munze
+musen
 musik
 musli
 musse
@@ -1242,7 +1243,6 @@ order
 ordne
 organ
 orgel
-orgie
 orkan
 orten
 osten
@@ -1292,7 +1292,6 @@ pille
 pilot
 pilze
 pirat
-pisse
 pisst
 piste
 pizza
@@ -1480,6 +1479,7 @@ sauce
 saudi
 sauer
 sauft
+sauge
 saugt
 saule
 sauna

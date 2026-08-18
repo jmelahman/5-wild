@@ -118,6 +118,82 @@ const isTarget = (w: string) => w.length === WORD_LENGTH && /^[a-z]+$/.test(w)
 type Lists = { allowed: string[]; answers: string[]; notes: string[] }
 
 // ---------------------------------------------------------------------------
+// What the block list misses
+// ---------------------------------------------------------------------------
+
+/*
+ * Both pipelines already filter answers through LDNOOBW, and both are right to.
+ * The two lists below exist because reading the output showed that filter is
+ * thinner than it looks, in two different ways, and only one of them is a
+ * question of taste.
+ *
+ * The taste half is HAND_PROFANE. LDNOOBW/en is 403 entries and carries WHORE,
+ * PUSSY and BITCH but not PRICK, HUSSY, BIMBO or RANDY, so those were answers —
+ * words the game prints on the board as the thing the player was looking for.
+ * The per-language lists are thinner again (de is 66 entries, es 68) and miss
+ * their own language's obvious ones: FICKT and HODEN were German answers, POLLA
+ * and JODER Spanish ones, PISSE both. Taking the union of all four lists was the
+ * first idea and it is wrong: it blocks NEGRO, which is how Spanish says
+ * *black*, BITTE, which is how German says *please*, and KRAUT, which is how
+ * German says *herb*. A word is only obscene in the language it is being read
+ * in, so this is keyed by language and each entry is judged there. KRAUT is
+ * blocked in English and kept in German for exactly that reason.
+ *
+ * The other half is SLURS, and it is not taste. `allowed` is deliberately
+ * permissive — see the note on the English guess list about how much worse it is
+ * to reject a word a player typed than to accept a rude one — but that argument
+ * is about vulgarity, and it does not reach a word whose only meaning is an
+ * ethnic slur. Nobody probes the board with KIKES. So these come out of the
+ * guess list too, which is the one place this file overrides that rule, and the
+ * bar for entry is correspondingly narrow: no ordinary reading in any of the
+ * four languages. That bar is doing real work rather than decorating the
+ * comment. CHINK is a slur and stays guessable, because a chink in the armour is
+ * a chink in the armour. DYKES, FAGOT, GIMPS and MONGO stay for the same reason
+ * — an embankment, a bundle of sticks, a braid trim, a currency. NEGRO and NIGER
+ * stay, being Spanish and a country. And German SPICK stays where German SPAST
+ * goes, which is the pair worth keeping in mind, because the two look alike and
+ * the dictionary tells them apart: it carries `spicken/DIXYW`, so SPICK is a
+ * generated imperative and a real word, and it carries SPASTIK, SPASTIKER and
+ * SPASTISCH but never SPAST, which reaches the list only from the subtitles at
+ * rank #38,170. NIGGA is the same shape at #12,359. A German form that the
+ * German dictionary cannot derive is not a German word.
+ *
+ * What this costs: 13 of English's 15,949 guesses and 2 of German's 6,765, with
+ * Spanish and French already clean. Nothing is lost from the answer lists, which
+ * are a fixed count taken off the top of a frequency ranking — a blocked answer
+ * is backfilled by the next word down, so the only effect is that the lists are
+ * that many ranks deeper.
+ */
+const HAND_PROFANE: Record<Lang, string[]> = {
+  en: ["bimbo", "booby", "chink", "hussy", "kraut", "prick", "queer", "randy", "sperm", "willy"],
+  es: ["folla", "joder", "orgia", "polla", "porno", "zorra"],
+  fr: ["bimbo", "orgie", "penis", "pisse", "porno"],
+  // KRAUT and BITTE are not on this list and must not be added to it.
+  de: ["dildo", "ficke", "fickt", "hoden", "orgie", "pisse"],
+}
+
+const SLURS: Record<Lang, string[]> = {
+  en: [
+    "coons",
+    "dagos",
+    "darky",
+    "faggy",
+    "gippo",
+    "gooks",
+    "gyppo",
+    "honky",
+    "kikes",
+    "nigre",
+    "spick",
+    "spics",
+    "squaw",
+  ],
+  es: [],
+  fr: [],
+  de: ["nigga", "spast"],
+}
+
+// ---------------------------------------------------------------------------
 // English
 // ---------------------------------------------------------------------------
 
@@ -181,11 +257,17 @@ const HAND_ALLOWED = [
  * This was two entries and a note saying a hand list is a maintenance burden
  * every entry has to earn itself. It is fifty-five, and the note still holds;
  * what changed is that somebody read all 2300 answers instead of spot-checking
- * them. SQUAW is a slur the block list does not carry; VINOD is a given name
- * that beat the lemma check by ending in D, so VINO answered for it. Both
- * surfaced when the plural filter pulled words in from deeper down the
- * frequency ranks, which is the general risk of digging: the further down you
- * go, the worse the corpus gets. The rest arrived in three groups.
+ * them. VINOD is a given name that beat the lemma check by ending in D, so VINO
+ * answered for it. It surfaced when the plural filter pulled words in from
+ * deeper down the frequency ranks, which is the general risk of digging: the
+ * further down you go, the worse the corpus gets. The rest arrived in three
+ * groups.
+ *
+ * SQUAW used to head this list, described as a slur the block list does not
+ * carry, and that description is now a whole mechanism: see SLURS above, which
+ * it moved to. This list is for taste and for correctness. Obscenity has its own
+ * two lists because it also has to reach the other three languages, and because
+ * a slur has to come out of the guess list as well, which nothing here does.
  *
  * The first is the one that is simply a defect. `stems()` strips -ER and -LY
  * before the lemma lookup, so a name passes whenever its own first three or
@@ -205,7 +287,6 @@ const HAND_ALLOWED = [
  * fact about English but a fact about movie subtitles being transcribed speech.
  */
 const HAND_BLOCKED = [
-  "squaw",
   "vinod",
   // Names, trademarks and non-words the suffix strip let through.
   "asher",
@@ -335,7 +416,11 @@ async function english(): Promise<Lists> {
 
   // Every legal guess. Kept permissive on purpose: rejecting a word a player
   // typed as an information probe is far more annoying than allowing a rude one.
-  const allowed = [...new Set([...lines(alphaRaw).filter(isTarget), ...HAND_ALLOWED])].sort()
+  // SLURS is the one exception to that, and the note on it says why.
+  const slurs = new Set(SLURS.en)
+  const allowed = [...new Set([...lines(alphaRaw).filter(isTarget), ...HAND_ALLOWED])]
+    .filter((word) => !slurs.has(word))
+    .sort()
 
   // The frequency corpus is movie subtitles, so it is thick with proper nouns
   // (ALICE, DIEGO), foreign dialogue (NICHT, MERCI, DANKE) and apostrophe-stripped
@@ -413,7 +498,7 @@ async function english(): Promise<Lists> {
   // one as the secret word. The block list holds lemmas, so it gets the same stem
   // treatment; matching it literally lets RAPES and CUNTS straight through.
   // Substring matching would catch those too, but it also eats GRAPE and SPOON.
-  const blocked = new Set([...lines(profanityRaw), ...HAND_BLOCKED])
+  const blocked = new Set([...lines(profanityRaw), ...HAND_BLOCKED, ...HAND_PROFANE.en, ...slurs])
   const isBlocked = (w: string) => stems(w).some((s) => blocked.has(s))
   const allowedSet = new Set(allowed)
 
@@ -728,9 +813,18 @@ async function expanded(lang: Exclude<Lang, "en">): Promise<Lists> {
   // player might reasonably type. The dictionaries here are lemma-and-affix and
   // so much smaller than a scrape — 4,320 five-letter forms for German — and a
   // word game that refuses a real word is worse than one that accepts a name.
-  const allowed = [...new Set([...all, ...ranked])].sort()
+  // Minus the slurs, which is the same carve-out the English guess list takes
+  // and is made here too rather than there, since `ranked` carries whatever the
+  // subtitles said and the dictionaries are not the only way in.
+  const slurs = new Set(SLURS[lang])
+  const allowed = [...new Set([...all, ...ranked])].filter((word) => !slurs.has(word)).sort()
 
-  const blocked = new Set(lines(profanityRaw).map(fold))
+  // Answers are filtered against the slurs as well as the profanity, and not
+  // merely by inheriting `allowed`: this pipeline ranks answers straight out of
+  // the corpus and never asks whether they were guessable, so a word removed
+  // above would otherwise come back as the secret one and trip the guessability
+  // check at the bottom of this file.
+  const blocked = new Set([...lines(profanityRaw).map(fold), ...HAND_PROFANE[lang], ...slurs])
   const suffixes = PLURALS[lang]
   const isPlural = (w: string) =>
     !w.endsWith("ss") &&

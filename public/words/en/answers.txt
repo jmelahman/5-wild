@@ -178,7 +178,6 @@ bigot
 biker
 bilge
 billy
-bimbo
 binge
 bingo
 birch
@@ -226,7 +225,6 @@ boned
 bongo
 bonny
 bonus
-booby
 booed
 boost
 booth
@@ -298,6 +296,7 @@ bushy
 butch
 buyer
 cabal
+cabby
 cabin
 cable
 cache
@@ -359,7 +358,6 @@ chill
 chime
 chimp
 china
-chink
 chino
 chirp
 choir
@@ -455,6 +453,7 @@ craze
 crazy
 creak
 cream
+credo
 creed
 creek
 creep
@@ -463,6 +462,7 @@ crept
 crest
 crick
 cried
+crier
 crime
 crisp
 croak
@@ -886,6 +886,7 @@ groin
 groom
 gross
 group
+grout
 grove
 growl
 grown
@@ -963,7 +964,6 @@ homer
 homey
 honed
 honey
-honky
 honor
 hooch
 hooky
@@ -986,7 +986,6 @@ hunch
 hunky
 hurry
 husky
-hussy
 hutch
 hydra
 hydro
@@ -1043,6 +1042,7 @@ kappa
 kaput
 karma
 kayak
+kazoo
 kebab
 keyed
 khaki
@@ -1060,7 +1060,6 @@ knoll
 known
 koala
 kooky
-kraut
 krill
 kudos
 label
@@ -1472,8 +1471,8 @@ prank
 prawn
 press
 price
-prick
 pride
+pried
 prime
 print
 prior
@@ -1502,6 +1501,7 @@ punch
 pupil
 puppy
 puree
+purer
 purge
 purse
 pushy
@@ -1513,7 +1513,6 @@ quake
 quark
 quart
 queen
-queer
 quell
 query
 quest
@@ -1539,7 +1538,6 @@ raise
 rally
 ramen
 ranch
-randy
 range
 rapid
 raspy
@@ -1677,11 +1675,13 @@ scout
 scram
 scrap
 screw
+scrip
 scrub
 scuba
 scuff
 sedan
 seedy
+segue
 seine
 seize
 senna
@@ -1759,6 +1759,7 @@ sixty
 sized
 skate
 skier
+skiff
 skill
 skint
 skirt
@@ -1847,7 +1848,6 @@ speed
 spell
 spend
 spent
-sperm
 spice
 spicy
 spied
@@ -2248,7 +2248,6 @@ widow
 width
 wield
 wight
-willy
 wimpy
 winch
 windy
@@ -2290,6 +2289,7 @@ yearn
 yeast
 yield
 yikes
+yodel
 young
 youth
 yucky

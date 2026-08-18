@@ -3125,7 +3125,6 @@ cools
 cooly
 coomb
 coomy
-coons
 coony
 coops
 coopt
@@ -3531,7 +3530,6 @@ dafla
 dagga
 daggy
 dagon
-dagos
 dahms
 daijo
 daily
@@ -3597,7 +3595,6 @@ daric
 darii
 darin
 darks
-darky
 darns
 daroo
 darst
@@ -4766,7 +4763,6 @@ faena
 faery
 faffy
 fager
-faggy
 fagin
 fagot
 fagus
@@ -5694,7 +5690,6 @@ ginks
 ginny
 ginzo
 gipon
-gippo
 gippy
 gipsy
 girba
@@ -5875,7 +5870,6 @@ goody
 gooey
 goofs
 goofy
-gooks
 gooky
 gools
 gooma
@@ -6154,7 +6148,6 @@ gyges
 gygis
 gymel
 gynic
-gyppo
 gypsy
 gyral
 gyred
@@ -6584,7 +6577,6 @@ hones
 honey
 hongs
 honks
-honky
 honor
 honzo
 hooch
@@ -7522,7 +7514,6 @@ kiefs
 kiers
 kieye
 kikar
-kikes
 kikki
 kikoi
 kilah
@@ -9513,7 +9504,6 @@ nifty
 nigel
 nighs
 night
-nigre
 nigua
 nihal
 nihil
@@ -13065,8 +13055,6 @@ sphex
 spial
 spica
 spice
-spick
-spics
 spicy
 spied
 spiel
@@ -13151,7 +13139,6 @@ squab
 squad
 squam
 squat
-squaw
 squeg
 squet
 squib
