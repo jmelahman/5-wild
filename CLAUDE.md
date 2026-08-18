@@ -1,7 +1,9 @@
 # CLAUDE.md
 
-The README covers running it, the layout, the release flow and the golden-vector
-protocol. Read that first. This is what it does not say.
+`CONTRIBUTING.md` covers running it, the layout, the release flow and the
+golden-vector protocol. Read that first. This is what it does not say. (The
+README is the game's front page and deliberately holds no technical detail
+beyond how to install it.)
 
 ## The shape of the thing
 
@@ -179,8 +181,8 @@ only; rendering and interaction get validated in a real browser instead.
 
 ## Changing balance
 
-The README has the mechanics: bump `CONTENT_VERSION`, `npm run golden`, read the
-diff. What it does not state is the standard of evidence. Balance comments here
+`CONTRIBUTING.md` has the mechanics: bump `CONTENT_VERSION`, `npm run golden`,
+read the diff. What it does not state is the standard of evidence. Balance comments here
 cite run counts because the numbers came from actually simulating the change, and
 a nerf argued from intuition will read as out of place beside them. A throwaway
 harness over a few hundred seeds costs minutes: write one, quote what it said,
