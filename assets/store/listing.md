@@ -11,7 +11,7 @@ Character limits are Google's; the counts in brackets are what the text below us
 
 A word-guessing roguelike. Solve the word, spend the gold, climb the ladder.
 
-## Full description (4000 max) [1673 used]
+## Full description (4000 max) [1669 used once unwrapped]
 
 Guess a five-letter word in six tries. That part you know.
 
@@ -50,7 +50,14 @@ Free, and finished. There is nothing to buy inside it.
 - The paragraphs are hard-wrapped here to stay readable in a diff. Play renders
   newlines literally, so unwrap each paragraph to a single line on paste, and
   keep only the blank lines between them. The bullets keep their line breaks;
-  the hyphens are literal, since Play does not render markdown.
+  the hyphens are literal, since Play does not render markdown. The count above
+  is what Play counted after unwrapping, which is four short of the wrapped
+  source: the newlines this file carries mid-paragraph become nothing.
+- Pasting the description into the console field is not enough on its own if it
+  is done programmatically. The form is Angular, and setting a textarea's value
+  in JS updates what is on the screen without updating the form control behind
+  it, so the field reads full and validates empty — "Add a full description for
+  your app" in red under 1669/4000. One real keystroke in the field syncs it.
 - The three named bosses are accurate to the current build. If a boss is
   renamed or its rule changes, fix it here — a store listing that describes
   mechanics the app does not have is a listing problem, not a copy problem.
