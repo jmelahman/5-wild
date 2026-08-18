@@ -136,13 +136,13 @@ describe("the rules themselves", () => {
     expect(why(played, "ghost")).toBeUndefined()
   })
 
-  it("3: refuses a word used anywhere in the run", () => {
-    const played = apply(at(3), type("crane"))
-    expect(played.history).toEqual(["crane"])
-    // Carried across a round, which is the whole difference from rule 2: the
-    // round's own guesses are gone, the run's memory is not.
-    const nextRound: RunState = { ...played, round: { ...at(3).round } }
-    expect(why(nextRound, "crane")).toBe("already used this run")
+  it("3: raises every target, and rounds the result to something readable", () => {
+    const [normal] = roundTargets(1)
+    expect(at(2).round.target).toBe(normal)
+    expect(at(3).round.target).toBe(Math.round((normal * 1.15) / 10) * 10)
+    // Ten, not a hundred: 15% of the first target is 45, and rounding that to
+    // the nearest hundred would make the first Steeper either free or double.
+    expect(at(3).round.target % 10).toBe(0)
   })
 
   it("4: makes you keep the letters you have placed, wherever you like", () => {
@@ -162,35 +162,14 @@ describe("the rules themselves", () => {
     expect(why(played, "braid")).toBeUndefined()
   })
 
-  it("6: takes a dollar off every round, and leaves the unused guesses alone", () => {
-    const lean = apply(at(6), type("braid")).reward
-    const plain = apply(at(5), type("braid")).reward
-    expect(lean?.base).toBe((plain?.base ?? 0) - 1)
-    expect(lean?.base).toBe(ROUND_PAYOUT[0] - 1)
-    // The whole reason the cut lands on the base: the unused-guess dollars are
-    // the one reward that pays for solving early rather than farming, so the
-    // rung that squeezes the economy has to leave them untouched, and by
-    // shrinking everything around them, make them matter more.
-    expect(lean?.unusedGuesses).toBe(plain?.unusedGuesses)
-  })
-
-  it("7: raises every target, and rounds the result to something readable", () => {
-    const [normal] = roundTargets(1)
-    expect(at(6).round.target).toBe(normal)
-    expect(at(7).round.target).toBe(Math.round((normal * 1.15) / 10) * 10)
-    // Ten, not a hundred: 15% of the first target is 45, and rounding that to
-    // the nearest hundred would make the first Steeper either free or double.
-    expect(at(7).round.target % 10).toBe(0)
-  })
-
-  it("8: holds four relics instead of five, and says so when the fifth is offered", () => {
-    expect(difficultyAt(7).relicSlots).toBe(RELIC_SLOTS)
-    expect(difficultyAt(8).relicSlots).toBe(RELIC_SLOTS - 1)
+  it("6: holds four relics instead of five, and says so when the fifth is offered", () => {
+    expect(difficultyAt(5).relicSlots).toBe(RELIC_SLOTS)
+    expect(difficultyAt(6).relicSlots).toBe(RELIC_SLOTS - 1)
 
     // The shelf is untouched: it still lays out its five cards, relics included.
     // What the rung takes is the room to keep them, so the offer still arrives
     // and now has to displace something: the decision a shelf-cut never asks for.
-    const shelf = apply(apply(at(8), type("braid")), [{ type: "collect" }])
+    const shelf = apply(apply(at(6), type("braid")), [{ type: "collect" }])
     expect(shelf.shop?.items).toHaveLength(5)
 
     // Four bought relics is a full tray here and a tray with a seat left one rung
@@ -209,19 +188,40 @@ describe("the rules themselves", () => {
         (event) => event.type === "rejected",
       )
     expect(refused(offered)).toBe(true)
-    expect(refused({ ...offered, ascension: 7 })).toBe(false)
+    expect(refused({ ...offered, ascension: 5 })).toBe(false)
   })
 
-  it("9: pays nothing for a round cleared without the word", () => {
-    expect(difficultyAt(8).unpaidIfUnsolved).toBe(false)
-    expect(difficultyAt(9).unpaidIfUnsolved).toBe(true)
+  it("7: takes a dollar off every round, and leaves the unused guesses alone", () => {
+    const lean = apply(at(7), type("braid")).reward
+    const plain = apply(at(6), type("braid")).reward
+    expect(lean?.base).toBe((plain?.base ?? 0) - 1)
+    expect(lean?.base).toBe(ROUND_PAYOUT[0] - 1)
+    // The whole reason the cut lands on the base: the unused-guess dollars are
+    // the one reward that pays for solving early rather than farming, so the
+    // rung that squeezes the economy has to leave them untouched, and by
+    // shrinking everything around them, make them matter more.
+    expect(lean?.unusedGuesses).toBe(plain?.unusedGuesses)
+  })
+
+  it("8: pays nothing for a round cleared without the word", () => {
+    expect(difficultyAt(7).unpaidIfUnsolved).toBe(false)
+    expect(difficultyAt(8).unpaidIfUnsolved).toBe(true)
     // No rung takes a guess any more, at the top of the ladder or anywhere else.
     // The Clock's four still has to be the tighter of the two, which is the part
-    // of the old rung 9 worth keeping a test on. A run-level allowance that
+    // of the old "Five" worth keeping a test on. A run-level allowance that
     // made a boss round *easier* would be a rung nobody could reason about.
-    expect(at(9).round.maxGuesses).toBe(difficultyAt(0).guesses)
+    expect(at(8).round.maxGuesses).toBe(difficultyAt(0).guesses)
     const clock = getBoss("clock")?.maxGuesses ?? 0
-    expect(Math.min(clock, difficultyAt(9).guesses)).toBe(clock)
+    expect(Math.min(clock, difficultyAt(8).guesses)).toBe(clock)
+  })
+
+  it("9: refuses a word used anywhere in the run", () => {
+    const played = apply(at(9), type("crane"))
+    expect(played.history).toEqual(["crane"])
+    // Carried across a round, which is the whole difference from rule 2: the
+    // round's own guesses are gone, the run's memory is not.
+    const nextRound: RunState = { ...played, round: { ...at(9).round } }
+    expect(why(nextRound, "crane")).toBe("already used this run")
   })
 
   it("10: is not a guess rule but a verdict on the round", () => {
@@ -298,7 +298,7 @@ describe("the answer is always reachable", () => {
   }
 
   it("never deals a word the run is forbidden to type", () => {
-    // Ascension 3 forbids repeating a word, so a round whose answer has already
+    // Ascension 9 forbids repeating a word, so a round whose answer has already
     // been guessed is a round that cannot be solved, and at ascension 10 that is
     // a round that cannot be won at all. The pool has to know that.
     const base = startRun(4, many, AUTHORED_ASCENSIONS).state

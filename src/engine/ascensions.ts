@@ -24,32 +24,72 @@ import type { RunState } from "./state"
  * question than "what was your final score", which depends mostly on how long a
  * won run was farmed.
  *
- * They stack in roughly the order they hurt: the guess rules first, because
- * they cost a play and not a run, then the economy, then the curve, then the
- * tray, then the money for a word not found, then the word not found at all.
- * The last two are the same rule twice and that is deliberate; see rung 10.
- * The tenth is the sharpest thing in the game.
+ * The order was rewritten once, and the principle it replaced is worth keeping
+ * on the page because it reads plausibly and measured badly. The rungs used to
+ * stack "in roughly the order they hurt": the guess rules first, because they
+ * cost a play and not a run, then the economy, then the curve, then the tray.
+ * That sorts the rungs by what they *take* rather than by what they cost, and
+ * the guess rules turn out to take a great deal and cost almost nothing. The
+ * ladder did not drop below its own A0 baseline until rung 6, and a run at A5
+ * scored higher than a run at A0. Four rungs of the taught half were free or
+ * better, and then three walls in a row.
+ *
+ * So the paying rungs come first now, spaced apart, and the rules that only
+ * narrow what may be typed fill the gaps between them. Measured price of each
+ * rule in mean final stage, taken at three to six different placements a piece,
+ * because a rule's cost moves with where it sits and the ranking does not:
+ *
+ *   Finish It  -0.89    No Echoes    -0.10    Hunted    -0.05
+ *   Crowded    -0.47    Once Only     0.00    Anchored   0.00
+ *   Steeper    -0.36    Dead Weight   0.00    Tyranny   +0.15
+ *   Lean Years -0.24
+ *
+ * Four rules carry the ladder and the rest of the authored half is texture.
+ * That is a fact about the content, and no ordering fixes it; what an ordering
+ * can do is keep two textural rungs from landing in a row and put the paying
+ * ones where a player has something to lose to them. Rungs 8 and 10 are the
+ * same rule twice and that is deliberate; see rung 10, which is the sharpest
+ * thing in the game.
  *
  * Measured over 250 seeds a piece, reported as mean final stage. The stage rather
  * than the win rate, because above rung 6 the win rate is low enough that 250
  * seeds cannot separate two neighboring rungs and the stage can:
  *
- *   A0  4.79   A6  4.64   A8  3.95   A10  3.26
- *   A5  5.02   A7  4.36   A9  3.92
+ *   A0  4.93   A3  4.56   A6  4.26   A9   3.89
+ *   A1  4.88   A4  4.66   A7  4.02   A10  3.00
+ *   A2  4.92   A5  4.73   A8  4.00
  *
- * That is about a fifth of a stage a rung through the middle and two thirds at the
- * capstone, which is the shape the ladder wanted: every step felt, none a wall.
+ * The ladder now starts asking at rung 3 rather than rung 6. The total did not
+ * move and could not have: every rung folds with `*=`, `+=` and `||=`, all
+ * commutative, so A9 and A10 are byte-identical under any permutation of the
+ * rungs below them. Reordering redistributes a fixed budget; it cannot add to
+ * one, and a ladder made harder early is a ladder made flatter late.
  *
- * That reads off a bot that deduces honestly and will farm a round it cannot
- * solve, and the distinction matters far more than it sounds. Every number in
- * this file up to rung 8 was first taken with a bot that reads the answer and
- * always solves, and such a bot cannot price the top of this ladder at all. It
- * scored rungs 9 and 10 as byte-identical, on win rate, final stage, rounds
- * cleared and gold per round alike, because a player who always finds the word
- * is a player no must-solve rule can touch. What that instrument called free is
- * what the top of the ladder is now built around, and what it called survivable
- * at rung 9 was a wall. Rung 8 is understated for the same family of reasons.
- * See all three in place.
+ * Two things about the instrument, both of which have already cost this file a
+ * misjudgement.
+ *
+ * The numbers read off a bot that deduces honestly and will farm a round it
+ * cannot solve. Every number here up to rung 8 was first taken with a bot that
+ * reads the answer and always solves, and such a bot cannot price the top of
+ * this ladder at all. It scored rungs 9 and 10 as byte-identical, on win rate,
+ * final stage, rounds cleared and gold per round alike, because a player who
+ * always finds the word is a player no must-solve rule can touch. What that
+ * instrument called free is what the top of the ladder is now built around, and
+ * what it called survivable at rung 9 was a wall.
+ *
+ * And a bot has no style. The prices above are one policy's. A second policy
+ * that buys the gray-scoring relics and replays its best-scoring word prices
+ * this ladder differently, and the difference is the whole argument for where
+ * Once Only, Dead Weight and No Echoes now sit: each is 0.00 to a solver and
+ * none of them is free. Read every zero in that table as "free to one kind of
+ * player" and never as free. See each in place.
+ *
+ * The stage figures above were taken with the blind player's lying-boss stall
+ * repaired, which `test/helpers/blind.ts` does not yet carry: under Fog and
+ * Mirror its candidate pool can empty and end a run silently. That repair is
+ * worth landing, and until it does the committed harness reads this ladder a
+ * little low at the bottom, where the old A0 4.79 came from. The rung *prices*
+ * are differences and survive it.
  */
 export type Ascension = {
   /** The level this arrives at. A run at level N plays every rule at or below N. */
@@ -84,8 +124,19 @@ export const ASCENSIONS: readonly Ascension[] = [
     level: 2,
     name: "Once Only",
     text: "No word twice in the same round.",
-    // Barely a constraint on its own, since nobody guesses the same word twice
-    // on purpose, but it is the floor the next one is built on.
+    /*
+     * Nobody guesses the same word twice on purpose, so to a player who is
+     * deducing this is free: 0.00 of a mean final stage at every placement
+     * measured. What it costs is the other line entirely.
+     *
+     * A run that buys the gray-scoring relics and replays one high-scoring word
+     * spends 51.7% of its guesses on a word it has already said. This rung takes
+     * that to 33.6% the round it arrives, and it never climbs back for the rest
+     * of the ladder. It is at 2 because the degenerate half of that build — the
+     * same five letters, six times, forever — is worth ending before a player
+     * can mistake it for the game, and the rest of it is not. Rung 9 ends the
+     * rest, and eight rungs is how long the interesting half gets to live.
+     */
     validate: (word, state) =>
       state.round.guesses.some((guess) => guess.word === word)
         ? "already guessed this round"
@@ -93,12 +144,29 @@ export const ASCENSIONS: readonly Ascension[] = [
   },
   {
     level: 3,
-    name: "No Echoes",
-    text: "No word twice in the whole run.",
-    // The first rule that costs a build rather than a guess: the opener that
-    // scores best is gone after stage one, and a run has to keep finding new
-    // words that pay. This is why the run keeps a history at all.
-    validate: (word, state) => (state.history?.includes(word) ? "already used this run" : null),
+    name: "Steeper",
+    text: "Every target is 15% higher.",
+    /*
+     * The curve itself, and the shape every rung above 10 repeats at a gentler
+     * angle; see `ENDLESS_STEP`.
+     *
+     * 15% is picked against the stage growth rather than in the abstract. Targets
+     * multiply by 2.2 a stage, so a notch this size is worth about a fifth of a
+     * stage of standing pressure: enough to feel on the round it lands on, not
+     * enough to end a run by itself.
+     *
+     * It sat at rung 7 and is most of the reason the entrance used to be free.
+     * It is the only authored rung that takes nothing away — every other one
+     * removes a resource and this one just moves the finish line — which is
+     * exactly what makes it the right first thing to cost anything. A player two
+     * rungs in meets a harder round rather than a smaller run, and a harder
+     * round is a thing they already know how to think about.
+     *
+     * Measured at 7 it was -0.41 of a mean final stage, win rate 21.2% to 17.2%.
+     * Measured here at 3 it is -0.36. Compounding is what it gives up by moving
+     * down and half a tenth of a stage is the whole of the bill.
+     */
+    targets: 1.15,
   },
   {
     level: 4,
@@ -107,66 +175,42 @@ export const ASCENSIONS: readonly Ascension[] = [
     // Greens, unpositioned: the step between hard mode and The Tyrant. Once
     // level 5 lands this can no longer fire on its own, since a letter kept in
     // its place is by definition still in the word.
+    //
+    // It prices at 0.00 for every policy measured, at every placement, and so
+    // does the rung after it. Two rungs that ask nothing is a fact about the
+    // content rather than the order; see rung 5 for why they are here rather
+    // than spread apart.
     validate: (word, state) => useFound(word, found(state.round, "green")),
   },
   {
     level: 5,
     name: "Tyranny",
     text: "Letters you have placed must stay where you placed them.",
-    // The Tyrant, permanently. Shares its implementation with the boss rather
-    // than restating it, so the run-long version cannot drift from the one the
-    // player met on stage 4.
+    /*
+     * The Tyrant, permanently. Shares its implementation with the boss rather
+     * than restating it, so the run-long version cannot drift from the one the
+     * player met on stage 4.
+     *
+     * It is also the only rung that measures *negative*: +0.07 to +0.27 of a
+     * mean final stage across six placements, never once a cost. Forcing a green
+     * to stay put is a constraint on a player who was moving them and a guardrail
+     * on one who was not, and the bot is the second kind — a human who has been
+     * playing carefully pays nothing here either, which is the honest reading of
+     * a rule that only forbids a mistake.
+     *
+     * Left at 5 anyway. Moving it to 7 to break up the soft pair was measured
+     * and was worse: the price stayed positive and landed *after* the ladder's
+     * steepest step instead of before it, so a player who cleared rung 6 found 7
+     * and 8 easier, and the whole climb read as going backwards. A soft rung
+     * beside another soft rung, early, where the absolute difficulty is high and
+     * the player is still learning the vocabulary, is the cheapest place on the
+     * ladder to spend one. If the middle ever has to bite, this is the rung to
+     * re-price rather than to re-place — and re-pricing it re-prices The Tyrant.
+     */
     validate: (word, state) => keepGreens(word, state.round),
   },
   {
     level: 6,
-    name: "Lean Years",
-    text: "Every round pays $1 less.",
-    /*
-     * Where the ladder stops asking about words and starts asking about money.
-     *
-     * A flat dollar off the base, $3/$4/$5 becoming $2/$3/$4, rather than the
-     * obvious alternative, which was to stop paying for unused guesses. That
-     * alternative would have been actively wrong. The unused-guess dollar is the
-     * only reward in the game on a different axis from the score curve, and the
-     * only measured lever that pulls a player toward solving early rather than
-     * farming five wrong words to the target; deleting it at rung 6 would have
-     * tilted the entire upper ladder toward farming.
-     *
-     * Cutting the base does the opposite. At $2 instead of $3 the unused-guess
-     * dollars are a larger share of the take, so the higher a run climbs the more
-     * it is paid to finish early, which is the behavior the rest of the ladder
-     * is about to start demanding outright at rung 10.
-     *
-     * A dollar sounds small and is a quarter of the base: $12 a lap becomes $9.
-     * Measured against everything a run actually earns, unused-guess dollars and
-     * interest included, which is why the headline number overstates it, income
-     * falls 12%, from $9.29 a round to $8.20, and the win rate from 24.8% to
-     * 21.2% over 250 seeds. Interest is capped at $5 and so cushions almost none
-     * of it; what the run loses is close to one shop visit in eight.
-     */
-    payoutCut: 1,
-  },
-  {
-    level: 7,
-    name: "Steeper",
-    text: "Every target is 15% higher.",
-    /*
-     * The curve itself, and the shape every rung above 10 repeats at a gentler
-     * angle; see `ENDLESS_STEP`.
-     *
-     * 15% is picked against the stage growth rather than in the abstract. Targets
-     * multiply by 2.2 an stage, so a notch this size is worth about a fifth of an
-     * stage of standing pressure: enough to feel on the round it lands on, not
-     * enough to end a run by itself. It measures at 21.2% to 17.2%, final stage
-     * 6.56 to 6.34, over 250 seeds, and it is the only authored rung that takes
-     * nothing away, which is why it can sit this high while costing this little.
-     * Every other rung removes a resource; this one just moves the finish line.
-     */
-    targets: 1.15,
-  },
-  {
-    level: 8,
     name: "Crowded",
     text: "Four relic slots, not five.",
     /*
@@ -190,11 +234,54 @@ export const ASCENSIONS: readonly Ascension[] = [
      * The −19% of tray value is the honest measure of the cost, and it is worth
      * noting that a bot understates it: this player has no preference among
      * relics, so it loses an average slot where a human loses their fifth-best.
+     *
+     * It is the dearest rung below the capstone and the only paying one that
+     * does not get cheaper for being moved down: -0.46 at rung 2, -0.52 at 4,
+     * -0.55 at 5, -0.47 here at 6, and -0.39 back at 8 where it used to sit. So
+     * the placement is a free choice among the first six, and it is spent on
+     * teaching. A slot taken means nothing to a player who has never wanted a
+     * fifth relic, and by rung 6 they have climbed five ladders' worth of runs
+     * with a full tray and know exactly which card they are about to lose.
      */
     relicCut: 1,
   },
   {
-    level: 9,
+    level: 7,
+    name: "Lean Years",
+    text: "Every round pays $1 less.",
+    /*
+     * The money, behind the tray that has to be bought with it.
+     *
+     * A flat dollar off the base, $3/$4/$5 becoming $2/$3/$4, rather than the
+     * obvious alternative, which was to stop paying for unused guesses. That
+     * alternative would have been actively wrong. The unused-guess dollar is the
+     * only reward in the game on a different axis from the score curve, and the
+     * only measured lever that pulls a player toward solving early rather than
+     * farming five wrong words to the target; deleting it here would have
+     * tilted the entire upper ladder toward farming.
+     *
+     * Cutting the base does the opposite. At $2 instead of $3 the unused-guess
+     * dollars are a larger share of the take, so the higher a run climbs the more
+     * it is paid to finish early, which is the behavior the rest of the ladder
+     * is about to start demanding outright at rung 10.
+     *
+     * A dollar sounds small and is a quarter of the base: $12 a lap becomes $9.
+     * Measured against everything a run actually earns, unused-guess dollars and
+     * interest included, which is why the headline number overstates it, income
+     * falls 12%, from $9.29 a round to $8.20, and the win rate from 24.8% to
+     * 21.2% over 250 seeds. Interest is capped at $5 and so cushions almost none
+     * of it; what the run loses is close to one shop visit in eight.
+     *
+     * Those figures were taken at rung 6, where it read -0.40 of a mean final
+     * stage. Here at 7, behind Crowded, it reads -0.24, and at rung 2 it read
+     * -0.25. A tray already capped at four has less for the dollar to be taken
+     * away from, so some of this rung's old price was Crowded's price arriving
+     * early. That overlap is real and it is what putting the tray first costs.
+     */
+    payoutCut: 1,
+  },
+  {
+    level: 8,
     name: "Dead Weight",
     text: "A round you did not solve pays nothing.",
     /*
@@ -207,10 +294,11 @@ export const ASCENSIONS: readonly Ascension[] = [
      * line loses its biggest chip contributor, and the unused-guess dollars are
      * capped one lower on top of Lean Years having already taken a dollar off
      * the base. Measured against a bot that has to actually find the word it
-     * cost 1.22 of a mean final stage in a single step, against 0.84 for rungs 1
-     * through 8 put together. One rung outweighed the first eight, and it landed
-     * on players who had just been handed the relic-slot cut. The first boss
-     * killed 26% of runs at A9 and 43% at A10.
+     * cost 1.22 of a mean final stage in a single step, against 0.84 for the
+     * eight rungs that then sat below it put together. One rung outweighed the
+     * whole ladder under it, and in that order it landed on players who had just
+     * been handed the relic-slot cut. The first boss killed 26% of runs at A9
+     * and 43% at A10.
      *
      * It only ever looked reasonable because the bot that priced it reads the
      * answer off the state, so it paid for the missing guess in chips and never
@@ -218,11 +306,48 @@ export const ASCENSIONS: readonly Ascension[] = [
      *
      * This asks the same question Finish It asks, in money first: clear the
      * target off five wrong words and the round is survived and pays nothing:
-     * no base, no unused-guess dollars, no interest. 3.95 to 3.92 by the stage,
-     * which is a cheap rung and is meant to be. What it takes is a habit, one
-     * rung before the capstone starts taking runs for the same habit.
+     * no base, no unused-guess dollars, no interest. What it takes is a habit,
+     * two rungs before the capstone starts taking runs for the same habit.
+     *
+     * It prices at 0.00 against a solver at every placement, and that is the
+     * point rather than a defect: this rung is not aimed at a player who finds
+     * the word. Against the run that clears its target off five wrong ones it
+     * took 0.40 of a mean final stage when it landed on a build still repeating
+     * freely. Behind Once Only at rung 2 it takes 0.11. The two anti-farm rungs
+     * overlap, the ladder cannot collect both prices, and moving either one
+     * earlier partly refunds the other. That is the standing cost of ending the
+     * degenerate build at rung 2, and it is worth paying.
      */
     unpaidIfUnsolved: true,
+  },
+  {
+    level: 9,
+    name: "No Echoes",
+    text: "No word twice in the whole run.",
+    /*
+     * The rule that ends a way of playing rather than costing a guess, which is
+     * why it is this late and why it used to be rung 3.
+     *
+     * The opener that scores best is gone after stage one, and a run has to keep
+     * finding new words that pay. This is why the run keeps a history at all.
+     *
+     * At rung 3 it deleted a whole line before the player had seen enough of the
+     * game to know the line existed. A run that buys the gray-scoring relics and
+     * replays its best-scoring words measures at least level with a run that
+     * solves honestly, and finds the word in 72% of its rounds against the
+     * solver's 92%: a genuinely different road to the same stages, not a cheese
+     * and not a trap. This rung takes it to zero repeated guesses in the frame
+     * it arrives. Rung 2 has already taken the degenerate half. What is left is
+     * worth keeping legal for eight rungs and worth ending on the ninth.
+     *
+     * The move down cost about 0.10 of a mean final stage and nothing else,
+     * which is the other half of why it was worth making: a rule this disliked
+     * should not also be one of the four that hold the ladder up, and it is not.
+     * A solver still replays a word from earlier in the run on 28% of its
+     * guesses wherever this rule is absent. That is what the rung takes from
+     * everyone, and it is why it is the one players argue about.
+     */
+    validate: (word, state) => (state.history?.includes(word) ? "already used this run" : null),
   },
   {
     level: 10,
@@ -242,20 +367,21 @@ export const ASCENSIONS: readonly Ascension[] = [
      * a bot that solves every round it can already obeys this rule and never
      * noticed it arrive. That was never evidence the rung is free; it is evidence
      * of what the rung taxes. A bot that deduces honestly and hedges prices it at
-     * 3.92 mean final stage down to 3.26, two thirds of an stage and the largest
-     * single step on the ladder. What it costs is the hedge, and the hedge is a
+     * 3.89 mean final stage down to 3.00, nine tenths of a stage and by some way
+     * the largest single step on the ladder. What it costs is the hedge, and a
      * human move: the round where the word will not come, the pile is nearly
      * there, and two more wrong guesses would bank it anyway. Under this rule
      * that round is lost.
      *
-     * It swallows rung 9 whole, and the measurement says so to the decimal: a
+     * It swallows rung 8 whole, and the measurement says so to the decimal: a
      * ladder carrying both rules scores identically at A10, on every column and
-     * not merely the stage, to a ladder carrying only this one. There is nothing left
-     * to withhold from a round that has already ended the run, so the capstone is
-     * the last two rungs at once. That is escalation along one axis rather than a
-     * rung going to waste: lose the money for not finding the word, then lose the
-     * run for it. Whoever arrives here has met the idea once already, which is the
-     * only reason a rule this sharp can be the one nobody gets warned about twice.
+     * not merely the stage, to a ladder carrying only this one. There is nothing
+     * left to withhold from a round that has already ended the run, so the
+     * capstone is itself and rung 8 at once. That is escalation along one axis
+     * rather than a rung going to waste: lose the money for not finding the word
+     * at 8, then lose the run for it here. Whoever arrives has met the idea once
+     * already, which is the only reason a rule this sharp can be the one nobody
+     * gets warned about twice.
      */
     solveRequired: true,
   },

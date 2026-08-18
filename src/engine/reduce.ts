@@ -93,7 +93,7 @@ function freshLetters(): Record<string, LetterState> {
  *
  * The answer must also be a legal guess under every rule in force, the boss's
  * and the run's ascension both. The Glutton demands two vowels of every guess,
- * and roughly a fifth of the answer list has only one; ascension 3 forbids
+ * and roughly a fifth of the answer list has only one; ascension 9 forbids
  * repeating a word the run has already used, which would strand a round on an
  * answer nobody is allowed to type. Either way the round would be literally
  * unsolvable, so the filter is the same filter.
@@ -224,7 +224,7 @@ function resolveRound(state: RunState, events: GameEvent[]): void {
   }
 
   // Paying for unused guesses is the counterweight to chip-farming: the economy
-  // rewards exactly the restraint the scoring punishes. Which is why ascension 6
+  // rewards exactly the restraint the scoring punishes. Which is why ascension 7
   // cuts the base and leaves this alone; see `Lean Years`.
   const base = Math.max(0, ROUND_PAYOUT[state.roundIndex] - difficulty.payoutCut)
   const unusedGuesses = (round.maxGuesses - round.guesses.length) * GOLD_PER_UNUSED_GUESS

@@ -335,7 +335,7 @@ export const meterFill = (score: number, target: number): number =>
   target > 0 ? Math.min(1, score / target) : 1
 
 function relicRow(state: RunState): HTMLElement {
-  // The tray draws as many seats as the run actually has, so ascension 8 reads
+  // The tray draws as many seats as the run actually has, so ascension 6 reads
   // as four slots rather than as a fifth that silently refuses every purchase.
   const slots = Array.from({ length: difficultyOf(state).relicSlots }, (_, slot) => {
     const instance = state.relics[slot]
@@ -1040,7 +1040,7 @@ export function introView(state: RunState, on: Handlers, chrome: Chrome): HTMLEl
         "div",
         { class: "intro-meta" },
         // The payout the run will actually be handed, not the one the table
-        // lists: ascension 6 takes a dollar off it, and a card that promises $3
+        // lists: ascension 7 takes a dollar off it, and a card that promises $3
         // before a round and pays $2 after it is the worst kind of wrong.
         `${state.round.maxGuesses} guesses · reward ${money(
           Math.max(0, (ROUND_PAYOUT[state.roundIndex] ?? 0) - difficultyOf(state).payoutCut),

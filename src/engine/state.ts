@@ -259,7 +259,7 @@ export type RunState = {
   /**
    * Every word this run has submitted, in order, across all its rounds.
    *
-   * Ascension 3 forbids repeating one, and there is nowhere else that fact could
+   * Ascension 9 forbids repeating one, and there is nowhere else that fact could
    * live, since a round only knows its own guesses. Written on every submit whatever
    * the ascension, because a rule that only records when it is switched on is a
    * rule that cannot be switched on. Optional, so older saves load as a run that
