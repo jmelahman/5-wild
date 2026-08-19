@@ -58,6 +58,21 @@ Free, and finished. There is nothing to buy inside it.
   in JS updates what is on the screen without updating the form control behind
   it, so the field reads full and validates empty — "Add a full description for
   your app" in red under 1669/4000. One real keystroke in the field syncs it.
+  The cleaner fix, if the paste has to be scripted at all, is to assign through
+  the prototype's own setter and then dispatch the event by hand:
+
+      const set = Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype, 'value').set;
+      set.call(ta, text);
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+
+  Angular overwrites the element's `value` property with its own accessor to
+  notice writes, so `ta.value = x` goes to the framework's shadow of the field
+  and a plain `dispatchEvent` afterwards reports the *old* value. Reaching past
+  it to the prototype setter writes the real one, and the event then carries
+  what is actually in the box. This is what filled the release notes on the
+  closed-testing track in one step, with the counter reading "provided for 1
+  language" and no keystroke needed.
 - The three named bosses are accurate to the current build. If a boss is
   renamed or its rule changes, fix it here — a store listing that describes
   mechanics the app does not have is a listing problem, not a copy problem.
