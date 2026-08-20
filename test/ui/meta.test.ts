@@ -56,6 +56,7 @@ const FRESH: MetaState = {
   bestStreak: 0,
   crackedBy: {},
   words: {},
+  wordError: {},
   relics: {},
 }
 
@@ -87,6 +88,7 @@ describe("reading the record", () => {
       bestStreak: 11,
       crackedBy: { en: ["crane", "slate"], es: ["actor"] },
       words: { crane: 88, slate: 12 },
+      wordError: { slate: 11 },
       relics: { snowball: 3 },
     }
     store.items.set(KEY, JSON.stringify(record))
@@ -251,6 +253,42 @@ describe("what the runs added up to", () => {
     for (let n = 0; n < 200; n++) profile.guessed(`w${n.toString().padStart(4, "0")}`)
     expect(Object.keys(profile.stats.words).length).toBeLessThanOrEqual(24)
     expect(profile.stats.guesses).toBe(200)
+  })
+
+  it("does not credit a word with the count it inherited", () => {
+    // What the table used to report, and the reason `wordError` exists: fill it
+    // with one-offs until the eviction floor has climbed, and the next word in
+    // takes that floor as its own. Every word here was played exactly once, so
+    // the only honest answer to "how often" is one, whatever the table stores.
+    const profile = new Profile()
+    for (let n = 0; n < 200; n++) profile.guessed(`w${n.toString().padStart(4, "0")}`)
+    const stored = profile.stats.words
+    expect(Math.max(...Object.values(stored))).toBeGreaterThan(1)
+    for (const [word, count] of Object.entries(stored)) {
+      expect(count - (profile.stats.wordError[word] ?? 0), word).toBe(1)
+    }
+    expect(favoriteWord(profile.stats)?.count).toBe(1)
+  })
+
+  it("counts a habit begun before the table filled exactly", () => {
+    // The bracket is tight where it has to be: a word that never displaced
+    // anything carries no correction at all and reads as itself.
+    const profile = new Profile()
+    for (let n = 0; n < 30; n++) profile.guessed("crane")
+    expect(profile.stats.wordError.crane).toBeUndefined()
+    expect(favoriteWord(profile.stats)).toEqual({ word: "crane", count: 30 })
+  })
+
+  it("counts a habit begun after the table filled exactly too", () => {
+    // The harder half: this one arrived at a full table and carries the floor it
+    // displaced, and subtracting that lands back on the truth rather than merely
+    // near it. Every `Profile` in this file reads the same fake store, so these
+    // two are separate tests rather than one: sharing it would hand the second
+    // profile the first one's cranes.
+    const profile = new Profile()
+    for (let n = 0; n < 60; n++) profile.guessed(`w${n.toString().padStart(4, "0")}`)
+    for (let n = 0; n < 40; n++) profile.guessed("crane")
+    expect(favoriteWord(profile.stats)).toEqual({ word: "crane", count: 40 })
   })
 
   it("finds the real favorite even when it started late", () => {
@@ -426,6 +464,29 @@ describe("salvaging the longer record", () => {
       crackedBy: { en: ["crane"] },
       words: {},
     })
+  })
+
+  it("reads a word table from before the corrections as exact", () => {
+    // Every record in the wild when this field arrives. Absent corrections are
+    // the same thing as no corrections, so the figures it has been showing all
+    // along are the figures it goes on showing: the field costs nobody their
+    // favorite word and the key does not move for it.
+    store.items.set(KEY, JSON.stringify({ guesses: 100, words: { crane: 88, slate: 12 } }))
+    expect(loadMeta()).toMatchObject({ words: { crane: 88, slate: 12 }, wordError: {} })
+    expect(favoriteWord(loadMeta())).toEqual({ word: "crane", count: 88 })
+  })
+
+  it("keeps a correction from outliving the count it corrects", () => {
+    // Neither case can happen through `tally`, and both are one hand-edit away.
+    // A correction for a word that is no longer in the table is dropped, and one
+    // that would eat its own count is capped at "played at least once", which is
+    // the smallest true thing an entry in this table can say.
+    store.items.set(
+      KEY,
+      JSON.stringify({ words: { crane: 9 }, wordError: { crane: 400, slate: 3 } }),
+    )
+    expect(loadMeta().wordError).toEqual({ crane: 8 })
+    expect(favoriteWord(loadMeta())).toEqual({ word: "crane", count: 1 })
   })
 
   it("files a collection from before the languages under English", () => {

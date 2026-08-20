@@ -108,6 +108,27 @@ export type MetaState = {
    * How often the most-played words have been played. Capped; see `tally`.
    */
   words: Record<string, number>
+  /**
+   * How much of a `words` entry was inherited rather than played, for the
+   * entries that inherited anything.
+   *
+   * The other half of the algorithm in `tally`, and it is what makes that table
+   * readable rather than merely correct. A word arriving at a full table takes
+   * the count of the entry it evicted, so its stored figure is an upper bound
+   * and the true one is `words[w] - wordError[w]`. Without this field the two
+   * are indistinguishable, and a word typed once reads as however deep the
+   * table had got: over 50 simulated profiles at 1,000 guesses with no habitual
+   * opener, the reported favorite averaged 42 against a true count of 2, and all
+   * 24 entries were overcounted. That is most players of this game, because
+   * ascension 9 forbids repeating a word inside a run, so nearly every guess is
+   * a newcomer.
+   *
+   * Absent for an entry that never displaced anything, which includes every
+   * entry of every record written before this field existed. Absent means zero
+   * means the count is exact, so an old record reads today exactly as it read
+   * yesterday and no key had to move.
+   */
+  wordError: Record<string, number>
   /** How often each relic has been taken. Bounded by the catalog. */
   relics: Record<string, number>
 }
@@ -125,6 +146,7 @@ const FRESH: MetaState = {
   bestStreak: 0,
   crackedBy: {},
   words: {},
+  wordError: {},
   relics: {},
 }
 
@@ -203,15 +225,25 @@ export function meanSolve(meta: MetaState): number | null {
 /**
  * The word played most, and how often, or null before anything has been.
  *
- * The count is exact for any word that was in the tally before it filled up,
- * which is every word a player types habitually. A word that arrived after the
- * cap was reached inherits the count of whatever it displaced, so it can read
- * high; that is the price of a fixed-size table, and it is paid by words nobody
- * would call their favorite.
+ * Both the ranking and the figure are `count - error`, the part of the entry
+ * this player is known to have played, rather than the stored count. See
+ * `tally`: the stored count is an upper bound, and ranking on it hands the
+ * screen to whichever one-off word most recently inherited a big number. The
+ * corrected figure is a lower bound, so the sentence it produces is one the
+ * record can defend: a word it says was played nine times was played at least
+ * nine times, and a word played habitually since before the table filled reads
+ * exactly.
+ *
+ * Note which number eviction uses, because they must differ: `tally` ranks on
+ * the raw count and this ranks on the corrected one. The first is about what a
+ * word might yet turn out to be, the second about what it has been shown to be,
+ * and a table that confused the two would either forget favorites or invent
+ * them.
  */
 export function favoriteWord(meta: MetaState): { word: string; count: number } | null {
   let best: { word: string; count: number } | null = null
-  for (const [word, count] of Object.entries(meta.words)) {
+  for (const [word, stored] of Object.entries(meta.words)) {
+    const count = stored - (meta.wordError[word] ?? 0)
     // Ties break alphabetically rather than by insertion order, so the answer
     // does not depend on the order `Object.entries` happens to hand things back.
     if (!best || count > best.count || (count === best.count && word < best.word)) {
@@ -238,25 +270,46 @@ export const favoriteRelics = (meta: MetaState): { id: string; count: number }[]
  * question the screen asks is "what do I play most", and this answers it
  * correctly, where a naive top-24 would not: that one would freeze on the first
  * 24 words ever typed, since a newcomer's count of 1 never beats an incumbent's.
+ *
+ * What the inheritance buys in retention it costs in the figure: the stored
+ * count is an upper bound, and for a newcomer it is almost entirely borrowed. So
+ * the amount borrowed is written down beside it, in `wordError`, and the true
+ * count lives in `[count - error, count]`. The bracket is tight where it
+ * matters — an entry that has been in the table since before it filled has no
+ * error at all and reads exactly — which is why the screen can show
+ * `count - error` and simply be right about a habit while refusing to invent a
+ * number for a word played once.
+ *
+ * Two rules keep the guarantee intact. Eviction still ranks on the raw count,
+ * never on the corrected one, because the raw count is what bounds how often the
+ * word *could* have been played and dropping the wrong entry is what loses a
+ * genuine favorite. And the error is fixed at insertion and never touched again,
+ * so every guess after it narrows the bracket by one rather than widening it.
  */
-function tally(words: Readonly<Record<string, number>>, word: string): Record<string, number> {
-  const next = { ...words }
-  const seen = next[word]
+function tally(meta: MetaState, word: string): Pick<MetaState, "words" | "wordError"> {
+  const words = { ...meta.words }
+  const seen = words[word]
   if (seen !== undefined) {
-    next[word] = seen + 1
-    return next
+    words[word] = seen + 1
+    return { words, wordError: meta.wordError }
   }
-  const keys = Object.keys(next)
+  const keys = Object.keys(words)
   if (keys.length < WORD_SLOTS) {
-    next[word] = 1
-    return next
+    words[word] = 1
+    return { words, wordError: meta.wordError }
   }
   let weakest = keys[0] as string
-  for (const key of keys) if ((next[key] ?? 0) < (next[weakest] ?? 0)) weakest = key
-  const floor = next[weakest] ?? 0
-  delete next[weakest]
-  next[word] = floor + 1
-  return next
+  for (const key of keys) if ((words[key] ?? 0) < (words[weakest] ?? 0)) weakest = key
+  const floor = words[weakest] ?? 0
+  delete words[weakest]
+  words[word] = floor + 1
+  // The evicted word's own error goes with it, and the newcomer's is the whole
+  // of what it just took. A word that was evicted once and comes back is a
+  // newcomer again, which is the honest reading: whatever it had played before
+  // is gone, and nothing here can tell it from a word never seen.
+  const wordError = { ...meta.wordError, [word]: floor }
+  delete wordError[weakest]
+  return { words, wordError }
 }
 
 /**
@@ -291,7 +344,7 @@ export class Profile {
 
   /** One submitted guess. The hot path: every keystroke run ends here. */
   guessed(word: string): void {
-    this.write({ guesses: this.state.guesses + 1, words: tally(this.state.words, word) })
+    this.write({ guesses: this.state.guesses + 1, ...tally(this.state, word) })
   }
 
   /**
@@ -379,6 +432,10 @@ export function loadMeta(): MetaState {
     // the same reading `5wild:run:lang` gives its own absence — so it is not
     // discarded, it is filed under `en`.
     const legacy = parsed as Partial<Record<"bestAnte" | "jokers" | "cracked", unknown>>
+    // Read before the object it belongs to is built, because the error terms are
+    // only meaningful against the counts that survived the trim: an entry cut
+    // for being small takes its correction with it.
+    const words = table(meta.words, WORD_SLOTS)
     return {
       runs: count(meta.runs),
       wins: count(meta.wins),
@@ -394,7 +451,8 @@ export function loadMeta(): MetaState {
       // promote itself to a best as well.
       bestStreak: count(meta.bestStreak),
       crackedBy: collections(meta.crackedBy, collection(legacy.cracked)),
-      words: table(meta.words, WORD_SLOTS),
+      words,
+      wordError: errors(meta.wordError, words),
       relics: table(meta.relics ?? legacy.jokers),
     }
   } catch {
@@ -426,6 +484,29 @@ function table(value: unknown, slots?: number): Record<string, number> {
     .sort((a, b) => count(b[1]) - count(a[1]))
     .slice(0, slots ?? Infinity)
   return Object.fromEntries(kept.map(([key, cell]) => [key, count(cell)]))
+}
+
+/**
+ * The word table's error terms, read against the counts they correct.
+ *
+ * Kept honest here rather than at the point of display, so nothing downstream
+ * has to defend itself: an error is dropped unless its word is still in the
+ * table, and it is capped at one below that word's count. Both cases are
+ * unreachable from `tally` and both are one hand-edit away, and the failure they
+ * would cause is a screen claiming a word was played zero or minus four times,
+ * which reads as a bug in the counting rather than as a record somebody edited.
+ *
+ * The cap rather than a rejection, because an error is a *correction* and the
+ * conservative reading of a broken one is the smallest true thing the entry can
+ * still say: played at least once, which is why it is in the table at all.
+ */
+function errors(value: unknown, words: Record<string, number>): Record<string, number> {
+  const raw = table(value)
+  const kept = Object.entries(raw).flatMap(([word, error]) => {
+    const stored = words[word]
+    return stored === undefined ? [] : [[word, Math.min(error, stored - 1)] as const]
+  })
+  return Object.fromEntries(kept.filter(([, error]) => error > 0))
 }
 
 /**

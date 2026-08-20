@@ -2212,7 +2212,12 @@ export function statsView(meta: MetaState, pool: number, words: string, on: Hand
       h("strong", {}, copy.cracked(cracked)),
       ` ${pool > 0 ? copy.crackedOf(cracked, num(pool)) : copy.crackedBare(cracked)}`,
     ),
-    best
+    // Named only once some word has been played twice, which is the same
+    // restraint the em dash above shows: "most played: CRANE · once" is true and
+    // says nothing, and it is what a player with no habitual opener would see
+    // every time, since a run forbids repeating a word and most guesses are
+    // therefore one-offs. A favorite is a repetition or it is nothing.
+    best && best.count > 1
       ? h(
           "p",
           { class: "stat-line" },
