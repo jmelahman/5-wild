@@ -1504,7 +1504,7 @@ export class App {
             : this.overlay === "stats"
               ? statsView(
                   this.profile.stats,
-                  this.words.answers.length,
+                  { answers: this.words.answers.length, allowed: this.words.allowed.size },
                   this.wordsLang,
                   this.handlers,
                 )
@@ -1730,7 +1730,7 @@ export class App {
     // The round survives into the reward screen, so "same round, one more
     // guess" is a real comparison right up to the moment `next_round` swaps it.
     const played = round.guesses[before.round.guesses.length]
-    if (played) this.profile.guessed(played.word)
+    if (played) this.profile.guessed(played.word, this.wordsLang)
     if (round.solved && !before.round.solved) {
       this.profile.solved(round.answer, round.guesses.length, this.wordsLang)
     } else if (round.done && !before.round.done) {

@@ -563,6 +563,12 @@ export const de: Strings = {
       // already spent on `Wort` / `Wörter` in the bold half above.
       crackedBare: (_count) => "geknackt",
       crackedOf: (_count, pool) => `geknackt, von ${pool}`,
+      played: (count) =>
+        plural(count, { one: `${num(count)} Wort`, other: `${num(count)} Wörter` }),
+      // `gespielt` is invariable for the same reason `geknackt` is, so the count
+      // goes unspent here and is spent on `Wort` / `Wörter` above.
+      playedBare: (_count) => "gespielt",
+      playedOf: (_count, pool) => `gespielt, von ${pool}`,
       mostPlayed: "Am meisten gespielt:",
       // `-mal` is a suffix, not a countable noun, so it does not inflect and
       // there is nothing for `Intl` to select between.

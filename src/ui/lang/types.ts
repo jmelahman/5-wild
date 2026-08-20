@@ -451,6 +451,20 @@ export type Strings = {
       cracked: (count: number) => string
       crackedBare: (count: number) => string
       crackedOf: (count: number, pool: string) => string
+      /**
+       * The other collection, in the same three pieces and for the same reason:
+       * every distinct word this player has legally typed, against everything
+       * the language will accept.
+       *
+       * Split from `cracked` rather than sharing it, even where a language
+       * spells the count identically, because the tail is a different
+       * participle agreeing with a different verb, and one of the four
+       * languages disagreeing is enough to make the pair two keys. That is the
+       * same reasoning that gave `crackedBare` its ignored count.
+       */
+      played: (count: number) => string
+      playedBare: (count: number) => string
+      playedOf: (count: number, pool: string) => string
       mostPlayed: string
       times: (count: number) => string
       breakdown: string

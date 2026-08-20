@@ -80,6 +80,7 @@ import {
   favoriteWord,
   isLocked,
   meanSolve,
+  playedIn,
   roundsPlayed,
   unlocked,
   wordsFound,
@@ -2129,23 +2130,35 @@ function record(meta: MetaState, on: Handlers): HTMLElement | null {
  * hangs off the title screen and not off the HUD: mid-run, "which word do you
  * type most" is a distraction, and between runs it is the only thing to read.
  *
- * `pool` is the size of the answer list, passed in rather than counted here
- * because the word lists are fetched and this module is built from content. It
- * arrives as zero before they land, and the denominator is dropped rather than
+ * `pool` is the two word lists' sizes, passed in rather than counted here
+ * because the lists are fetched and this module is built from content. Both
+ * arrive as zero before they land, and a denominator is dropped rather than
  * shown as "of 0".
  *
- * `words` is the language those answers are in, which is the run's and not
+ * Two of them because the screen counts two collections against two different
+ * ceilings: the answers cracked against the answer list, and the words played
+ * against the much longer list of what is legal to type. The second is the
+ * larger number by seven times in English and the one that moves on a round that
+ * went badly, which is most of why it is worth showing beside the first.
+ *
+ * `words` is the language those lists are in, which is the run's and not
  * necessarily the interface's — a Spanish menu can be sitting over an English
- * run. It is the right one of the two anyway: the cracked count is read as a
- * fraction of `pool`, and `pool` is a fact about the list that is loaded.
+ * run. It is the right one of the two anyway: both counts are read as fractions
+ * of `pool`, and `pool` is a fact about the lists that are loaded.
  */
-export function statsView(meta: MetaState, pool: number, words: string, on: Handlers): HTMLElement {
+export function statsView(
+  meta: MetaState,
+  pool: { answers: number; allowed: number },
+  words: string,
+  on: Handlers,
+): HTMLElement {
   const copy = ui().stats
   const played = roundsPlayed(meta)
   const best = favoriteWord(meta)
   const solved = wordsFound(meta)
   const mean = meanSolve(meta)
   const cracked = crackedIn(meta, words)
+  const typed = playedIn(meta, words)
 
   /** The tallest row in the chart. Never zero, so an empty chart cannot divide by it. */
   const peak = Math.max(1, meta.missed, ...meta.solves)
@@ -2210,8 +2223,23 @@ export function statsView(meta: MetaState, pool: number, words: string, on: Hand
       "p",
       { class: "stat-line" },
       h("strong", {}, copy.cracked(cracked)),
-      ` ${pool > 0 ? copy.crackedOf(cracked, num(pool)) : copy.crackedBare(cracked)}`,
+      ` ${pool.answers > 0 ? copy.crackedOf(cracked, num(pool.answers)) : copy.crackedBare(cracked)}`,
     ),
+    // Below the cracked line rather than above it, though it is the bigger
+    // number: that one is the achievement and this one is the ground covered
+    // getting there. Hidden until a word has actually been played, because the
+    // field is new and every record predating it starts this collection at zero
+    // while the one above it may already be in the hundreds. Two fractions that
+    // disagree about how long somebody has played would read as a bug in the
+    // counting rather than as a counter that started late.
+    typed > 0
+      ? h(
+          "p",
+          { class: "stat-line" },
+          h("strong", {}, copy.played(typed)),
+          ` ${pool.allowed > 0 ? copy.playedOf(typed, num(pool.allowed)) : copy.playedBare(typed)}`,
+        )
+      : null,
     // Named only once some word has been played twice, which is the same
     // restraint the em dash above shows: "most played: CRANE · once" is true and
     // says nothing, and it is what a player with no habitual opener would see

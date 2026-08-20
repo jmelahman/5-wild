@@ -84,12 +84,17 @@ export type MetaState = {
    * Every distinct answer ever cracked, sorted, in the language it was cracked
    * in.
    *
-   * The one growing field, and the only one that earns it: each list is bounded
-   * by that language's answer list rather than by play, so a player who cracked
+   * One of the two growing fields, and they earn it the same way: each list is
+   * bounded by a *content* list rather than by play, so a player who cracked
    * every word in the game has four arrays totalling 8,300 entries and no way to
-   * make any of them longer. It is also the one collection this game has. "Which
-   * words have I beaten" is a question worth a screen, and it cannot be answered
-   * by a counter.
+   * make any of them longer. That is the test a growing field has to pass here,
+   * and it is why the frequency tally below is capped instead — its ceiling
+   * would be however many distinct words a career happens to contain, which is
+   * not a ceiling.
+   *
+   * These are also the collections this game has. "Which words have I beaten" is
+   * a question worth a screen and cannot be answered by a counter; `playedBy` is
+   * the same question about the other, larger pool.
    *
    * Keyed by language because the screen reads it as a fraction, and the
    * denominator is one language's pool. Flat, it counted a Spanish answer
@@ -104,6 +109,29 @@ export type MetaState = {
    * words with it on the way past.
    */
   crackedBy: Record<string, string[]>
+  /**
+   * Every distinct word ever submitted and accepted, sorted, in the language it
+   * was played in.
+   *
+   * `crackedBy`'s larger sibling, and a different question: that one is the
+   * answers found, this one is every legal word spent finding them. It cannot be
+   * derived from the other, because the interesting part of it — the thousands
+   * of words that were never anybody's answer — is exactly what the other throws
+   * away. English allows 15,936 words against 2,300 answers, so this is the
+   * bigger collection by seven times and the one that moves on a round that went
+   * badly.
+   *
+   * Bounded the same way and keyed the same way, for the same reasons: the
+   * screen reads it as a fraction of one language's `allowed` list, and a word
+   * legal in two languages is two different words.
+   *
+   * Only guesses the engine accepted reach this, which is the definition worth
+   * having. `Profile.guessed` is called from `tally` in `app.ts`, which reads a
+   * guess off the run *after* the reducer took it, so a refusal — not a word, a
+   * repeat under ascension 9, a boss's rule — never lands here. "Words played"
+   * means words the game agreed were words.
+   */
+  playedBy: Record<string, string[]>
   /**
    * How often the most-played words have been played. Capped; see `tally`.
    */
@@ -145,6 +173,7 @@ const FRESH: MetaState = {
   streak: 0,
   bestStreak: 0,
   crackedBy: {},
+  playedBy: {},
   words: {},
   wordError: {},
   relics: {},
@@ -196,6 +225,10 @@ export const chosenAscension = (meta: MetaState): number => clampAscension(meta.
  */
 export const crackedIn = (meta: MetaState, lang: string): number =>
   (meta.crackedBy[lang] ?? []).length
+
+/** How many distinct words have been played in one language. Same rule, larger pool. */
+export const playedIn = (meta: MetaState, lang: string): number =>
+  (meta.playedBy[lang] ?? []).length
 
 /** Rounds whose word was found, on whichever guess found it. */
 export const wordsFound = (meta: MetaState): number =>
@@ -342,9 +375,27 @@ export class Profile {
     if (ascension !== this.state.ascension) this.write({ ascension })
   }
 
-  /** One submitted guess. The hot path: every keystroke run ends here. */
-  guessed(word: string): void {
-    this.write({ guesses: this.state.guesses + 1, ...tally(this.state, word) })
+  /**
+   * One submitted guess, in the language it was played in. The hot path: every
+   * keystroke run ends here.
+   *
+   * The language is the same one `solved` takes and is taken for the same
+   * reason: the word came off one list and belongs to it, and the interface may
+   * have been switched to another since the run was dealt.
+   *
+   * Three things at once, and the collection is the only one that can decline to
+   * write. `guesses` and the frequency tally move on every guess; `playedBy`
+   * moves the first time a word is seen and never again, which is most of what
+   * keeps the biggest field in the record off the write path once a career is
+   * under way.
+   */
+  guessed(word: string, lang: string): void {
+    const played = insert(this.state.playedBy[lang] ?? [], word)
+    this.write({
+      guesses: this.state.guesses + 1,
+      ...tally(this.state, word),
+      ...(played ? { playedBy: { ...this.state.playedBy, [lang]: played } } : {}),
+    })
   }
 
   /**
@@ -362,16 +413,13 @@ export class Profile {
     // The language the word was *dealt* in, not the one the interface is wearing:
     // those disagree for as long as a run outlives a settings tap, and the answer
     // came from one list and belongs to it.
-    const found = this.state.crackedBy[lang] ?? []
-    const known = found.includes(answer)
+    const found = insert(this.state.crackedBy[lang] ?? [], answer)
     const streak = this.state.streak + 1
     this.write({
       solves,
       streak,
       bestStreak: Math.max(this.state.bestStreak, streak),
-      ...(known
-        ? {}
-        : { crackedBy: { ...this.state.crackedBy, [lang]: [...found, answer].sort() } }),
+      ...(found ? { crackedBy: { ...this.state.crackedBy, [lang]: found } } : {}),
     })
   }
 
@@ -451,6 +499,14 @@ export function loadMeta(): MetaState {
       // promote itself to a best as well.
       bestStreak: count(meta.bestStreak),
       crackedBy: collections(meta.crackedBy, collection(legacy.cracked)),
+      // No legacy arm and none possible: the field is new, and a record without
+      // it is a record whose owner played every one of those words before
+      // anybody was counting. Absent is an empty collection rather than a
+      // reconstruction, since the only list that could seed it is `crackedBy`,
+      // and "the answers you found" is a different question wearing this one's
+      // clothes — it would credit a player with 273 words played out of 15,936
+      // and be wrong by every legal word they ever spent getting there.
+      playedBy: collections(meta.playedBy),
       words,
       wordError: errors(meta.wordError, words),
       relics: table(meta.relics ?? legacy.jokers),
@@ -487,6 +543,39 @@ function table(value: unknown, slots?: number): Record<string, number> {
 }
 
 /**
+ * A sorted collection with one more word in it, or null if it was already there.
+ *
+ * Null rather than the unchanged array, so the caller writes nothing at all for
+ * a word it has seen before. That is the common case by a wide margin once a
+ * career is under way, and it is what keeps the two largest fields in the record
+ * off the write path: a guess that adds nothing costs a binary search.
+ *
+ * Placed rather than appended-and-sorted, which is what `crackedBy` did while it
+ * was the only collection and the only one small enough not to care. Inserting
+ * into the full English `allowed` list: 0.478ms to copy and re-sort, 0.041ms to
+ * copy and splice, for the same four lines. Both are affordable; the sort is
+ * eleven times the price of the search and gets worse exactly as a player
+ * plays more, which is the wrong direction for the one field that grows.
+ */
+function insert(list: readonly string[], word: string): string[] | null {
+  let lo = 0
+  let hi = list.length
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1
+    // Non-null: `mid` is strictly below `hi`, which starts at the length and
+    // only ever shrinks. Asserted rather than defaulted because a default would
+    // silently place the word rather than fail on a list that cannot exist.
+    const held = list[mid] as string
+    if (held === word) return null
+    if (held < word) lo = mid + 1
+    else hi = mid
+  }
+  const next = [...list]
+  next.splice(lo, 0, word)
+  return next
+}
+
+/**
  * The word table's error terms, read against the counts they correct.
  *
  * Kept honest here rather than at the point of display, so nothing downstream
@@ -510,8 +599,12 @@ function errors(value: unknown, words: Record<string, number>): Record<string, n
 }
 
 /**
- * The collections, one per language, with a fallback for the flat one that came
- * before them.
+ * The collections, one per language, with an optional fallback for the flat one
+ * that came before them.
+ *
+ * Optional because `playedBy` reads through here too and has nothing behind it
+ * to salvage: it is the same shape and wants the same sanity, and only
+ * `crackedBy` has a previous spelling to answer for.
  *
  * The fallback lands under `en` only when there is no `crackedBy` at all, not
  * per-language: once this build has written the field once, an old `cracked`
@@ -519,7 +612,7 @@ function errors(value: unknown, words: Record<string, number>): Record<string, n
  * merging it again on every launch would resurrect words a player has no way to
  * remove and keep resurrecting them forever.
  */
-function collections(value: unknown, fallback: string[]): Record<string, string[]> {
+function collections(value: unknown, fallback: string[] = []): Record<string, string[]> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return fallback.length > 0 ? { en: fallback } : {}
   }
@@ -532,8 +625,10 @@ function collections(value: unknown, fallback: string[]): Record<string, string[
 }
 
 /**
- * The distinct words cracked. Deduped and sorted on the way in, because the
- * screen counts them and `solved` assumes what it reads back is a set.
+ * The distinct words of one collection. Deduped and sorted on the way in,
+ * because the screen counts them and `insert` assumes what it reads back is a
+ * sorted set — a list out of order would not merely place a word oddly, it would
+ * fail to find one already there and grow a duplicate on every guess.
  */
 const collection = (value: unknown): string[] =>
   Array.isArray(value)

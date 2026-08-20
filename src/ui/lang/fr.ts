@@ -570,6 +570,11 @@ export const fr: Strings = {
       crackedBare: (count) => plural(count, { one: "trouvé", other: "trouvés" }),
       crackedOf: (count, pool) =>
         plural(count, { one: `trouvé, sur ${pool}`, other: `trouvés, sur ${pool}` }),
+      played: (count) => plural(count, { one: `${num(count)} mot`, other: `${num(count)} mots` }),
+      // Agrees with `mot`, and takes the same singular 0 as the line above it.
+      playedBare: (count) => plural(count, { one: "joué", other: "joués" }),
+      playedOf: (count, pool) =>
+        plural(count, { one: `joué, sur ${pool}`, other: `joués, sur ${pool}` }),
       mostPlayed: "Les plus jouées\u00A0:",
       // `fois` is invariable, so there is nothing for `Intl` to select between
       // and asking it would only make the sentence look like it had a choice.

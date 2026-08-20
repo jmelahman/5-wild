@@ -10,6 +10,7 @@ import {
   loadMeta,
   meanSolve,
   Profile,
+  playedIn,
   roundsPlayed,
   unlocked,
   wordsFound,
@@ -55,6 +56,7 @@ const FRESH: MetaState = {
   streak: 0,
   bestStreak: 0,
   crackedBy: {},
+  playedBy: {},
   words: {},
   wordError: {},
   relics: {},
@@ -87,6 +89,7 @@ describe("reading the record", () => {
       streak: 3,
       bestStreak: 11,
       crackedBy: { en: ["crane", "slate"], es: ["actor"] },
+      playedBy: { en: ["crane", "slate", "torch"], es: ["actor"] },
       words: { crane: 88, slate: 12 },
       wordError: { slate: 11 },
       relics: { snowball: 3 },
@@ -235,7 +238,7 @@ describe("what the ladder offers", () => {
 describe("what the runs added up to", () => {
   it("counts every guess and remembers which words they were", () => {
     const profile = new Profile()
-    for (const word of ["crane", "slate", "crane"]) profile.guessed(word)
+    for (const word of ["crane", "slate", "crane"]) profile.guessed(word, "en")
     expect(profile.stats.guesses).toBe(3)
     expect(profile.stats.words).toEqual({ crane: 2, slate: 1 })
     expect(favoriteWord(profile.stats)).toEqual({ word: "crane", count: 2 })
@@ -250,7 +253,7 @@ describe("what the runs added up to", () => {
     // Far more distinct words than there are slots, each played once. A table
     // that grew with play would now hold two hundred entries and a save that
     // gets slower every session.
-    for (let n = 0; n < 200; n++) profile.guessed(`w${n.toString().padStart(4, "0")}`)
+    for (let n = 0; n < 200; n++) profile.guessed(`w${n.toString().padStart(4, "0")}`, "en")
     expect(Object.keys(profile.stats.words).length).toBeLessThanOrEqual(24)
     expect(profile.stats.guesses).toBe(200)
   })
@@ -261,7 +264,7 @@ describe("what the runs added up to", () => {
     // takes that floor as its own. Every word here was played exactly once, so
     // the only honest answer to "how often" is one, whatever the table stores.
     const profile = new Profile()
-    for (let n = 0; n < 200; n++) profile.guessed(`w${n.toString().padStart(4, "0")}`)
+    for (let n = 0; n < 200; n++) profile.guessed(`w${n.toString().padStart(4, "0")}`, "en")
     const stored = profile.stats.words
     expect(Math.max(...Object.values(stored))).toBeGreaterThan(1)
     for (const [word, count] of Object.entries(stored)) {
@@ -274,7 +277,7 @@ describe("what the runs added up to", () => {
     // The bracket is tight where it has to be: a word that never displaced
     // anything carries no correction at all and reads as itself.
     const profile = new Profile()
-    for (let n = 0; n < 30; n++) profile.guessed("crane")
+    for (let n = 0; n < 30; n++) profile.guessed("crane", "en")
     expect(profile.stats.wordError.crane).toBeUndefined()
     expect(favoriteWord(profile.stats)).toEqual({ word: "crane", count: 30 })
   })
@@ -286,8 +289,8 @@ describe("what the runs added up to", () => {
     // two are separate tests rather than one: sharing it would hand the second
     // profile the first one's cranes.
     const profile = new Profile()
-    for (let n = 0; n < 60; n++) profile.guessed(`w${n.toString().padStart(4, "0")}`)
-    for (let n = 0; n < 40; n++) profile.guessed("crane")
+    for (let n = 0; n < 60; n++) profile.guessed(`w${n.toString().padStart(4, "0")}`, "en")
+    for (let n = 0; n < 40; n++) profile.guessed("crane", "en")
     expect(favoriteWord(profile.stats)).toEqual({ word: "crane", count: 40 })
   })
 
@@ -296,18 +299,43 @@ describe("what the runs added up to", () => {
     // newcomer's count of 1 can never beat an incumbent's, and the table freezes
     // on the first words ever typed. Space-Saving lets the newcomer in.
     const profile = new Profile()
-    for (let n = 0; n < 60; n++) profile.guessed(`w${n.toString().padStart(4, "0")}`)
-    for (let n = 0; n < 40; n++) profile.guessed("crane")
+    for (let n = 0; n < 60; n++) profile.guessed(`w${n.toString().padStart(4, "0")}`, "en")
+    for (let n = 0; n < 40; n++) profile.guessed("crane", "en")
     expect(favoriteWord(profile.stats)?.word).toBe("crane")
   })
 
   it("breaks a tie the same way twice", () => {
     const profile = new Profile()
-    profile.guessed("slate")
-    profile.guessed("crane")
+    profile.guessed("slate", "en")
+    profile.guessed("crane", "en")
     // Alphabetical, not whichever key `Object.entries` happens to hand back
     // first, since the screen should not change its mind between renders.
     expect(favoriteWord(profile.stats)?.word).toBe("crane")
+  })
+
+  it("collects every valid guess, not only the ones that solved a round", () => {
+    const profile = new Profile()
+    profile.guessed("crane", "en")
+    profile.guessed("slate", "en")
+    profile.guessed("crane", "en")
+    profile.solved("mound", 3, "en")
+    // Sorted and deduplicated, exactly as `crackedBy` is, and holding the two
+    // openers that never were the answer. The answer itself only lands here if
+    // it was typed, which `solved` does not do on its own.
+    expect(profile.stats.playedBy.en).toEqual(["crane", "slate"])
+    expect(playedIn(profile.stats, "en")).toBe(2)
+  })
+
+  it("keeps a played collection per language", () => {
+    const profile = new Profile()
+    profile.guessed("crane", "en")
+    // ACTOR is a word in both, and the two are counted against different
+    // allowed lists, so the same reason `crackedBy` is keyed applies here.
+    profile.guessed("actor", "en")
+    profile.guessed("actor", "es")
+    expect(playedIn(profile.stats, "en")).toBe(2)
+    expect(playedIn(profile.stats, "es")).toBe(1)
+    expect(playedIn(profile.stats, "fr")).toBe(0)
   })
 
   it("counts a solve under the guess that found it", () => {
@@ -453,6 +481,7 @@ describe("salvaging the longer record", () => {
       JSON.stringify({
         solves: [0, "two", 3.5, 4],
         crackedBy: { en: ["crane", 7, "crane"], es: "no", de: [] },
+        playedBy: { en: ["slate", null], fr: 3 },
         words: "no",
       }),
     )
@@ -462,6 +491,7 @@ describe("salvaging the longer record", () => {
       // empty array, so an absent language and an unplayed one are one case and
       // `crackedIn` does not have to tell them apart.
       crackedBy: { en: ["crane"] },
+      playedBy: { en: ["slate"] },
       words: {},
     })
   })
@@ -487,6 +517,16 @@ describe("salvaging the longer record", () => {
     )
     expect(loadMeta().wordError).toEqual({ crane: 8 })
     expect(favoriteWord(loadMeta())).toEqual({ word: "crane", count: 1 })
+  })
+
+  it("reads a record from before the played collection as empty", () => {
+    // Unlike the corrections above, there is no honest reconstruction here: the
+    // word table holds only the words that survived eviction, so it would name a
+    // few dozen of the thousands played. Nothing is the truthful start, and the
+    // line hides itself at zero rather than opening a career at "24 words".
+    store.items.set(KEY, JSON.stringify({ guesses: 4000, words: { crane: 88 } }))
+    expect(loadMeta().playedBy).toEqual({})
+    expect(playedIn(loadMeta(), "en")).toBe(0)
   })
 
   it("files a collection from before the languages under English", () => {
@@ -532,7 +572,7 @@ describe("salvaging the longer record", () => {
 
   it("carries the statistics across sessions", () => {
     const first = new Profile()
-    first.guessed("crane")
+    first.guessed("crane", "en")
     first.solved("crane", 1, "en")
     first.took("banker")
     expect(new Profile().stats).toEqual(first.stats)

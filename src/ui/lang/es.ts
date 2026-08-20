@@ -554,6 +554,13 @@ export const es: Strings = {
       crackedBare: (count) => plural(count, { one: "descifrada", other: "descifradas" }),
       crackedOf: (count, pool) =>
         plural(count, { one: `descifrada, de ${pool}`, other: `descifradas, de ${pool}` }),
+      played: (count) =>
+        plural(count, { one: `${num(count)} palabra`, other: `${num(count)} palabras` }),
+      // `jugada` agrees with `palabra` exactly as `descifrada` does, which is why
+      // the pair is two keys rather than one shared tail.
+      playedBare: (count) => plural(count, { one: "jugada", other: "jugadas" }),
+      playedOf: (count, pool) =>
+        plural(count, { one: `jugada, de ${pool}`, other: `jugadas, de ${pool}` }),
       mostPlayed: "Más jugadas:",
       times: (count) => plural(count, { one: `${num(count)} vez`, other: `${num(count)} veces` }),
       breakdown: "Cómo caen las respuestas",

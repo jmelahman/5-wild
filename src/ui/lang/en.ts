@@ -614,6 +614,12 @@ export const en: Strings = {
       // The one collection the game has, so it is worth a denominator: "273 of
       // 2,300" is a thing to finish, and "273 words cracked" is only a number.
       crackedOf: (_count, pool) => `cracked, of ${pool}`,
+      played: (count) => plural(count, { one: `${num(count)} word`, other: `${num(count)} words` }),
+      // The same shape as the three above it and deliberately not sharing them:
+      // English happens to spell both halves identically, and three of the four
+      // catalogs here have to agree a participle with the noun instead.
+      playedBare: (_count) => "played",
+      playedOf: (_count, pool) => `played, of ${pool}`,
       mostPlayed: "Most played:",
       times: (count) => plural(count, { one: `${num(count)} time`, other: `${num(count)} times` }),
       breakdown: "How the answers go",
