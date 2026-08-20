@@ -158,7 +158,7 @@ export const en: Strings = {
     },
     magician: {
       name: "The Magician",
-      text: "Your next guess promotes its first gray tile to yellow",
+      text: "Your next guess scores its first gray tile as a yellow. It is worth mult, not a clue.",
     },
     fool: { name: "The Fool", text: "Score your previous guess a second time" },
   },

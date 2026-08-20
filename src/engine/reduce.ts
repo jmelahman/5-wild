@@ -454,6 +454,14 @@ export function reduce(state: RunState, action: Action, words: WordSource): Redu
         if (gray) {
           gray.color = "yellow"
           gray.shown = "yellow"
+          // Marked, because a color this card hands out is worth mult and
+          // nothing else. Left unmarked it entered `found()` as a letter proven
+          // to be in the word, and ascension 10 then demanded it back in every
+          // later guess: promoting the H of CHOMP against an answer of CIVIC
+          // made CIVIC itself an illegal guess and the round unwinnable, which
+          // is the exact failure `rules.ts` reads `color` rather than `shown`
+          // to avoid. See `Tile.promoted`.
+          gray.promoted = true
         }
         round.promote = false
       }

@@ -165,7 +165,7 @@ export const fr: Strings = {
     },
     magician: {
       name: "Le Magicien",
-      text: "Votre prochain essai fait passer sa première case grise en jaune",
+      text: "Votre prochain essai compte sa première case grise comme jaune. Cela vaut du mult, pas un indice.",
     },
     fool: { name: "Le Fou", text: "Compte votre essai précédent une seconde fois" },
   },

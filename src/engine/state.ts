@@ -15,6 +15,19 @@ export type Tile = {
   color: Color
   /** Drives the screen. Differs from `color` only when a boss lies. */
   shown: Color
+  /**
+   * Set on the one tile The Magician colored, which is the only color in the
+   * game that was granted rather than earned. Both other fields say yellow and
+   * both are telling the truth about what they drive: it scores as a yellow and
+   * it is drawn as one. What it is *not* is evidence, and everything that reads
+   * a played row as evidence about the answer — `rules.ts`, the keyboard — has
+   * to skip it, because the letter may well not be in the word at all.
+   *
+   * Absent rather than `false` when the tile earned its color, so a save written
+   * before the flag existed loads as what it was; see `rules.ts` for why the
+   * distinction is load-bearing rather than tidy.
+   */
+  promoted?: true
 }
 
 /**

@@ -157,7 +157,7 @@ export const de: Strings = {
     },
     magician: {
       name: "Der Magier",
-      text: "Dein nächster Versuch färbt sein erstes graues Feld gelb",
+      text: "Dein nächster Versuch wertet sein erstes graues Feld als gelb. Das bringt Mult, keinen Hinweis.",
     },
     fool: { name: "Der Narr", text: "Zählt deinen vorigen Versuch ein zweites Mal" },
   },

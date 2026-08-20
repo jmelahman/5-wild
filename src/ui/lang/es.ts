@@ -149,7 +149,7 @@ export const es: Strings = {
     },
     magician: {
       name: "El Mago",
-      text: "Tu próximo intento asciende su primera casilla gris a amarilla",
+      text: "Tu próximo intento puntúa su primera casilla gris como amarilla. Da mult, no una pista.",
     },
     fool: { name: "El Loco", text: "Puntúa tu intento anterior una segunda vez" },
   },

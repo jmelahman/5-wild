@@ -21,6 +21,16 @@ import type { Refusal, RoundState } from "./state"
  * board does. That is the right way round: a rule that cannot be satisfied is
  * broken, a rule that gives something away is merely generous.
  *
+ * `color` alone was not quite the whole rule, which cost a run to learn. The
+ * Magician writes a yellow onto a gray, and it writes it into `color` because a
+ * yellow that did not score would be no card at all — so `color` means "what
+ * this tile was worth", and only the tiles that earned their color also mean
+ * "what the answer contains". A promoted H went into `found()`, ascension 10
+ * demanded every found letter back, and the answer CIVIC was refused for want of
+ * an H. So both readers below skip `promoted`: the invariant they are protecting
+ * is that the answer is always legal, and the answer satisfies real feedback
+ * only.
+ *
  * Both validators return a `Refusal` rather than a sentence, which is what lets
  * the shared implementation stay shared: the boss and the ascension that impose
  * the same rule now hand the player the same *code*, and the catalog says it
@@ -32,6 +42,11 @@ export function knownGreens(round: RoundState): Map<number, string> {
   const found = new Map<number, string>()
   for (const guess of round.guesses) {
     guess.tiles.forEach((tile, i) => {
+      // Nothing promotes to green today, so this arm never fires; it is here
+      // because "granted colors are not evidence" is a fact about both readers,
+      // and a card that one day hands out a green should not have to rediscover
+      // that only one of them was told.
+      if (tile.promoted) return
       if (tile.color === "green") found.set(i, tile.letter)
     })
   }
@@ -50,6 +65,7 @@ export function found(round: RoundState, only?: "green" | "yellow"): Set<string>
   const letters = new Set<string>()
   for (const guess of round.guesses) {
     for (const tile of guess.tiles) {
+      if (tile.promoted) continue
       if (tile.color === "gray") continue
       if (!only || tile.color === only) letters.add(tile.letter)
     }

@@ -7,7 +7,9 @@ import {
   clampAscension,
   difficultyAt,
   getBoss,
+  keyboardColors,
   MAX_ASCENSION,
+  MULT_FOR_COLOR,
   mustSolve,
   RELIC_SLOTS,
   RELICS,
@@ -328,6 +330,51 @@ describe("the answer is always reachable", () => {
       state = next
     }
     expect(validateGuess(answer, state)).toBeNull()
+  })
+
+  it("does not let The Magician's yellow become a letter the answer has to contain", () => {
+    // The bug this exists to keep out, found in a real run: a stage 8 board at
+    // ascension 10 promoted the H of CHOMP against an answer of CIVIC, the H
+    // entered `found()` as a proven letter, and the run's own answer became an
+    // illegal guess with three guesses still in hand. The card is worth mult; it
+    // is not evidence, and the only reader that may treat it as either is the
+    // one that prices it.
+    const state = at(10)
+    state.consumables.push({ id: "magician" })
+    const cast = reduce(state, { type: "use_consumable", index: 0 }, words).state
+    // Every letter of GHOST is absent from BRAID, so the promotion lands on the
+    // G and invents a yellow for a letter in no word here at all.
+    const played = apply(cast, type("ghost"))
+    const tile = played.round.guesses[0]?.tiles[0]
+    expect(tile).toMatchObject({ letter: "g", color: "yellow", shown: "yellow", promoted: true })
+    expect(why(played, "braid")).toBeUndefined()
+
+    // And the flag is what is doing the work, rather than the level happening
+    // not to ask: the same board with the mark rubbed off refuses the answer.
+    const unmarked = JSON.parse(JSON.stringify(played)) as RunState
+    delete unmarked.round.guesses[0]?.tiles[0]?.promoted
+    expect(why(unmarked, "braid")).toEqual({ code: "must_use", letter: "g" })
+  })
+
+  it("still pays The Magician's tile as a yellow", () => {
+    // The other half of the same fix, and the reason `color` rather than `shown`
+    // carries the promotion: a yellow that scored like a gray would be no card.
+    const armed = at(0)
+    armed.consumables.push({ id: "magician" })
+    const cast = reduce(armed, { type: "use_consumable", index: 0 }, words).state
+    const promoted = apply(cast, type("ghost")).round.guesses[0]
+    const plain = apply(at(0), type("ghost")).round.guesses[0]
+    expect(promoted?.mult).toBe((plain?.mult ?? 0) + MULT_FOR_COLOR.yellow)
+  })
+
+  it("reads a promoted letter back to the keyboard as the gray it was", () => {
+    // The board shows the color, because the card really did paint it. The
+    // keyboard is a claim about the answer, so it says what the tile fell as.
+    const armed = at(0)
+    armed.consumables.push({ id: "magician" })
+    const cast = reduce(armed, { type: "use_consumable", index: 0 }, words).state
+    const played = apply(cast, type("ghost"))
+    expect(keyboardColors(played.round.guesses).get("g")).toBe("gray")
   })
 })
 

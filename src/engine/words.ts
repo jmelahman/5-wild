@@ -46,15 +46,34 @@ export function toTiles(guess: string, colors: readonly Color[]): Tile[] {
   })
 }
 
-/** The best color known for each letter so far, for painting the keyboard. */
+/**
+ * The best color known for each letter so far, for painting the keyboard.
+ *
+ * `shown`, because the keyboard is the board's own summary and the two must
+ * agree: a boss that hides a yellow on the board would be caught out by a key
+ * that did not hide it.
+ *
+ * The Magician's tile is the one place they are allowed to disagree, and it goes
+ * the other way from a boss: the board shows the color because the card really
+ * did paint it, and the keyboard reads the letter back as the gray it was,
+ * because the keyboard is a running claim about the *answer* and this letter may
+ * be in no word at all. See `Tile.promoted`, and `rules.ts` for the harder
+ * version of the same reason.
+ *
+ * Gray rather than skipped: a promoted tile was gray before the card touched it,
+ * which is real feedback and the only place it now survives. Dropping the letter
+ * instead would leave a key looking untried when the round has in fact ruled it
+ * out, and would make the card cost the player a deduction it never claimed to.
+ */
 export function keyboardColors(guesses: ReadonlyArray<{ tiles: readonly Tile[] }>) {
   const rank: Record<Color, number> = { gray: 0, yellow: 1, green: 2 }
   const best = new Map<string, Color>()
   for (const guess of guesses) {
     for (const tile of guess.tiles) {
+      const shown = tile.promoted ? "gray" : tile.shown
       const current = best.get(tile.letter)
-      if (current === undefined || rank[tile.shown] > rank[current]) {
-        best.set(tile.letter, tile.shown)
+      if (current === undefined || rank[shown] > rank[current]) {
+        best.set(tile.letter, shown)
       }
     }
   }
